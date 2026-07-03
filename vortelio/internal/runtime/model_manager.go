@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,13 +43,31 @@ func modelKey(model *hub.Model) string {
 	return fmt.Sprintf("%s/%s:%s", model.Type, model.Name, model.Tag)
 }
 
+// modelKeyCtx keys an entry by model AND context size, so requests asking for a
+// different context size get their own warm process instead of reusing one
+// started with the wrong --ctx-size.
+func modelKeyCtx(model *hub.Model, ctxSize int) string {
+	if ctxSize <= 0 {
+		return modelKey(model)
+	}
+	return fmt.Sprintf("%s#ctx%d", modelKey(model), ctxSize)
+}
+
 // GetOrLoad returns a running LLMRunner, starting llama-server if needed.
 // keepAlive = 0 → DefaultKeepAliveDuration; keepAlive < 0 → never expire.
 func (m *ModelManager) GetOrLoad(model *hub.Model, hw *Hardware, keepAlive time.Duration) (*LLMRunner, error) {
+	return m.GetOrLoadWithContext(model, hw, keepAlive, 0)
+}
+
+// GetOrLoadWithContext is like GetOrLoad but pins the llama-server to a specific
+// context size. ctxSize <= 0 means "server default". Requests with a context
+// size still reuse a warm process (keyed by model+ctxSize) instead of spawning
+// and killing llama-server on every message.
+func (m *ModelManager) GetOrLoadWithContext(model *hub.Model, hw *Hardware, keepAlive time.Duration, ctxSize int) (*LLMRunner, error) {
 	if keepAlive == 0 {
 		keepAlive = DefaultKeepAliveDuration
 	}
-	key := modelKey(model)
+	key := modelKeyCtx(model, ctxSize)
 
 	m.mu.Lock()
 	if e, ok := m.entries[key]; ok {
@@ -64,6 +83,9 @@ func (m *ModelManager) GetOrLoad(model *hub.Model, hw *Hardware, keepAlive time.
 	m.mu.Unlock()
 
 	runner := NewLLMRunnerForServer(model, hw)
+	if ctxSize > 0 {
+		runner.SetContextSize(ctxSize)
+	}
 	if err := runner.EnsureServer(); err != nil {
 		return nil, err
 	}
@@ -86,14 +108,18 @@ func (m *ModelManager) GetOrLoad(model *hub.Model, hw *Hardware, keepAlive time.
 	return runner, nil
 }
 
-// Unload stops a model and removes it from the manager.
+// Unload stops a model and removes it from the manager. It removes every
+// context-size variant of the model (base key and any "…#ctxN" entries) so a
+// manual unload actually frees the VRAM.
 func (m *ModelManager) Unload(model *hub.Model) {
-	key := modelKey(model)
+	base := modelKey(model)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if e, ok := m.entries[key]; ok {
-		e.runner.stopServer()
-		delete(m.entries, key)
+	for key, e := range m.entries {
+		if key == base || strings.HasPrefix(key, base+"#ctx") {
+			e.runner.stopServer()
+			delete(m.entries, key)
+		}
 	}
 }
 

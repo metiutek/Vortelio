@@ -5253,6 +5253,7 @@ async function streamCloudInto(provider, model, history, content, canvas, signal
       if (d) { fullText += d; tn.innerHTML = renderMessage(fullText); canvas.scrollTop = 9999; }
     }
   }
+  tn.innerHTML = renderMessage(fullText, true); // final render: drop "writing" badge on unclosed fences
   return fullText;
 }
 
@@ -5549,6 +5550,7 @@ async function doChat(text, files, signal) {
       }
     }
     _appendToken('', true); // flush any held-back tail
+    textNode.innerHTML = renderMessage(full, true); // final render: no "writing" badge on unclosed fences
     chatHistory.push({role:'assistant', content:full});
     autoSaveCurrentChat();
     addReplyMeta(grp, _t0, full);
@@ -5562,7 +5564,7 @@ async function doChat(text, files, signal) {
 }
 
 // ── Markdown / code rendering ────────────────────────────────
-function renderMessage(text) {
+function renderMessage(text, done) {
   if (!text) return '';
   let result = '';
   let pos = 0;
@@ -5575,8 +5577,11 @@ function renderMessage(text) {
     const codeStart = nl >= 0 ? nl + 1 : tick + 3;
     const close = text.indexOf('```', codeStart);
     const id = 'cb' + (Math.random() * 1e8 | 0).toString(36);
-    if (close === -1) {
-      // ── Partial block (streaming) ──────────────────────────
+    if (close === -1 && !done) {
+      // ── Partial block (still streaming) ────────────────────
+      // Show the "writing" badge only while the stream is live. Once done, an
+      // unclosed fence (model forgot the closing ```) falls through and is
+      // rendered as a finished block instead of blinking forever.
       const code = text.slice(codeStart);
       const raw64 = btoa(unescape(encodeURIComponent(code)));
       result += '<div class="code-block code-partial">' +
@@ -5588,8 +5593,8 @@ function renderMessage(text) {
         '</div>';
       pos = text.length;
     } else {
-      // ── Complete block ─────────────────────────────────────
-      const code = text.slice(codeStart, close);
+      // ── Complete block (or unclosed fence after stream end) ─
+      const code = close === -1 ? text.slice(codeStart) : text.slice(codeStart, close);
       const raw64 = btoa(unescape(encodeURIComponent(code)));
       const lc = (lang || '').toLowerCase();
       const runnable = /^(python|py|python3|javascript|js|node|nodejs|bash|sh|shell|powershell|ps|ps1|go|golang|ruby|rb|php|perl|java|c|cpp|c\+\+|cc)$/.test(lc);
@@ -5605,7 +5610,7 @@ function renderMessage(text) {
         '<div class="code-output" style="display:none"></div>' +
         (previewable ? '<div class="code-preview" style="display:none"></div>' : '') +
         '</div>';
-      pos = close + 3;
+      pos = close === -1 ? text.length : close + 3;
     }
   }
   return result;
@@ -8090,6 +8095,7 @@ async function sendCloudMsg() {
         if (d) { fullText += d; tn.innerHTML = renderMessage(fullText); canvas.scrollTop = 9999; }
       }
     }
+    if (fullText) tn.innerHTML = renderMessage(fullText, true); // final render: drop "writing" badge on unclosed fences
 
     cloudHistory.push({role:'assistant', content:fullText||'(empty response)'});
     if (!fullText && content.querySelector('.dot-pulse')) { pulse.remove(); content.textContent='(empty response)'; }

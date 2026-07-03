@@ -332,22 +332,17 @@ func handleGenerateLLM(w http.ResponseWriter, r *http.Request, model *hub.Model,
 
 	var llmRunner *runtime.LLMRunner
 
-	if req.ContextSize > 0 {
-		llmRunner = runtime.NewLLMRunnerForServer(model, hw)
-		llmRunner.SetContextSize(req.ContextSize)
-		if err := llmRunner.EnsureServer(); err != nil {
-			jsonError(w, 500, err.Error())
-			return
-		}
-		defer llmRunner.StopServer()
-	} else {
-		ka := parseKeepAlive(req.KeepAlive)
-		var loadErr error
-		llmRunner, loadErr = runtime.GlobalModelManager.GetOrLoad(model, hw, ka)
-		if loadErr != nil {
-			jsonError(w, 500, loadErr.Error())
-			return
-		}
+	// Route every request through the ModelManager so the llama-server stays
+	// warm between messages (keyed by model + context size). Previously a
+	// non-zero context size spawned a fresh server and killed it on return,
+	// which reloaded the model on every message and caused intermittent
+	// failures under VRAM/port contention.
+	ka := parseKeepAlive(req.KeepAlive)
+	var loadErr error
+	llmRunner, loadErr = runtime.GlobalModelManager.GetOrLoadWithContext(model, hw, ka, req.ContextSize)
+	if loadErr != nil {
+		jsonError(w, 500, loadErr.Error())
+		return
 	}
 
 	if !streaming {

@@ -3174,6 +3174,84 @@ function deriveTabName(hist) {
   const u = (hist || []).find(m => m.role === 'user');
   return (u && u.content) ? String(u.content).replace(/\s+/g, ' ').slice(0, 26) : 'Nuova chat';
 }
+
+// ── Smart chat titles ────────────────────────────────────────
+// After the first exchange, ask the chat's own model for a short,
+// meaningful title instead of just truncating the first user message.
+function cleanTitle(raw) {
+  let s = String(raw || '');
+  s = s.replace(/<think>[\s\S]*?<\/think>/gi, ' ');   // drop reasoning blocks
+  s = s.replace(/^[\s\S]*?<\/think>/i, ' ');           // drop an unterminated <think> head
+  s = (s.split('\n').map(x => x.trim()).filter(Boolean)[0]) || ''; // first non-empty line
+  s = s.replace(/^(title|titolo)\s*[:\-]\s*/i, '');    // strip a "Title:" prefix
+  s = s.replace(/^["'`*_\s]+|["'`*_\s]+$/g, '');       // strip wrapping quotes/space/markdown
+  s = s.replace(/[.。!?]+$/, '');                       // strip trailing punctuation
+  s = s.replace(/\s+/g, ' ').trim();
+  if (s.length > 42) s = s.slice(0, 42).trim();
+  return s;
+}
+
+async function _titleViaCloud(promptText) {
+  const payload = { provider: selectedCloudProvider, model: selectedCloudModel, messages: [{ role: 'user', content: promptText }] };
+  if (selectedCloudProvider === 'custom') { payload.base_url = selectedCustomBaseURL || ''; payload.key = selectedCustomKey || ''; }
+  const r = await apiFetch('/api/cloud/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  if (!r.ok) return '';
+  const reader = r.body.getReader(), dec = new TextDecoder();
+  let buf = '', out = '';
+  outer: while (true) {
+    const { done, value } = await reader.read(); if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const raw = line.slice(6).trim();
+      if (raw === '[DONE]') break outer;
+      let ev; try { ev = JSON.parse(raw); } catch { continue; }
+      if (ev.error) return out;
+      if (ev.event) continue;            // ignore tool/media events for titles
+      out += ev.delta || '';
+    }
+  }
+  return out;
+}
+
+async function generateChatTitle(userText, aiText) {
+  const prompt =
+    'Sei un generatore di titoli. Leggi la conversazione e rispondi SOLO con un titolo di 3-6 parole ' +
+    'che ne riassuma l\'argomento, nella stessa lingua dell\'utente. Niente virgolette, niente punto finale, ' +
+    'niente prefissi come "Titolo:".\n\n' +
+    'Utente: ' + String(userText || '').slice(0, 600) + '\n' +
+    'Assistente: ' + String(aiText || '').slice(0, 600) + '\n\nTitolo:';
+  try {
+    let raw = '';
+    if (selectedModelIsCloud) {
+      raw = await _titleViaCloud(prompt);
+    } else {
+      const res = await fetch('/api/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: selectedModel, prompt, stream: false, think: false, tools_enabled: false, incognito: true, context_size: contextSize })
+      });
+      if (!res.ok) return '';
+      const d = await res.json().catch(() => ({}));
+      raw = d.response || '';
+    }
+    return cleanTitle(raw);
+  } catch { return ''; }
+}
+
+// Give the chat a model-generated title once, after its first reply.
+async function maybeNameChat(chatId, tabRef, userText, aiText) {
+  if (!autoSaveOn || incognitoOn) return;             // never title private/unsaved chats
+  if (tabRef && tabRef.title) return;                  // already titled
+  if (tabRef) tabRef.title = '…';                      // claim it so we don't fire twice
+  const title = await generateChatTitle(userText, aiText);
+  if (!title) { if (tabRef && tabRef.title === '…') tabRef.title = ''; return; }
+  const sc = savedChats.find(c => c.id === chatId);
+  if (sc) { sc.name = title; try { localStorage.setItem('pullai_chats', JSON.stringify(savedChats)); } catch {} }
+  if (tabRef) { tabRef.title = title; tabRef.name = title; }
+  renderChatHistory();
+  renderTabs();
+}
 function snapshotActiveTab() {
   const t = openTabs[activeTab];
   if (!t) return;
@@ -3187,7 +3265,7 @@ function snapshotActiveTab() {
   t.chatId = currentChatId;
   t.model = selectedModel;
   t.modelLbl = document.getElementById('model-lbl').textContent;
-  t.name = deriveTabName(chatHistory);
+  t.name = (t.title && t.title !== '…') ? t.title : deriveTabName(chatHistory);
 }
 function applyTab(t) {
   chatHistory = t.history || [];
@@ -3249,7 +3327,7 @@ function closeTab(i, ev) {
 function renderTabs() {
   const bar = document.getElementById('chat-tabs');
   if (!bar) return;
-  if (openTabs[activeTab]) openTabs[activeTab].name = deriveTabName(chatHistory);
+  if (openTabs[activeTab]) { const _at = openTabs[activeTab]; _at.name = (_at.title && _at.title !== '…') ? _at.title : deriveTabName(chatHistory); }
   if (openTabs.length < 2) { bar.classList.remove('show'); bar.innerHTML = ''; return; }
   bar.classList.add('show');
   bar.innerHTML = openTabs.map((t, i) =>
@@ -5309,6 +5387,7 @@ async function doChat(text, files, signal) {
       autoSaveCurrentChat();
       addReplyMeta(grp, _t0, full || '');
       addMsgActions(grp, text, full || '');
+      if (chatHistory.filter(m => m.role === 'assistant').length === 1) maybeNameChat(currentChatId, openTabs[activeTab], text, full || '');
     } catch (e) {
       if (content.querySelector('.dot-pulse')) pulse.remove();
       if (e.name !== 'AbortError') content.innerHTML += `<span style="color:#dc2626">⚠️ ${esc(friendlyError(e.message))}</span>`;
@@ -5555,6 +5634,7 @@ async function doChat(text, files, signal) {
     autoSaveCurrentChat();
     addReplyMeta(grp, _t0, full);
     addMsgActions(grp, text, full);
+    if (chatHistory.filter(m => m.role === 'assistant').length === 1) maybeNameChat(currentChatId, openTabs[activeTab], text, full);
   } catch (e) {
     if (loadTimer) { clearInterval(loadTimer); loadTimer = null; }
     if (content.querySelector('.dot-pulse')) pulse.remove();

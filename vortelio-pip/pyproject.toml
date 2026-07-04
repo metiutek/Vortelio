@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vortelio"
-version = "0.3.77"
+version = "0.3.78"
 description = "Local-first AI platform. Run LLMs, generate images & video, transcribe audio, create 3D — on your own machine. OpenAI & Ollama API compatible. Apache 2.0."
 readme = "README.md"
 requires-python = ">=3.8"

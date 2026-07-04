@@ -91,20 +91,23 @@ var Catalog = []CatalogEntry{
 	{
 		ID:            "opencode",
 		Name:          "Open Code",
-		Description:   "AI agent for developers: coding, refactoring, debugging via the terminal.",
+		Description:   "AI agent for developers: coding, refactoring, debugging. Web UI backed by Vortelio's local models.",
 		Version:       "latest",
-		DefaultPort:   0, // TUI, no HTTP port
-		DefaultURL:    "",
+		DefaultPort:   4096,
+		DefaultURL:    "http://localhost:4096",
 		InstallMethod: MethodNPM,
 		NPMPackage:    "opencode-ai",
 		BinCommand:    "opencode",
-		StartArgs:     []string{},
+		// `opencode web` serves the same agent as a browser UI (no terminal
+		// needed). Vortelio wires it to its own OpenAI-compatible API via a
+		// generated OPENCODE_CONFIG file (see writeOpenCodeConfig in Start).
+		StartArgs: []string{"web", "--port", "4096", "--hostname", "127.0.0.1"},
 		EnvVars: []string{
 			"OPENAI_BASE_URL={{VORTELIO_URL}}/v1",
 			"OPENAI_API_BASE={{VORTELIO_URL}}/v1",
 			"OPENAI_API_KEY=vortelio",
 		},
-		HealthPath:     "",
+		HealthPath:     "/",
 		Tags:           []string{"coding", "git", "debug", "refactor"},
 		RequiresAPIKey: false,
 	},
@@ -738,6 +741,17 @@ func Start(id string) error {
 		resolved := strings.ReplaceAll(kv, "{{VORTELIO_URL}}", vortURL())
 		env = append(env, resolved)
 	}
+	// OpenCode reads its model provider from a config file, not from
+	// OPENAI_* env vars. Generate a Vortelio-managed opencode.json pointing at
+	// our OpenAI-compatible API and hand it over via OPENCODE_CONFIG so the
+	// user's own global config is left untouched.
+	if entry.ID == "opencode" {
+		cfgPath := openCodeConfigPath()
+		if err := writeOpenCodeConfig(cfgPath); err != nil {
+			return fmt.Errorf("could not write opencode config: %w", err)
+		}
+		env = append(env, "OPENCODE_CONFIG="+cfgPath)
+	}
 	cmd.Env = env
 
 	if err := cmd.Start(); err != nil {
@@ -792,6 +806,87 @@ func RunForeground(id string) error {
 	}
 	cmd.Env = env
 	return cmd.Run()
+}
+
+// openCodeConfigPath is the Vortelio-managed opencode config file. It lives
+// under Vortelio's home dir so it never clobbers the user's global
+// ~/.config/opencode/opencode.json.
+func openCodeConfigPath() string {
+	return filepath.Join(config.HomeDir(), "opencode", "opencode.json")
+}
+
+// writeOpenCodeConfig generates an opencode.json that points OpenCode at
+// Vortelio's OpenAI-compatible API and lists the installed LLM models, so the
+// web UI works out of the box with local models (the same idea as
+// `ollama launch opencode`). Handed to OpenCode via OPENCODE_CONFIG.
+func writeOpenCodeConfig(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+
+	// Pull installed models from the running Vortelio server.
+	models := map[string]map[string]string{}
+	defaultModel := ""
+	func() {
+		cl := &http.Client{Timeout: 4 * time.Second}
+		resp, err := cl.Get(vortURL() + "/api/models")
+		if err != nil {
+			return
+		}
+		defer resp.Body.Close()
+		var payload struct {
+			Models []struct {
+				Name        string `json:"name"`
+				Tag         string `json:"tag"`
+				Type        string `json:"type"`
+				DisplayName string `json:"display_name"`
+			} `json:"models"`
+		}
+		if json.NewDecoder(resp.Body).Decode(&payload) != nil {
+			return
+		}
+		for _, m := range payload.Models {
+			if m.Type != "" && m.Type != "llm" {
+				continue // only chat models are useful for a coding agent
+			}
+			id := m.Name
+			if m.Tag != "" {
+				id = m.Name + ":" + m.Tag
+			}
+			label := m.DisplayName
+			if label == "" {
+				label = id
+			}
+			models[id] = map[string]string{"name": label}
+			if defaultModel == "" {
+				defaultModel = "vortelio/" + id
+			}
+		}
+	}()
+
+	cfg := map[string]interface{}{
+		"$schema": "https://opencode.ai/config.json",
+		"provider": map[string]interface{}{
+			"vortelio": map[string]interface{}{
+				"npm":  "@ai-sdk/openai-compatible",
+				"name": "Vortelio (local)",
+				"options": map[string]string{
+					"baseURL": vortURL() + "/v1",
+					"apiKey":  "vortelio",
+				},
+				"models": models,
+			},
+		},
+	}
+	if defaultModel != "" {
+		cfg["model"] = defaultModel
+	}
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }
 
 // IsInteractive reports whether an agent is a terminal TUI (no HTTP server).

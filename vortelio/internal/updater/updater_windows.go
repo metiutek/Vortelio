@@ -9,6 +9,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
+)
+
+// Windows process creation flags. Launching the updater with these fully
+// detaches it from the terminal's console, so the update keeps running (and the
+// terminal does NOT close) after `vortelio update` exits.
+const (
+	detachedProcess       = 0x00000008
+	createNewProcessGroup = 0x00000200
 )
 
 func StartDetached(restartGUI bool) (StartResult, error) {
@@ -48,6 +57,13 @@ for ($i = 0; $i -lt 3 -and $code -ne 0; $i++) {
 	}
 
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", scriptPath)
+	// Detach from the parent console: the updater outlives `vortelio update`
+	// and the terminal stays open (it used to die with the shared console,
+	// which is why the update never completed).
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: detachedProcess | createNewProcessGroup,
+	}
 	if err := cmd.Start(); err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "powershell") {
 			return StartResult{}, fmt.Errorf("impossibile avviare PowerShell per l'aggiornamento: %w", err)

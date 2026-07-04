@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -79,6 +81,23 @@ func CheckWithTimeout(timeout time.Duration) (Info, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return Check(ctx)
+}
+
+// InstallForeground runs `uv tool install --reinstall --refresh <spec>` in the
+// foreground, streaming uv's output to the terminal and blocking until it
+// finishes. The CLI uses this so the user watches real progress and knows when
+// the update is actually done — unlike the detached GUI updater, which returns
+// immediately and made updates look like they "did nothing".
+func InstallForeground() error {
+	uv, err := exec.LookPath("uv")
+	if err != nil {
+		return errors.New("uv non trovato nel PATH. Installa uv con `pip install uv` e riprova")
+	}
+	cmd := exec.Command(uv, "tool", "install", "--reinstall", "--refresh", RepoInstallSpec)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
 }
 
 func cleanVersion(s string) string {

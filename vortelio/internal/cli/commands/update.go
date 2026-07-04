@@ -45,14 +45,15 @@ func (c *UpdateCommand) Run(args []string) error {
 		return nil
 	}
 
-	res, err := updater.StartDetached(false)
-	if err != nil {
-		return err
+	// Run the install in the foreground so the user sees uv's progress and
+	// knows exactly when it finishes. (The detached updater is only for the
+	// GUI, where the running server has to shut down and restart itself.)
+	fmt.Println("Aggiornamento in corso — non chiudere il terminale…")
+	if err := updater.InstallForeground(); err != nil {
+		return fmt.Errorf("aggiornamento fallito: %w", err)
 	}
-	fmt.Println(res.Message)
-	if res.LogPath != "" {
-		fmt.Printf("Log: %s\n", res.LogPath)
-	}
+	fmt.Println()
+	fmt.Println("✅ Vortelio aggiornato. Riavvialo con: vortelio")
 	return nil
 }
 

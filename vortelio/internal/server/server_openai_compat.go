@@ -3,10 +3,12 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/vortelio/vortelio/internal/cloud"
 	"github.com/vortelio/vortelio/internal/hub"
 	"github.com/vortelio/vortelio/internal/runtime"
 )
@@ -76,6 +78,16 @@ func handleOpenAIModels(w http.ResponseWriter, r *http.Request) {
 			OwnedBy: "vortelio",
 		})
 	}
+	// Also advertise configured cloud models (provider/model), so the /v1
+	// endpoint is a unified catalogue of everything usable in Vortelio.
+	for _, cm := range cloud.ModelsWithKeys() {
+		data = append(data, oaiModel{
+			ID:      cm.Provider + "/" + cm.Model,
+			Object:  "model",
+			Created: time.Now().Unix(),
+			OwnedBy: cm.Provider,
+		})
+	}
 	if data == nil {
 		data = []oaiModel{}
 	}
@@ -117,8 +129,13 @@ func handleOpenAIChatCompletions(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, 405, "POST only")
 		return
 	}
+	rawBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		jsonError(w, 400, "could not read body: "+err.Error())
+		return
+	}
 	var req openAIChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(rawBody, &req); err != nil {
 		jsonError(w, 400, "invalid JSON: "+err.Error())
 		return
 	}
@@ -129,6 +146,11 @@ func handleOpenAIChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	model, err := resolveModel(req.Model)
 	if err != nil {
+		// Not a local model — try routing it to a configured cloud provider so
+		// /v1 is a unified gateway (local + cloud). Model ids are "provider/model".
+		if proxyCloudChatCompletion(w, req.Model, rawBody) {
+			return
+		}
 		jsonError(w, 404, err.Error())
 		return
 	}

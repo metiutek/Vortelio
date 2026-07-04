@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vortelio/vortelio/internal/cloud"
 	"github.com/vortelio/vortelio/internal/config"
 )
 
@@ -863,6 +864,21 @@ func writeOpenCodeConfig(path string) error {
 			}
 		}
 	}()
+
+	// Add every configured cloud model too — the unified /v1 gateway proxies
+	// "provider/model" ids to the right cloud provider, so Open Code can use
+	// ALL of Vortelio's models (local + cloud) under the one "vortelio" provider.
+	for _, cm := range cloud.ModelsWithKeys() {
+		id := cm.Provider + "/" + cm.Model
+		label := cm.Label
+		if label == "" {
+			label = id
+		}
+		models[id] = map[string]string{"name": cm.ProviderName + " · " + label}
+		if defaultModel == "" {
+			defaultModel = "vortelio/" + id
+		}
+	}
 
 	cfg := map[string]interface{}{
 		"$schema": "https://opencode.ai/config.json",

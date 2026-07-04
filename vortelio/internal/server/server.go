@@ -227,7 +227,7 @@ func NewMux() *http.ServeMux {
 	mux.HandleFunc("/api/blobs/", ca(handleOllamaBlobs))
 
 	// ── OpenAI-compatible API ─────────────────────────────────────────────────
-	mux.HandleFunc("/v1/models", ca(handleOpenAIModelByID))
+	mux.HandleFunc("/v1/models", ca(handleOpenAIModels))
 	mux.HandleFunc("/v1/models/", ca(handleOpenAIModelByID))
 	mux.HandleFunc("/v1/chat/completions", ca(withRateLimit(generateLimiter, handleOpenAIChatCompletions)))
 	mux.HandleFunc("/v1/completions", ca(withRateLimit(generateLimiter, handleOpenAICompletions)))

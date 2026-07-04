@@ -17,65 +17,9 @@ import (
 // cloud package; requests are made directly to the provider with the user's key
 // and streamed back as a uniform SSE stream of {"delta": "..."} events.
 
-// cloudModelChoices is the curated model list shown in the picker per provider.
-// Users can still send any model string via the API; this is just for the UI.
-var cloudModelChoices = map[string][][2]string{
-	"openai": {
-		{"gpt-4o", "GPT-4o"},
-		{"gpt-4o-mini", "GPT-4o mini"},
-		{"o3-mini", "o3-mini"},
-		{"o1-mini", "o1-mini"},
-	},
-	"anthropic": {
-		{"claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet"},
-		{"claude-3-5-haiku-20241022", "Claude 3.5 Haiku"},
-		{"claude-3-opus-20240229", "Claude 3 Opus"},
-	},
-	"gemini": {
-		{"gemini-2.0-flash", "Gemini 2.0 Flash"},
-		{"gemini-2.5-flash", "Gemini 2.5 Flash"},
-		{"gemini-2.5-pro", "Gemini 2.5 Pro"},
-	},
-	"groq": {
-		{"llama-3.3-70b-versatile", "Llama 3.3 70B"},
-		{"llama3-8b-8192", "Llama 3 8B"},
-	},
-	"mistral": {
-		{"mistral-small-latest", "Mistral Small"},
-		{"mistral-large-latest", "Mistral Large"},
-	},
-	"openrouter": {
-		{"meta-llama/llama-3.1-8b-instruct:free", "Llama 3.1 8B (free)"},
-		{"anthropic/claude-3.5-sonnet", "Claude 3.5 Sonnet"},
-		{"openai/gpt-4o", "GPT-4o"},
-		{"deepseek/deepseek-r1", "DeepSeek R1"},
-	},
-	"xai": {
-		{"grok-2-latest", "Grok 2"},
-		{"grok-2-vision-latest", "Grok 2 Vision"},
-		{"grok-beta", "Grok Beta"},
-	},
-	"together": {
-		{"meta-llama/Llama-3.3-70B-Instruct-Turbo", "Llama 3.3 70B Turbo"},
-		{"Qwen/Qwen2.5-72B-Instruct-Turbo", "Qwen2.5 72B Turbo"},
-		{"mistralai/Mixtral-8x7B-Instruct-v0.1", "Mixtral 8x7B"},
-	},
-	"deepseek": {
-		{"deepseek-chat", "DeepSeek V3 (chat)"},
-		{"deepseek-reasoner", "DeepSeek R1 (reasoner)"},
-	},
-	"perplexity": {
-		{"sonar", "Sonar"},
-		{"sonar-pro", "Sonar Pro"},
-		{"sonar-reasoning", "Sonar Reasoning"},
-	},
-	"ollamacloud": {
-		{"gpt-oss:120b", "gpt-oss 120B"},
-		{"deepseek-v3.1:671b", "DeepSeek V3.1 671B"},
-		{"qwen3-coder:480b", "Qwen3 Coder 480B"},
-		{"kimi-k2:1t", "Kimi K2 1T"},
-	},
-}
+// The curated per-provider model list lives in the cloud package as
+// cloud.ModelChoices so the unified /v1 gateway and the Open Code config
+// generator can share it.
 
 // GET /api/cloud/providers
 // Lists providers, whether a key is stored, and the model choices.
@@ -95,7 +39,7 @@ func CloudModelsForCLI() []CLICloudModel {
 		if cloud.LoadKey(p.ID) == "" {
 			continue
 		}
-		choices := cloudModelChoices[p.ID]
+		choices := cloud.ModelChoices[p.ID]
 		if len(choices) == 0 {
 			choices = [][2]string{{p.DefaultModel, p.DefaultModel}}
 		}
@@ -230,7 +174,7 @@ func handleCloudProviders(w http.ResponseWriter, r *http.Request) {
 	out := make([]providerOut, 0, len(cloud.Providers))
 	for _, p := range cloud.Providers {
 		models := []modelOut{}
-		if choices, ok := cloudModelChoices[p.ID]; ok {
+		if choices, ok := cloud.ModelChoices[p.ID]; ok {
 			for _, c := range choices {
 				models = append(models, modelOut{ID: c[0], Label: c[1]})
 			}

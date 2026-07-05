@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -45,9 +46,28 @@ func (c *UpdateCommand) Run(args []string) error {
 		return nil
 	}
 
-	// Run the install in the foreground so the user sees uv's progress and
-	// knows exactly when it finishes. (The detached updater is only for the
-	// GUI, where the running server has to shut down and restart itself.)
+	// On Windows a foreground `uv tool install` always self-destructs: this
+	// process is launched by the uv-venv python.exe (in ...\uv\tools\vortelio\
+	// Scripts), which stays alive holding that dir open while we run. uv then
+	// can't remove the old Scripts and aborts with "Access denied", leaving a
+	// half-removed, corrupt install. Hand off to a detached updater that first
+	// waits for this whole process tree to exit, then reinstalls with nothing
+	// locking the venv. The caller exits right after, releasing the lock.
+	if runtime.GOOS == "windows" {
+		res, err := updater.StartDetached(false)
+		if err != nil {
+			return fmt.Errorf("aggiornamento fallito: %w", err)
+		}
+		fmt.Println(res.Message)
+		if res.LogPath != "" {
+			fmt.Printf("Log: %s\n", res.LogPath)
+		}
+		fmt.Println("Vortelio si chiude ora. Riaprilo tra qualche secondo con: vortelio")
+		return nil
+	}
+
+	// Unix: no venv lock (uv can replace open files), so stream uv's progress
+	// in the foreground and block until it finishes.
 	fmt.Println("Aggiornamento in corso — non chiudere il terminale…")
 	if err := updater.InstallForeground(); err != nil {
 		return fmt.Errorf("aggiornamento fallito: %w", err)

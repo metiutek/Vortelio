@@ -10,7 +10,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-VERSION = "0.3.82"
+VERSION = "0.3.83"
 RELEASE_BASE = os.environ.get(
     "VORTELIO_RELEASE_BASE",
     f"https://github.com/metiu1/Vortelio/releases/download/v{VERSION}",

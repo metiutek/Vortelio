@@ -358,10 +358,18 @@ func (s *codeSession) runTurn(line string) {
 
 	// Tool events must not collide with the ticker: erase the status, let emit
 	// print its own line(s), then mark the cursor back at a line start.
+	// A tool_call is also model-generated output (the function name + arguments),
+	// so count it toward the live token total — otherwise a tool-heavy turn (many
+	// commands, little final prose) would sit at "1 token" the whole time.
 	wrappedEmit := func(ev string, data interface{}) {
 		l.mu.Lock()
 		l.erase()
 		l.phase = "tool"
+		if ev == "tool_call" {
+			if b, err := json.Marshal(data); err == nil {
+				l.bytes += len(b)
+			}
+		}
 		l.mu.Unlock()
 		s.emit(ev, data)
 		l.mu.Lock()

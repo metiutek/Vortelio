@@ -33,6 +33,8 @@ func (s *codeSession) readLine() (string, bool) {
 	var buf []rune
 	suggIdx := 0
 	prevLines := 0
+	histPos := len(s.history) // == len → editing a fresh line
+	var stash []rune          // in-progress line saved when browsing history
 
 	render := func() {
 		kind, frag, sugg := s.suggestions(string(buf))
@@ -179,7 +181,9 @@ func (s *codeSession) readLine() (string, bool) {
 			}
 			clearRegion()
 			line := string(buf)
-			fmt.Printf("  %s›%s %s\r\n", cCyan, cReset, line)
+			// Echo the submitted question as a highlighted bar so it stands out
+			// clearly from the model's output that follows.
+			fmt.Printf("  %s › %s %s\r\n", cQBg+cQFg+cBold, line, cReset)
 			return line, false
 		case '\t':
 			complete()
@@ -189,20 +193,40 @@ func (s *codeSession) readLine() (string, bool) {
 				buf = buf[:len(buf)-1]
 			}
 			suggIdx = 0
+			histPos = len(s.history)
 			render()
 		case 27: // ESC — maybe an arrow
 			b1, _, _ := r.ReadRune()
 			if b1 == '[' {
 				b2, _, _ := r.ReadRune()
 				switch b2 {
-				case 'A': // up
-					if suggIdx > 0 {
-						suggIdx--
+				case 'A': // up → menu prev, else previous history entry
+					if k, _, sg := s.suggestions(string(buf)); k != 0 && len(sg) > 0 {
+						if suggIdx > 0 {
+							suggIdx--
+						}
+					} else if histPos > 0 {
+						if histPos == len(s.history) {
+							stash = append([]rune(nil), buf...)
+						}
+						histPos--
+						buf = []rune(s.history[histPos])
+						suggIdx = 0
 					}
 					render()
-				case 'B': // down
-					if _, _, sugg := s.suggestions(string(buf)); suggIdx < len(sugg)-1 {
-						suggIdx++
+				case 'B': // down → menu next, else newer history / back to draft
+					if k, _, sg := s.suggestions(string(buf)); k != 0 && len(sg) > 0 {
+						if suggIdx < len(sg)-1 {
+							suggIdx++
+						}
+					} else if histPos < len(s.history) {
+						histPos++
+						if histPos == len(s.history) {
+							buf = append([]rune(nil), stash...)
+						} else {
+							buf = []rune(s.history[histPos])
+						}
+						suggIdx = 0
 					}
 					render()
 				case 'C': // right → complete suggestion, else cycle mode forward
@@ -223,6 +247,7 @@ func (s *codeSession) readLine() (string, bool) {
 			if ch >= 32 {
 				buf = append(buf, ch)
 				suggIdx = 0
+				histPos = len(s.history)
 				render()
 			}
 		}

@@ -9,11 +9,13 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/vortelio/vortelio/internal/hub"
 	"github.com/vortelio/vortelio/internal/runtime"
 	"github.com/vortelio/vortelio/internal/server"
+	"golang.org/x/term"
 )
 
 // ANSI helpers
@@ -28,7 +30,14 @@ const (
 	cMag   = "\033[35m"
 	cBlue  = "\033[34m"
 	cInv   = "\033[7m"
+	// Highlighted bar for the submitted question so it stands out from output.
+	cQBg    = "\033[48;5;24m" // dark teal background
+	cQFg    = "\033[97m"      // bright white text
+	cThinkC = "\033[38;5;213m"
 )
+
+// spinFrames is the braille spinner used by the live working animation.
+var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 // CodeCommand is the Vortelio terminal coding agent, on the same harness as the
 // Developer GUI: agentic tool loop, coding tools, web, media, skills, MCP.
@@ -49,6 +58,7 @@ type codeSession struct {
 	messages      []map[string]interface{}
 	cloudProvider string
 	cloudModel    string
+	history       []string // typed prompts, for ↑/↓ recall in the input box
 }
 
 var slashCmds = []struct{ Cmd, Desc string }{
@@ -153,6 +163,10 @@ func (c *CodeCommand) Run(args []string) error {
 			}
 			continue
 		}
+		// Record for ↑/↓ history recall (skip consecutive duplicates).
+		if n := len(s.history); n == 0 || s.history[n-1] != line {
+			s.history = append(s.history, line)
+		}
 		s.runTurn(line)
 	}
 }
@@ -236,38 +250,161 @@ func (s *codeSession) askUser(question string, options []string) string {
 	return promptLineRaw("   ✏️  Risposta: ")
 }
 
+// liveStatus renders the working animation: a spinner with a live phase label
+// (thinking · writing · running a tool), elapsed time and a running token count.
+// It shares stdout with the streamed answer, so content printing and the ticker
+// are serialised through mu; the status line is only drawn at a line boundary and
+// is erased the instant new content arrives, so it never corrupts the output.
+type liveStatus struct {
+	mu          sync.Mutex
+	start       time.Time
+	bytes       int
+	phase       string // pensa | scrive | tool | avvio
+	spin        int
+	atLineStart bool
+	shown       bool
+	tty         bool
+	done        bool
+	resp        *strings.Builder
+}
+
+func (l *liveStatus) tokens() int { return l.bytes/4 + 1 }
+
+func (l *liveStatus) phaseLabel() string {
+	switch l.phase {
+	case "pensa":
+		return cThinkC + "🧠 sta pensando…" + cReset
+	case "scrive":
+		return cGreen + "✍  scrivo la risposta…" + cReset
+	case "tool":
+		return cCyan + "⚙  eseguo strumento…" + cReset
+	default:
+		return cCyan + "⏳ elaboro…" + cReset
+	}
+}
+
+// draw paints the status line in place. Caller holds mu.
+func (l *liveStatus) draw() {
+	if !l.tty || l.done || !l.atLineStart {
+		return
+	}
+	frame := spinFrames[l.spin%len(spinFrames)]
+	l.spin++
+	secs := time.Since(l.start).Seconds()
+	fmt.Printf("\r\033[K  %s%s%s %s  %s· %.1fs · %d token%s",
+		cCyan, frame, cReset, l.phaseLabel(), cDim, secs, l.tokens(), cReset)
+	l.shown = true
+}
+
+// erase clears the status line if present. Caller holds mu.
+func (l *liveStatus) erase() {
+	if l.shown {
+		fmt.Print("\r\033[K")
+		l.shown = false
+	}
+}
+
+// content streams a visible answer token.
+func (l *liveStatus) content(tok string) {
+	l.mu.Lock()
+	l.erase()
+	fmt.Print(tok)
+	if l.resp != nil {
+		l.resp.WriteString(tok)
+	}
+	l.bytes += len(tok)
+	l.phase = "scrive"
+	l.atLineStart = strings.HasSuffix(tok, "\n")
+	l.mu.Unlock()
+}
+
+// think receives reasoning tokens: not printed, only surfaced as the "thinking"
+// state so the user sees the model is reasoning without flooding the answer.
+func (l *liveStatus) think(tok string) {
+	l.mu.Lock()
+	l.phase = "pensa"
+	l.bytes += len(tok)
+	l.mu.Unlock()
+}
+
 func (s *codeSession) runTurn(line string) {
 	line = s.expandFileRefs(line)
 	s.messages = append(s.messages, map[string]interface{}{"role": "user", "content": line})
-	t0 := time.Now()
 	fmt.Print("\n")
+
 	var resp strings.Builder
-	onTok := func(tok string) { fmt.Print(tok); resp.WriteString(tok) }
+	l := &liveStatus{
+		start:       time.Now(),
+		phase:       "avvio",
+		atLineStart: true,
+		tty:         term.IsTerminal(int(os.Stdout.Fd())),
+		resp:        &resp,
+	}
+	stop := make(chan struct{})
+	go func() {
+		t := time.NewTicker(120 * time.Millisecond)
+		defer t.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-t.C:
+				l.mu.Lock()
+				l.draw()
+				l.mu.Unlock()
+			}
+		}
+	}()
+
+	// Tool events must not collide with the ticker: erase the status, let emit
+	// print its own line(s), then mark the cursor back at a line start.
+	wrappedEmit := func(ev string, data interface{}) {
+		l.mu.Lock()
+		l.erase()
+		l.phase = "tool"
+		l.mu.Unlock()
+		s.emit(ev, data)
+		l.mu.Lock()
+		l.atLineStart = true
+		l.mu.Unlock()
+	}
+
 	var err error
 	if s.cloudProvider != "" {
 		var hist []map[string]string
 		for _, m := range s.messages {
 			hist = append(hist, map[string]string{"role": fmt.Sprint(m["role"]), "content": fmt.Sprint(m["content"])})
 		}
-		_, err = server.RunCLICloudTurn(s.cloudProvider, s.cloudModel, s.workdir, s.mode, s.autonomous, s.mcpOn, s.skills, hist, onTok, s.emit, s.approve, s.askUser)
+		_, err = server.RunCLICloudTurn(s.cloudProvider, s.cloudModel, s.workdir, s.mode, s.autonomous, s.mcpOn, s.skills, hist, l.content, wrappedEmit, s.approve, s.askUser)
 	} else {
-		prov, sys := server.BuildCLIHarness(s.workdir, s.mode, s.autonomous, s.mcpOn, s.skills, s.emit, s.approve, s.askUser)
+		prov, sys := server.BuildCLIHarness(s.workdir, s.mode, s.autonomous, s.mcpOn, s.skills, wrappedEmit, s.approve, s.askUser)
 		sopts := runtime.StreamOpts{System: sys, Messages: s.messages, ToolsEnabled: true, ToolProvider: prov}
+		sopts.ThinkEmit = l.think
+		// Raise the per-round token cap: the 512 default truncates any real code
+		// generation (a file the model writes streams as tool arguments here too).
+		sopts.Options.MaxTokens = 4096
 		if s.autonomous {
 			sopts.MaxToolRounds = 40
 		} else {
 			sopts.MaxToolRounds = 16
 		}
-		err = s.runner.StreamWithOpts(sopts, onTok, s.emit)
+		err = s.runner.StreamWithOpts(sopts, l.content, wrappedEmit)
 	}
+
+	// Tear down the ticker and clear any lingering status line.
+	close(stop)
+	l.mu.Lock()
+	l.done = true
+	l.erase()
+	l.mu.Unlock()
+
 	fmt.Print("\n")
 	if err != nil {
 		fmt.Printf("%s✕ errore: %v%s\n", cRed, err, cReset)
 		return
 	}
-	secs := time.Since(t0).Seconds()
-	tokens := len(resp.String())/4 + 1
-	fmt.Printf("%s⏱ %.1fs · ~%d token · %s%s\n", cDim, secs, tokens, s.modelLabel(), cReset)
+	secs := time.Since(l.start).Seconds()
+	fmt.Printf("%s⏱ %.1fs · ~%d token · %s%s\n", cDim, secs, l.tokens(), s.modelLabel(), cReset)
 	s.messages = append(s.messages, map[string]interface{}{"role": "assistant", "content": resp.String()})
 }
 

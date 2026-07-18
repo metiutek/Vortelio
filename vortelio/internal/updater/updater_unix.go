@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func StartDetached(restartGUI bool) (StartResult, error) {
@@ -46,4 +47,11 @@ echo "Exit code: $code" >> "$log"
 		Message: "Aggiornamento avviato. Vortelio si chiudera' e uv installera' la nuova versione.",
 		LogPath: logPath,
 	}, nil
+}
+
+// shellQuote wraps s in single quotes, escaping any single quotes inside per
+// the POSIX sh rule: '"'"' ends the single-quoted string, inserts a literal
+// single quote, and resumes single-quoting.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
 }

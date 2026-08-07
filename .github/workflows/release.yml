@@ -39,7 +39,7 @@ jobs:
           go build -trimpath -ldflags="-s -w" \
             -o "dist/vortelio-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" \
             ./cmd/vortelio
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vortelio-${{ matrix.goos }}-${{ matrix.goarch }}
           path: vortelio/dist/vortelio-*
@@ -68,7 +68,7 @@ jobs:
           github-artifact-id: ${{ github.event.workflow_run.id || '' }}
           wait-for-completion: true
           output-artifact-directory: signed
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vortelio-windows-amd64-signed
           path: signed/*

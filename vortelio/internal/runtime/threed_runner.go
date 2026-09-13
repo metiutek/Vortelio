@@ -22,9 +22,7 @@ func NewThreeDRunner(model *hub.Model, hw *Hardware) *ThreeDRunner {
 func (r *ThreeDRunner) Run(opts *RunOptions) error {
 	pythonBin := FindPython()
 	if pythonBin == "" {
-		fmt.Println("\n⚠️   Python 3 not found.")
-		fmt.Println("    Install Python 3.10+ from: https://python.org/downloads")
-		return nil
+		return fmt.Errorf("Python 3 not found — needed for 3D models\n  Install Python 3.10+ from https://python.org/downloads")
 	}
 
 	name := strings.ToLower(r.model.Name)
@@ -279,9 +277,7 @@ func (r *ThreeDRunner) runTRELLIS(pythonBin string, opts *RunOptions) error {
 	}
 	outputPath := strings.ReplaceAll(ResolveOutputPath(opts.OutputFile, "output.glb"), `\`, `/`)
 	fmt.Printf("🧊  3D generation (TRELLIS)\n    Output: %s\n\n", outputPath)
-	fmt.Println("ℹ️   TRELLIS requires a separate install:")
-	fmt.Println("    pip install git+https://github.com/microsoft/TRELLIS.git")
-	return nil
+	return fmt.Errorf("TRELLIS requires a separate install\n  pip install git+https://github.com/microsoft/TRELLIS.git")
 }
 
 // runGeneric3D: fallback per modelli 3D non riconosciuti

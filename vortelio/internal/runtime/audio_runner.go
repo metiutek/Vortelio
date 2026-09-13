@@ -149,9 +149,7 @@ func (r *AudioRunner) ensureDeps(pythonBin string) {
 func (r *AudioRunner) Run(opts *RunOptions) error {
 	pythonBin := FindPython()
 	if pythonBin == "" {
-		fmt.Println("\n⚠️   Python 3 not found.")
-		fmt.Println("    Install Python 3.10+ from: https://python.org/downloads")
-		return nil
+		return fmt.Errorf("Python 3 not found — needed for audio models\n  Install Python 3.10+ from https://python.org/downloads")
 	}
 	r.ensureDeps(pythonBin)
 	// An attached audio file always means speech-to-text.
@@ -159,9 +157,7 @@ func (r *AudioRunner) Run(opts *RunOptions) error {
 		return r.runPython(pythonBin, r.buildWhisperScript(opts))
 	}
 	if r.engine() == "whisper" {
-		fmt.Println("ℹ️   Whisper: Speech → Text")
-		fmt.Println("    vortelio run audio/whisper:large --input ./audio.mp3")
-		return nil
+		return fmt.Errorf("Whisper transcribes speech → text, so it needs an audio file\n  Example: vortelio run audio/whisper:large --input ./audio.mp3")
 	}
 	return r.runPython(pythonBin, r.ttsScript(opts))
 }

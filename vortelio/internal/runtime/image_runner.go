@@ -1,12 +1,17 @@
 package runtime
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/vortelio/vortelio/internal/hub"
 )
@@ -21,6 +26,11 @@ func NewImageRunner(model *hub.Model, hw *Hardware) *ImageRunner {
 }
 
 func (r *ImageRunner) Run(opts *RunOptions) error {
+	return r.run(opts, nil)
+}
+
+// run performs the generation. emit, when non-nil, receives progress updates.
+func (r *ImageRunner) run(opts *RunOptions, emit func(pct int, msg string)) error {
 	if opts.Prompt == "" {
 		return fmt.Errorf("image generation requires a text prompt\n  Example: vortelio run image/sdxl \"a cat eating pasta\"")
 	}
@@ -37,45 +47,49 @@ func (r *ImageRunner) Run(opts *RunOptions) error {
 
 	if isGGUF {
 		// GGUF: native SD.cpp doesn't need Python; FindPython() used only as fallback
-		return r.runGGUF(FindPython(), opts.Prompt, output, device, opts.Steps, opts.ForceCPU)
+		return r.runGGUF(FindPython(), opts.Prompt, output, device, opts.Steps, opts.ForceCPU, emit)
 	}
 
 	pythonBin := FindPython()
 	if pythonBin == "" {
-		fmt.Println("\n⚠️   Python 3 not found.")
-		fmt.Println("    Install Python 3.10+ from: https://python.org/downloads")
-		return nil
+		return fmt.Errorf("Python 3 not found — needed to run a %s model.\n  Install Python 3.10+ from https://python.org/downloads, or use a GGUF image model", modelExt)
 	}
 	return r.runDiffusers(pythonBin, opts.Prompt, output, device, opts.Steps)
 }
 
 // runGGUF runs a GGUF image model. Prefers the native stable-diffusion.cpp binary;
 // falls back to the stable-diffusion-cpp-python package if the binary is not available.
-func (r *ImageRunner) runGGUF(pythonBin, prompt, output, device string, steps int, forceCPU bool) error {
+func (r *ImageRunner) runGGUF(pythonBin, prompt, output, device string, steps int, forceCPU bool, emit func(int, string)) error {
 	// ── Try native sd binary first ───────────────────────────────────────────
 	if sdBin := SDCppBin(); sdBin != "" {
-		return r.runNativeSD(sdBin, prompt, output, steps, forceCPU)
+		return r.runNativeSD(sdBin, prompt, output, steps, forceCPU, emit)
 	}
 
 	// Not installed — offer to download
 	fmt.Println("📦  stable-diffusion.cpp not found. Downloading the binary...")
-	if err := InstallSDCpp(r.hw); err != nil {
-		fmt.Printf("⚠️   Download failed (%v). Using the Python backend...\n", err)
+	if emit != nil {
+		emit(2, "Downloading stable-diffusion.cpp (one-off)…")
+	}
+	installErr := InstallSDCpp(r.hw)
+	if installErr != nil {
+		fmt.Printf("⚠️   Download failed (%v). Using the Python backend...\n", installErr)
 	} else if sdBin := SDCppBin(); sdBin != "" {
-		return r.runNativeSD(sdBin, prompt, output, steps, forceCPU)
+		return r.runNativeSD(sdBin, prompt, output, steps, forceCPU, emit)
 	}
 
 	// ── Fallback: stable-diffusion-cpp-python ───────────────────────────────
 	if pythonBin == "" {
-		return fmt.Errorf("neither stable-diffusion.cpp nor Python found\n  Download manually: https://github.com/leejet/stable-diffusion.cpp/releases")
+		return fmt.Errorf("stable-diffusion.cpp could not be installed (%v) and Python was not found\n  Download it manually into %s: https://github.com/leejet/stable-diffusion.cpp/releases",
+			installErr, SDCppDir())
 	}
 	if !CheckPythonPackage(pythonBin, "stable_diffusion_cpp") {
 		fmt.Println("📦  Installing stable-diffusion-cpp-python (backend GGUF)...")
+		if emit != nil {
+			emit(3, "Installing the Python backend (this can take a few minutes)…")
+		}
 		_ = InstallPythonPackage(pythonBin, "stable-diffusion-cpp-python")
 		if !CheckPythonPackage(pythonBin, "stable_diffusion_cpp") {
-			fmt.Println("❌  Installation failed. Install manually:")
-			fmt.Println("    pip install stable-diffusion-cpp-python")
-			return nil
+			return fmt.Errorf("no image backend available: stable-diffusion.cpp download failed (%v) and stable-diffusion-cpp-python could not be installed\n  Install it manually: pip install stable-diffusion-cpp-python", installErr)
 		}
 	}
 
@@ -159,9 +173,20 @@ print(f"\n\u2705  Image saved: %s")
 	return r.runPython(pythonBin, script)
 }
 
+// sdSamplingRe matches the sd-cli sampling progress line, e.g.
+//
+//	|============>        | 2/4 - 5.59s/it
+//
+// The unit suffix distinguishes it from the tensor-loading bars (… - 801MB/s).
+var sdSamplingRe = regexp.MustCompile(`\|\s*(\d+)/(\d+)\s*-\s*[\d.]+\s*(?:s/it|it/s)`)
+
 // runNativeSD runs generation using the native stable-diffusion.cpp binary.
-func (r *ImageRunner) runNativeSD(sdBin, prompt, output string, steps int, forceCPU bool) error {
+func (r *ImageRunner) runNativeSD(sdBin, prompt, output string, steps int, forceCPU bool, emit func(int, string)) error {
+	if steps <= 0 {
+		steps = 20
+	}
 	args := []string{
+		"-M", "img_gen",
 		"-m", r.model.LocalPath,
 		"-p", prompt,
 		"-n", "low quality, blurry, deformed, bad anatomy, extra limbs",
@@ -173,17 +198,120 @@ func (r *ImageRunner) runNativeSD(sdBin, prompt, output string, steps int, force
 		"-o", output,
 	}
 
-	// GPU layers: -1 = all layers on GPU, 0 = CPU only
-	if !forceCPU && (r.hw.Backend == BackendCUDA || r.hw.Backend == BackendMetal) {
-		args = append(args, "--n-gpu-layers", "-1")
+	// sd-cli has no --n-gpu-layers (that is a llama.cpp flag): a CUDA/Metal build
+	// already places the weights on the GPU. Only the CPU override is explicit.
+	if forceCPU || (r.hw != nil && r.hw.Backend != BackendCUDA && r.hw.Backend != BackendMetal && r.hw.Backend != BackendROCm) {
+		args = append(args, "--backend", "cpu")
+	}
+
+	if emit != nil {
+		emit(8, "Loading the model…")
 	}
 
 	cmd := HideWindow(exec.Command(sdBin, args...))
-	if err := RunWithOutput(cmd, os.Stdout, os.Stderr); err != nil {
+	// Run from the install directory so the bundled shared libraries resolve.
+	if dir := filepath.Dir(sdBin); dir != "" {
+		cmd.Dir = dir
+	}
+
+	err := runStreamingSD(cmd, func(line string) {
+		fmt.Println(line)
+		if emit == nil {
+			return
+		}
+		if m := sdSamplingRe.FindStringSubmatch(line); m != nil {
+			cur, _ := strconv.Atoi(m[1])
+			tot, _ := strconv.Atoi(m[2])
+			if tot > 0 {
+				emit(10+cur*80/tot, fmt.Sprintf("Sampling %d/%d", cur, tot))
+			}
+			return
+		}
+		// "using VAE for encoding / decoding" is printed at load time — only the
+		// latent decode itself means we are nearly done.
+		if strings.Contains(line, "decode_first_stage") || strings.Contains(line, "latents") {
+			emit(92, "Decoding the image…")
+		}
+	})
+	if err != nil {
 		return fmt.Errorf("stable-diffusion.cpp: %w", err)
+	}
+	if _, statErr := os.Stat(output); statErr != nil {
+		return fmt.Errorf("stable-diffusion.cpp finished but no image was written to %s", output)
 	}
 	return nil
 }
+
+// runStreamingSD runs cmd and calls onLine for every output chunk on stdout or
+// stderr. sd-cli redraws its progress bars with carriage returns, so lines are
+// split on both \n and \r.
+func runStreamingSD(cmd *exec.Cmd, onLine func(string)) error {
+	stdoutPipe, err1 := cmd.StdoutPipe()
+	stderrPipe, err2 := cmd.StderrPipe()
+	if err1 != nil || err2 != nil {
+		return cmd.Run()
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	var mu sync.Mutex
+	var tail []string
+	scan := func(rd io.Reader, done chan<- struct{}) {
+		defer func() { done <- struct{}{} }()
+		sc := bufio.NewScanner(rd)
+		sc.Buffer(make([]byte, 256*1024), 256*1024)
+		sc.Split(scanLinesOrCR)
+		for sc.Scan() {
+			line := strings.TrimRight(stripANSI(sc.Text()), " \t")
+			if line == "" {
+				continue
+			}
+			mu.Lock()
+			tail = append(tail, line)
+			if len(tail) > 40 {
+				tail = tail[len(tail)-40:]
+			}
+			onLine(line)
+			mu.Unlock()
+		}
+	}
+
+	done := make(chan struct{}, 2)
+	go scan(stdoutPipe, done)
+	go scan(stderrPipe, done)
+	<-done
+	<-done
+
+	if err := cmd.Wait(); err != nil {
+		mu.Lock()
+		out := strings.Join(tail, "\n")
+		mu.Unlock()
+		if out != "" {
+			return fmt.Errorf("%w\n%s", err, out)
+		}
+		return err
+	}
+	return nil
+}
+
+// scanLinesOrCR is a bufio.SplitFunc that treats \n and \r as line separators.
+func scanLinesOrCR(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexAny(data, "\r\n"); i >= 0 {
+		return i + 1, data[:i], nil
+	}
+	if atEOF {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
+}
+
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]|\[K`)
+
+func stripANSI(s string) string { return ansiRe.ReplaceAllString(s, "") }
 
 // runDiffusers handles safetensors/diffusers format models
 func (r *ImageRunner) runDiffusers(pythonBin, prompt, output, device string, steps int) error {
@@ -287,27 +415,38 @@ func (r *ImageRunner) runPython(pythonBin, script string) error {
 	return nil
 }
 
-// RunWithProgress runs image generation streaming progress events via channel.
-// Since our image scripts already emit VORTELIO_PROGRESS lines, we run them
-// through RunWithProgress which parses those lines into ProgressEvents.
+// RunWithProgress runs image generation, streaming real progress events (parsed
+// from the sd-cli sampling bar) on the given channel. The channel is always
+// closed before returning.
 func (r *ImageRunner) RunWithProgress(opts *RunOptions, progress chan<- ProgressEvent) error {
+	if progress == nil {
+		return r.Run(opts)
+	}
+	defer close(progress)
+
 	if opts.Prompt == "" {
-		if progress != nil {
-			close(progress)
-		}
 		return fmt.Errorf("image generation requires a text prompt")
 	}
-	// Run normally but use RunCapture path which uses RunWithCapture for detailed errors
-	// For progress: just signal start and done via channel workaround
-	if progress != nil {
-		progress <- ProgressEvent{Percent: 5, Message: "Starting generation..."}
-	}
-	err := r.Run(opts)
-	if progress != nil {
-		if err == nil {
-			progress <- ProgressEvent{Percent: 100, Message: "Done!"}
+
+	// stdout and stderr are read concurrently, so keep the percentage monotonic:
+	// a progress bar that jumps backwards looks like a bug to the user.
+	var maxPct int
+	send := func(pct int, msg string) {
+		if pct < maxPct {
+			pct = maxPct
 		}
-		close(progress)
+		maxPct = pct
+		// Non-blocking: never stall generation if the client stopped reading.
+		select {
+		case progress <- ProgressEvent{Percent: pct, Message: msg}:
+		default:
+		}
+	}
+	send(5, "Starting generation…")
+
+	err := r.run(opts, send)
+	if err == nil {
+		send(100, "Done!")
 	}
 	return err
 }

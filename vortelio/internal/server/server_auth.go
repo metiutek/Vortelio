@@ -135,6 +135,22 @@ func handleUserSettings(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, map[string]string{"status": "ok"})
 }
 
+// validChatID reports whether id is safe to use as a Firestore document id.
+// Firestore auto-ids are 20 alphanumeric characters; anything containing a path
+// separator or a dot segment could address a different document or collection.
+func validChatID(id string) bool {
+	if id == "" || len(id) > 128 || id == "." || id == ".." {
+		return false
+	}
+	for _, c := range id {
+		isAlnum := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+		if !isAlnum && c != '-' && c != '_' {
+			return false
+		}
+	}
+	return true
+}
+
 // ── /api/chats ────────────────────────────────────────────────────────────────
 
 func handleChats(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +179,12 @@ func handleChats(w http.ResponseWriter, r *http.Request) {
 			respond(w, 400, map[string]string{"error": "invalid body"})
 			return
 		}
+		// Sanitize the client-supplied id: it addresses a Firestore document, so
+		// anything path-like is dropped and the chat is saved as new instead.
+		chat.ID = strings.TrimSpace(chat.ID)
+		if !validChatID(chat.ID) {
+			chat.ID = ""
+		}
 		// Sanitize title
 		chat.Title = strings.TrimSpace(chat.Title)
 		if chat.Title == "" {
@@ -190,8 +212,7 @@ func handleChats(w http.ResponseWriter, r *http.Request) {
 	case http.MethodDelete:
 		chatID := strings.TrimPrefix(r.URL.Path, "/api/chats/")
 		chatID = strings.Trim(chatID, "/")
-		// Validate chatID: Firestore auto-IDs are 20 alphanumeric chars
-		if chatID == "" || len(chatID) > 128 || strings.ContainsAny(chatID, "/\\..") {
+		if !validChatID(chatID) {
 			respond(w, 400, map[string]string{"error": "invalid chat id"})
 			return
 		}

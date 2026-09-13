@@ -148,9 +148,15 @@ func CheckPythonPackage(pythonBin, pkg string) bool {
 	return cmd.Run() == nil
 }
 
+// escapePy makes a string safe to embed inside a Python literal delimited by
+// """…""" or '''…'''. Both quote styles are escaped: a prompt containing ''' or
+// """ would otherwise close the literal early and break (or inject into) the
+// generated script.
 func escapePy(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `"`, `\"`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	s = strings.ReplaceAll(s, "\r", `\r`)
 	s = strings.ReplaceAll(s, "\n", `\n`)
 	return s
 }

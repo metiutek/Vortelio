@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
+	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -97,8 +98,13 @@ func ListChats(ctx context.Context, uid string) ([]ChatRecord, error) {
 	var chats []ChatRecord
 	for {
 		doc, err := iter.Next()
-		if err != nil {
+		if err == iterator.Done {
 			break
+		}
+		if err != nil {
+			// A real failure (permissions, network) must not masquerade as
+			// "you have no saved chats".
+			return nil, err
 		}
 		var c ChatRecord
 		doc.DataTo(&c)
@@ -108,9 +114,34 @@ func ListChats(ctx context.Context, uid string) ([]ChatRecord, error) {
 	return chats, nil
 }
 
+// SaveChat writes a chat and returns its id. When chat.ID names an existing
+// document the chat is updated in place; otherwise a new one is created. Saving
+// the same conversation twice must not leave two copies behind.
 func SaveChat(ctx context.Context, uid string, chat ChatRecord) (string, error) {
 	now := time.Now()
-	ref := fbStore.Collection("users").Doc(uid).Collection("chats").NewDoc()
+	col := fbStore.Collection("users").Doc(uid).Collection("chats")
+
+	if chat.ID != "" {
+		ref := col.Doc(chat.ID)
+		if snap, err := ref.Get(ctx); err == nil {
+			var prev ChatRecord
+			if snap.DataTo(&prev) == nil && !prev.CreatedAt.IsZero() {
+				chat.CreatedAt = prev.CreatedAt
+			} else {
+				chat.CreatedAt = now
+			}
+			chat.UpdatedAt = now
+			if _, err := ref.Set(ctx, chat); err != nil {
+				return "", err
+			}
+			return ref.ID, nil
+		} else if status.Code(err) != codes.NotFound {
+			return "", err
+		}
+		// Not found — fall through and create a fresh document.
+	}
+
+	ref := col.NewDoc()
 	chat.ID = ref.ID
 	chat.CreatedAt = now
 	chat.UpdatedAt = now

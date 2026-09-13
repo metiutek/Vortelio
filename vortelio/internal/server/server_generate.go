@@ -471,15 +471,24 @@ func handleGenerateMedia(w http.ResponseWriter, r *http.Request, model *hub.Mode
 		close(progCh)
 	}()
 
+	cancelled := false
 	for ev := range progCh {
+		if cancelled {
+			continue // keep draining so the runner goroutine never blocks
+		}
 		select {
 		case <-ctx.Done():
 			sseEvent("error", `{"error":"generation cancelled"}`)
-			return
+			cancelled = true
+			continue
 		default:
 		}
 		progJSON, _ := json.Marshal(map[string]interface{}{"pct": ev.Percent, "msg": ev.Message})
 		sseEvent("progress", string(progJSON))
+	}
+	if cancelled {
+		<-done
+		return
 	}
 
 	if runErr := <-done; runErr != nil {
@@ -495,9 +504,21 @@ func handleGenerateMedia(w http.ResponseWriter, r *http.Request, model *hub.Mode
 		sseEvent("error", string(errJSON))
 		return
 	}
+	// A runner that gave up without an error (e.g. a missing dependency) leaves
+	// the pre-created temp file empty. Report that instead of a blank result.
+	if len(data) == 0 {
+		errJSON, _ := json.Marshal(map[string]string{
+			"error": "the " + model.Type + " backend produced no output — check the server log for the missing dependency",
+		})
+		sseEvent("error", string(errJSON))
+		return
+	}
+	// Keep every generation: a fixed name would overwrite the previous result.
 	dlDir := runtime.DefaultOutputDir()
-	dlPath := filepath.Join(dlDir, fmt.Sprintf("vortelio-%s.%s", model.Type, ext))
-	os.WriteFile(dlPath, data, 0644)
+	dlPath := filepath.Join(dlDir, fmt.Sprintf("vortelio-%s-%s.%s", model.Type, time.Now().Format("20060102-150405"), ext))
+	if err := os.WriteFile(dlPath, data, 0644); err != nil {
+		dlPath = ""
+	}
 
 	resultJSON, _ := json.Marshal(map[string]interface{}{
 		"model": req.Model, "status": "done", "type": model.Type,

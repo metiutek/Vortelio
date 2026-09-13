@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/vortelio/vortelio/internal/cli/commands"
 	"github.com/vortelio/vortelio/internal/config"
@@ -40,12 +42,22 @@ func typeLabels() []string {
 // ─── main menu ───────────────────────────────────────────────────────────────
 
 func runInteractiveMenu() error {
-	updateLabel := ""
-	updateLabel = "🔄 Update Vortelio (reinstall latest)"
-	if info, err := updater.CheckWithTimeout(2 * time.Second); err == nil && info.Available {
-		updateLabel = fmt.Sprintf("🔄 Update Vortelio → %s", info.Latest)
-	}
+	// The update check talks to GitHub; run it in the background so the menu
+	// appears instantly (it used to block for up to 2 s on every start, and for
+	// the whole timeout when offline).
+	var labelMu sync.Mutex
+	updateLabel := "🔄 Update Vortelio (reinstall latest)"
+	go func() {
+		if info, err := updater.CheckWithTimeout(5 * time.Second); err == nil && info.Available {
+			labelMu.Lock()
+			updateLabel = fmt.Sprintf("🔄 Update Vortelio → %s", info.Latest)
+			labelMu.Unlock()
+		}
+	}()
 	for {
+		labelMu.Lock()
+		updateLabel := updateLabel
+		labelMu.Unlock()
 		type menuAction struct {
 			label string
 			run   func() error
@@ -358,9 +370,7 @@ func handleRAGQuery() {
 		if rm, ok := r.(map[string]interface{}); ok {
 			score, _ := rm["score"].(float64)
 			text, _ := rm["text"].(string)
-			if len(text) > 200 {
-				text = text[:197] + "…"
-			}
+			text = truncRunes(text, 197)
 			fmt.Printf("  #%d  score: %.4f\n", i+1, score)
 			fmt.Printf("      %s\n\n", strings.ReplaceAll(text, "\n", "\n      "))
 		}
@@ -392,10 +402,7 @@ func handleGGUFInspect() {
 	fmt.Println("\n  🔍 GGUF Metadata")
 	fmt.Println()
 	for k, v := range result {
-		val := fmt.Sprintf("%v", v)
-		if len(val) > 60 {
-			val = val[:57] + "…"
-		}
+		val := truncRunes(fmt.Sprintf("%v", v), 57)
 		fmt.Printf("  %-30s  %s\n", k, val)
 	}
 	waitKey("")
@@ -486,9 +493,7 @@ func handleTUICompare() {
 			fmt.Printf("  ❌ %s\n\n", errStr)
 			continue
 		}
-		if len(resp) > 400 {
-			resp = resp[:397] + "…"
-		}
+		resp = truncRunes(resp, 397)
 		fmt.Printf("  %s\n\n", strings.ReplaceAll(resp, "\n", "\n  "))
 	}
 	waitKey("")
@@ -529,9 +534,7 @@ func handleTUIStructured() {
 	fmt.Println("\n  { } Structured Result")
 	fmt.Println()
 	raw, _ := result["raw"].(string)
-	if len(raw) > 2000 {
-		raw = raw[:1997] + "…"
-	}
+	raw = truncRunes(raw, 1997)
 	fmt.Printf("  %s\n", strings.ReplaceAll(raw, "\n", "\n  "))
 	if pe, ok := result["parse_err"].(string); ok && pe != "" {
 		fmt.Printf("\n  ⚠  parse error: %s\n", pe)
@@ -628,9 +631,7 @@ func handleTUIThink() {
 	thinking, _ := result["thinking"].(string)
 	answer, _ := result["answer"].(string)
 	if thinking != "" {
-		if len(thinking) > 600 {
-			thinking = thinking[:597] + "…"
-		}
+		thinking = truncRunes(thinking, 597)
 		fmt.Println("  ── Reasoning ──")
 		fmt.Printf("  \033[2m%s\033[0m\n\n", strings.ReplaceAll(thinking, "\n", "\n  "))
 	}
@@ -836,7 +837,17 @@ func readLineSimple() string {
 	return line.String()
 }
 
-// ─── helper: message + wait for key ─────────────────────────────────────────
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+// truncRunes shortens s to at most n runes (plus an ellipsis). Slicing bytes
+// (s[:n]) could cut a multi-byte UTF-8 character in half and print garbage.
+func truncRunes(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	r := []rune(s)
+	return string(r[:n]) + "…"
+}
 
 func waitKey(msg string) {
 	fmt.Print("\033[H\033[2J")
@@ -848,7 +859,9 @@ func waitKey(msg string) {
 	fd := int(os.Stdin.Fd())
 	old, err := term.MakeRaw(fd)
 	if err == nil {
-		buf := make([]byte, 1)
+		// Read the whole key sequence: an arrow key is 3 bytes, and leftover
+		// bytes would otherwise be consumed as navigation by the next menu.
+		buf := make([]byte, 8)
 		os.Stdin.Read(buf)
 		term.Restore(fd, old)
 	}
@@ -913,19 +926,22 @@ func selectMenu(title string, items []string) int {
 	return -1
 }
 
+// The menu is drawn while the terminal is in raw mode. On Unix raw mode turns
+// off output post-processing, so a bare "\n" no longer returns the carriage and
+// every line would start further right than the previous one. Always emit CRLF.
 func menuDrawFull(title string, items []string, sel int) {
 	fmt.Print("\033[H\033[2J")
-	fmt.Println()
-	fmt.Printf("  %s\n", title)
-	fmt.Println()
+	fmt.Print("\r\n")
+	fmt.Printf("  %s\r\n", title)
+	fmt.Print("\r\n")
 	for i, item := range items {
 		if i == sel {
-			fmt.Printf("  \033[1m> %s\033[0m\n", item)
+			fmt.Printf("  \033[1m> %s\033[0m\r\n", item)
 		} else {
-			fmt.Printf("    %s\n", item)
+			fmt.Printf("    %s\r\n", item)
 		}
 	}
-	fmt.Println()
+	fmt.Print("\r\n")
 	fmt.Print("  \033[2m↑/↓  enter  esc\033[0m")
 }
 
@@ -937,12 +953,12 @@ func menuDrawItems(items []string, sel int) {
 	for i, item := range items {
 		fmt.Print("\033[2K")
 		if i == sel {
-			fmt.Printf("  \033[1m> %s\033[0m\n", item)
+			fmt.Printf("  \033[1m> %s\033[0m\r\n", item)
 		} else {
-			fmt.Printf("    %s\n", item)
+			fmt.Printf("    %s\r\n", item)
 		}
 	}
-	fmt.Print("\033[2K\n\033[2K  \033[2m↑/↓  enter  esc\033[0m")
+	fmt.Print("\033[2K\r\n\033[2K  \033[2m↑/↓  enter  esc\033[0m")
 }
 
 // ─── reExec ──────────────────────────────────────────────────────────────────

@@ -22,11 +22,7 @@
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Vortelio — Run AI Models Locally">
 <meta name="twitter:description" content="Open-source local AI platform. Run LLMs, image, audio, video and 3D models on your hardware. Ollama-compatible, no cloud required.">
-<!-- Firebase SDK (compat — works with non-module scripts) -->
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Söhne:wght@300;400;450;500&family=Söhne+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Firebase SDK is loaded lazily from JS (loadFirebaseSDK) so the UI never blocks on the network. -->
 <style>
 :root {
   --bg: #ffffff;
@@ -39,8 +35,12 @@
   --text3: #999;
   --accent: #10a37f;
   --accent-light: #e6f7f2;
-  --sans: 'Söhne', 'Helvetica Neue', Arial, sans-serif;
-  --mono: 'Söhne Mono', 'JetBrains Mono', monospace;
+  --sans: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'Söhne Mono', 'JetBrains Mono', 'Cascadia Code', Consolas, Menlo, monospace;
+  /* Aliases: several dialogs (API keys, saved chats, CrewAI tabs) referenced
+     --bg1/--text1 which were never defined → transparent backgrounds. */
+  --bg1: var(--bg);
+  --text1: var(--text);
   --radius: 16px;
   --radius-sm: 10px;
   --radius-xs: 8px;
@@ -203,6 +203,23 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
   font-size: 13px; color: #7a6000; font-family: var(--mono); line-height: 1.6;
 }
 .thinking-label { font-size: 11px; font-weight: 500; margin-bottom: 5px; display: flex; align-items: center; gap: 4px; opacity: .8; }
+
+/* Markdown blocks inside replies (rendered by _md) */
+.content h1, .content h2, .content h3, .content h4 { font-weight: 600; line-height: 1.3; margin: 14px 0 6px; }
+.content h1 { font-size: 1.35em; } .content h2 { font-size: 1.2em; } .content h3 { font-size: 1.08em; } .content h4 { font-size: 1em; }
+.content ul, .content ol { margin: 6px 0 6px 22px; padding: 0; }
+.content li { margin: 2px 0; }
+.content li > ul, .content li > ol { margin: 2px 0 2px 18px; }
+.content li input[type=checkbox] { margin-right: 4px; vertical-align: -1px; }
+.content blockquote { border-left: 3px solid var(--border2); margin: 8px 0; padding: 4px 12px; color: var(--text2); }
+.content hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+.content a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.content table { border-collapse: collapse; margin: 8px 0; font-size: 13.5px; display: block; overflow-x: auto; max-width: 100%; }
+.content th, .content td { border: 1px solid var(--border); padding: 5px 10px; text-align: left; vertical-align: top; }
+.content th { background: var(--bg3); font-weight: 600; }
+.hist-x { cursor: pointer; opacity: .35; padding: 0 4px; font-size: 14px; flex-shrink: 0; border-radius: 4px; transition: opacity .12s; }
+.hist-item:hover .hist-x { opacity: .7; }
+.hist-x:hover { opacity: 1 !important; color: #dc2626; }
 
 /* Media output */
 .media-wrap { max-width: 720px; margin: 0 auto; padding: 0 28px 16px; }
@@ -463,10 +480,11 @@ textarea.inp::placeholder { color: var(--text3); }
   transform: translateX(-50%) translateY(80px);
   background: var(--text); color: #fff; border-radius: 24px;
   padding: 9px 20px; font-size: 13px; z-index: 500;
-  pointer-events: none; box-shadow: 0 4px 20px rgba(0,0,0,.2);
+  pointer-events: none; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,.2);
+  max-width: min(92vw, 640px); text-align: center; line-height: 1.4;
   transition: transform .22s cubic-bezier(.4,0,.2,1);
 }
-.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.show { transform: translateX(-50%) translateY(0); pointer-events: auto; }
 .toast.ok { background: #16a34a; }
 .toast.err { background: #dc2626; }
 
@@ -528,6 +546,11 @@ textarea.inp::placeholder { color: var(--text3); }
 .dark .sidebar-logo { border-color: var(--border) !important; }
 .dark .logo-name, .dark .logo-ver { color: var(--text2) !important; }
 .dark .logo-mark  { background: var(--accent) !important; }
+.dark .ai-avatar, .dark .welcome-logo, .dark .auth-logo-mark { color: var(--bg) !important; }
+.dark .send-btn { color: var(--bg) !important; }
+.dark .send-btn:hover { background: #fff !important; }
+.dark .send-btn:disabled { background: var(--bg3) !important; color: var(--text3) !important; }
+.dark .rf-btn.on { color: var(--bg) !important; }
 .dark .hist-item  { color: var(--text2) !important; }
 .dark .hist-item:hover { background: var(--bg3) !important; }
 .dark .hist-item.active { background: var(--accent-light) !important; color: var(--accent) !important; }
@@ -577,6 +600,8 @@ textarea.inp::placeholder { color: var(--text3); }
 .dark .toast-ok    { background: #052e16 !important; color: #86efac !important; }
 .dark .toast-err   { background: #450a0a !important; color: #fca5a5 !important; }
 .dark .toast       { background: var(--bg3) !important; color: var(--text) !important; }
+.dark .toast.ok    { background: #052e16 !important; color: #86efac !important; }
+.dark .toast.err   { background: #450a0a !important; color: #fca5a5 !important; }
 .dark .type-pill   { opacity: .9; }
 .dark .progress-bar { background: var(--border2) !important; }
 .dark .ctx-slider  { background: var(--border2) !important; }
@@ -1082,6 +1107,35 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
 .dark .set-link { background: var(--bg2) !important; border-color: var(--border) !important; }
 .dark .set-link:hover { background: rgba(16,163,127,.12) !important; }
 
+/* ── Small screens ───────────────────────────────────── */
+@media (max-width: 760px) {
+  .sidebar { position: fixed; top: 0; left: 0; height: 100vh; z-index: 150; box-shadow: 4px 0 24px rgba(0,0,0,.18); }
+  .sidebar.collapsed { box-shadow: none; }
+  .msg-inner, .media-wrap { padding: 0 14px; }
+  .msg-user .bubble { max-width: 88%; }
+  .user-col { max-width: 88%; }
+  .canvas { padding-top: 16px; }
+  .input-zone { padding: 8px 10px 12px; }
+  .suggestion-grid { grid-template-columns: 1fr; }
+  .welcome { padding: 24px 16px 40px; }
+  .welcome-title { font-size: 22px; }
+  .main-topbar { padding: 0 10px; gap: 6px; }
+  .topbar-modes .tm { padding: 5px 8px; }
+  #topbar-username, #mode-hint, #split-btn { display: none !important; }
+  .topbar-btn { padding: 5px 8px; }
+  .settings-panel { width: 100vw; right: -100vw; }
+  #side-panel { width: 100vw; }
+  body.side-open #main { padding-right: 0; }
+  .panel-inner { padding: 20px 14px; }
+  .mtrow { flex-wrap: wrap; }
+  .dev-explorer { width: 180px; }
+  #crew-tab-crews { grid-template-columns: 1fr !important; }
+  #tool-rag > div[style*="grid"], .set-links { grid-template-columns: 1fr !important; }
+  .agent-pop { width: min(340px, 94vw); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
 </style>
 </head>
 <body>
@@ -1134,20 +1188,20 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
   <div style="margin-top:auto">
     <!-- Shown when a newer version is available on main -->
     <button class="nav-item" id="sidebar-update-btn" onclick="startVortelioUpdate()" style="display:none;color:var(--accent);font-weight:600">
-      <span>⬆️</span> <span id="sidebar-update-lbl">Aggiorna Vortelio</span>
+      <span>⬆️</span> <span id="sidebar-update-lbl" data-i18n="updateVortelio">Update Vortelio</span>
     </button>
     <!-- Account info (when logged in) -->
     <div class="auth-user-bar" id="auth-user-bar" style="display:none">
       <div class="auth-avatar" id="auth-avatar">?</div>
       <div style="flex:1;min-width:0">
         <div id="auth-username" style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
-        <div style="font-size:10px;color:var(--text3)" id="auth-user-sub">Account locale</div>
+        <div style="font-size:10px;color:var(--text3)" id="auth-user-sub">Local account</div>
       </div>
       <button class="btn" style="font-size:11px;padding:2px 8px;flex-shrink:0" onclick="authLogout()">Sign out</button>
     </div>
     <!-- Login button (when not logged in) -->
     <div id="auth-login-prompt" style="display:none;padding:8px 10px;border-top:1px solid var(--border)">
-      <button class="btn" style="width:100%;font-size:12px;padding:6px" onclick="authShowOverlay()">
+      <button class="btn" style="width:100%;font-size:12px;padding:6px" onclick="authShowOverlay()" data-i18n="signInRegister">
         👤 Sign in / Register
       </button>
     </div>
@@ -1201,7 +1255,7 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
         🔗 <span id="remote-topbar-label">remote</span>
       </div>
       <div class="topbar-right">
-        <button class="topbar-btn" id="pwa-install-btn" onclick="installPWA()" title="Installa Vortelio come app con la sua icona" style="display:none">📥 Installa app</button>
+        <button class="topbar-btn" id="pwa-install-btn" onclick="installPWA()" title="Install Vortelio as an app with its own icon" style="display:none" data-i18n="installApp">📥 Install app</button>
         <button class="topbar-btn update" id="update-topbar-btn" onclick="startVortelioUpdate()" title="Install the latest Vortelio update" style="display:none">
           ↑ <span id="update-topbar-label">Update</span>
         </button>
@@ -1295,13 +1349,13 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
               <div class="dd-item dev-only" id="cap-skills" onclick="openAgentConfig()"><span>🎓</span> Skills &amp; agent… <span class="dd-arrow">›</span></div>
               <div class="dd-item dev-only" id="cap-mcp" onclick="openMcpManager()"><span>🔌</span> External tools (MCP)… <span class="dd-arrow">›</span></div>
               <div class="dd-item cap-item dev-only" id="cap-developer" onclick="toggleCoding();event.stopPropagation()"><span>💻</span> Developer — read, edit &amp; run code <i class="cap-dot"></i></div>
-              <div class="dd-item cap-item dev-only" id="cap-autonomous" onclick="toggleAutonomous();event.stopPropagation()"><span>🎯</span> Autonomo — lavora da solo verso un obiettivo <i class="cap-dot"></i></div>
+              <div class="dd-item cap-item dev-only" id="cap-autonomous" onclick="toggleAutonomous();event.stopPropagation()"><span>🎯</span> <span data-i18n="capAutonomous">Autonomous — works alone towards a goal</span> <i class="cap-dot"></i></div>
 
               <div class="dd-sep"></div>
-              <div class="dd-header">Modelli</div>
-              <div class="dd-item" onclick="openAddCloudModel();closeAllDD()"><span>☁️</span> Aggiungi modello cloud / server… <span class="dd-arrow">›</span></div>
-              <div class="dd-item dev-only" onclick="showPanel('models');closeAllDD()"><span>💾</span> Modelli installati… <span class="dd-arrow">›</span></div>
-              <div class="dd-note dev-only"><span>▶</span> Nei blocchi di codice premi <b>Esegui</b> per lanciarli (Python/JS/Bash/PowerShell/Go).</div>
+              <div class="dd-header" data-i18n="modelsHd">Models</div>
+              <div class="dd-item" onclick="openAddCloudModel();closeAllDD()"><span>☁️</span> <span data-i18n="addCloudModelItem">Add cloud model / server…</span> <span class="dd-arrow">›</span></div>
+              <div class="dd-item dev-only" onclick="showPanel('models');closeAllDD()"><span>💾</span> <span data-i18n="installedModelsItem">Installed models…</span> <span class="dd-arrow">›</span></div>
+              <div class="dd-note dev-only"><span>▶</span> <span data-i18n="runCodeNote">In code blocks press Run to execute them (Python/JS/Bash/PowerShell/Go).</span></div>
 
               <div class="dd-sep dev-only"></div>
               <div class="dd-header dev-only">Hardware</div>
@@ -1395,8 +1449,8 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <input class="search-box" style="margin:0;flex:1" placeholder="Search catalog..." oninput="filterReg(this.value)">
-        <button class="btn" style="flex-shrink:0;white-space:nowrap" onclick="document.getElementById('hf-search').style.display='block';document.getElementById('hf-q').focus();hfLoadResources()">🔍 Cerca su HuggingFace</button>
-        <button class="btn primary" style="flex-shrink:0;white-space:nowrap" onclick="showCustomInstall()">+ URL HuggingFace</button>
+        <button class="btn" style="flex-shrink:0;white-space:nowrap" onclick="document.getElementById('hf-search').style.display='block';document.getElementById('hf-q').focus();hfLoadResources()" data-i18n="hfSearchBtn">🔍 Search HuggingFace</button>
+        <button class="btn primary" style="flex-shrink:0;white-space:nowrap" onclick="showCustomInstall()" data-i18n="urlInstall">+ HuggingFace URL</button>
       </div>
       <div id="hf-search" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px">
         <div style="font-size:13px;font-weight:500;margin-bottom:8px">🤗 Cerca modelli su HuggingFace</div>
@@ -1467,9 +1521,9 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
         </div>
       </div>
       <div class="reg-filters" id="reg-filters">
-        <button class="rf-btn on" onclick="filterType('all',this)">Tutti</button>
+        <button class="rf-btn on" onclick="filterType('all',this)" data-i18n="all">All</button>
         <button class="rf-btn" onclick="filterType('llm',this)">💬 LLM</button>
-        <button class="rf-btn" onclick="filterType('image',this)">🎨 Immagini</button>
+        <button class="rf-btn" onclick="filterType('image',this)" data-i18n="imagesLbl">🎨 Images</button>
         <button class="rf-btn" onclick="filterType('audio',this)">🔊 Audio</button>
         <button class="rf-btn" onclick="filterType('video',this)">🎬 Video</button>
         <button class="rf-btn" onclick="filterType('3d',this)">🧊 3D</button>
@@ -1549,7 +1603,7 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
     </div>
 
     <!-- Tab bar -->
-    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--bg1)">
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--bg2)">
       <button class="crew-tab-btn" data-tab="crews"
         style="background:none;border:none;border-bottom:2px solid var(--accent);color:var(--text1);padding:8px 18px;font-size:13px;cursor:pointer;font-weight:500"
         onclick="crewSwitchTab('crews')">Crew</button>
@@ -1732,7 +1786,7 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
             <span id="cloud-model-lbl">Select model</span>
             <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" style="width:10px;height:10px;flex-shrink:0"><path d="M1 1l4 4 4-4"/></svg>
           </button>
-          <div class="dd-menu" id="cloud-model-dd" style="right:0;left:auto;min-width:240px;max-height:320px;overflow-y:auto"></div>
+          <div class="dd-menu" id="cloud-model-dd" style="min-width:240px;max-height:320px;overflow-y:auto"></div>
         </div>
         <div style="flex:1"></div>
         <span style="font-size:11px;color:var(--text3)" id="cloud-usage-lbl">🔑 Add provider keys in the model menu</span>
@@ -2066,8 +2120,8 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
       <div class="settings-section-title">Chat</div>
       <div class="settings-row">
         <div class="settings-row-info">
-          <div class="settings-row-label">Salvataggio automatico</div>
-          <div class="settings-row-sub">Salva ogni chat nella cronologia in automatico (le chat private non vengono mai salvate).</div>
+          <div class="settings-row-label" data-i18n="autosave">Auto-save</div>
+          <div class="settings-row-sub" data-i18n="autosaveDesc">Save every chat to the history automatically (private chats are never saved).</div>
         </div>
         <div class="settings-row-ctrl">
           <label class="switch"><input type="checkbox" id="set-autosave" checked onchange="setAutoSave(this.checked)"><span class="sl"></span></label>
@@ -2075,10 +2129,10 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
       </div>
       <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px">
         <div class="settings-row-info">
-          <div class="settings-row-label">🧠 Informazioni personali (memoria)</div>
-          <div class="settings-row-sub">Cose che i modelli devono sapere SEMPRE, in ogni chat (nome, preferenze, contesto, stile di risposta…). Vengono aggiunte al prompt di sistema di ogni conversazione.</div>
+          <div class="settings-row-label" data-i18n="personalInfo">🧠 Personal info (memory)</div>
+          <div class="settings-row-sub" data-i18n="personalInfoDesc">Things every model should ALWAYS know, in every chat (name, preferences, context, answer style…). Added to the system prompt of every conversation.</div>
         </div>
-        <textarea id="set-personal" class="tool-input" rows="5" placeholder="Es. Mi chiamo Paolo, sviluppo Vortelio. Rispondi in italiano, conciso. Uso una GTX 1650…" style="width:100%;resize:vertical" oninput="savePersonalInfo(this.value)"></textarea>
+        <textarea id="set-personal" class="tool-input" rows="5" data-i18n="personalInfoPh" placeholder="E.g. My name is Paolo, I build Vortelio. Answer concisely. I use a GTX 1650…" style="width:100%;resize:vertical" oninput="savePersonalInfo(this.value)"></textarea>
       </div>
     </div>
 
@@ -2355,6 +2409,7 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
       <div class="auth-logo-mark">VT</div>
       <span class="auth-title">Vortelio</span>
     </div>
+    <div id="auth-offline-note" class="auth-error" style="display:none;margin:0 0 12px;font-size:12px;line-height:1.45"></div>
     <!-- Login form -->
     <div id="auth-login-form">
       <div class="auth-field">
@@ -2614,7 +2669,7 @@ const LANGS = {
     all: 'Tutti',
     // Chat
     placeholder: 'Scrivi un messaggio...',
-    sendHint: '<span id="mode-hint-text">Premi ↵ per inviare, Shift+↵ per andare a capo</span>',
+    sendHint: 'Premi ↵ per inviare, Shift+↵ per andare a capo',
     noModels: 'Nessun modello installato.',
     downloadNow: '↓ Download subito',
     saveChatTitle: '💾 Salva chat',
@@ -2657,7 +2712,7 @@ const LANGS = {
     // Footer
     footerNote: 'Vortelio runs on your device. Cloud assistants use your own API key. The assistant can make mistakes — double-check important info.',
     // Controls
-    sendHint: '<span id="mode-hint-text">Premi ↵ per inviare, Shift+↵ per andare a capo</span>',
+    sendHint: 'Premi ↵ per inviare, Shift+↵ per andare a capo',
     // Topbar
     chatTitle: 'Chat',
     // Agents panel
@@ -2710,6 +2765,49 @@ const LANGS = {
     nodeNotFoundDesc: 'Gli agenti AI richiedono Node.js.',
     nodeDownloadLink: 'Scarica Node.js LTS',
     nodeRestartMsg: ', installalo, poi riavvia Vortelio.',
+    // Chrome (sidebar / composer / settings / code blocks)
+    updateVortelio: 'Aggiorna Vortelio',
+    updateTo: 'Aggiorna a ',
+    installApp: '📥 Installa app',
+    capAutonomous: 'Autonomo — lavora da solo verso un obiettivo',
+    modelsHd: 'Modelli',
+    addCloudModelItem: 'Aggiungi modello cloud / server…',
+    installedModelsItem: 'Modelli installati…',
+    runCodeNote: 'Nei blocchi di codice premi Esegui per lanciarli (Python/JS/Bash/PowerShell/Go).',
+    hfSearchBtn: '🔍 Cerca su HuggingFace',
+    imagesLbl: '🎨 Immagini',
+    autosave: 'Salvataggio automatico',
+    autosaveDesc: 'Salva ogni chat nella cronologia in automatico (le chat private non vengono mai salvate).',
+    personalInfo: '🧠 Informazioni personali (memoria)',
+    personalInfoDesc: 'Cose che i modelli devono sapere SEMPRE, in ogni chat (nome, preferenze, contesto, stile di risposta…). Vengono aggiunte al prompt di sistema di ogni conversazione.',
+    personalInfoPh: 'Es. Mi chiamo Paolo, sviluppo Vortelio. Rispondi in italiano, conciso. Uso una GTX 1650…',
+    signInRegister: '👤 Accedi / Registrati',
+    newTab: 'Nuova chat',
+    newTabTitle: 'Nuova scheda',
+    codePreview: '👁 Anteprima',
+    codeRun: '▶ Esegui',
+    codeCopy: '📋 Copia',
+    codeCopied: '✅ Copiato',
+    codeWriting: '✍ scrivendo…',
+    onThisPC: '💻 Sul tuo PC',
+    cloudAndServer: '☁️ Cloud & server',
+    editBtn: '✏️ Modifica',
+    fitOk: '✅ Entra in memoria',
+    fitTight: '⚠️ Al limite',
+    fitOver: '❌ Troppo grande',
+    maxPanels: 'Massimo 4 pannelli',
+    addPane: '＋ Pannello',
+    removePane: '－ Pannello',
+    splitHint: 'Chat affiancate e indipendenti — scrivi in tutte contemporaneamente',
+    offlineAuth: '⚠️ Nessuna connessione: l\'accesso non è disponibile. Puoi continuare senza account — tutto funziona in locale.',
+    copyReply: 'Copia la risposta',
+    regenerate: 'Rigenera la risposta',
+    editQuestion: 'Modifica la domanda',
+    copyQuestion: 'Copia la domanda',
+    replyCopied: '📋 Risposta copiata',
+    questionCopied: '📝 Domanda copiata',
+    toastClose: 'Clicca per chiudere',
+    reasoning: '💡 Ragionamento',
   },
   en: {
     newChat: '+ New chat',
@@ -2851,6 +2949,49 @@ const LANGS = {
     nodeNotFoundDesc: 'AI agents require Node.js.',
     nodeDownloadLink: 'Download Node.js LTS',
     nodeRestartMsg: ', install it, then restart Vortelio.',
+    // Chrome (sidebar / composer / settings / code blocks)
+    updateVortelio: 'Update Vortelio',
+    updateTo: 'Update to ',
+    installApp: '📥 Install app',
+    capAutonomous: 'Autonomous — works alone towards a goal',
+    modelsHd: 'Models',
+    addCloudModelItem: 'Add cloud model / server…',
+    installedModelsItem: 'Installed models…',
+    runCodeNote: 'In code blocks press Run to execute them (Python/JS/Bash/PowerShell/Go).',
+    hfSearchBtn: '🔍 Search HuggingFace',
+    imagesLbl: '🎨 Images',
+    autosave: 'Auto-save',
+    autosaveDesc: 'Save every chat to the history automatically (private chats are never saved).',
+    personalInfo: '🧠 Personal info (memory)',
+    personalInfoDesc: 'Things every model should ALWAYS know, in every chat (name, preferences, context, answer style…). Added to the system prompt of every conversation.',
+    personalInfoPh: 'E.g. My name is Paolo, I build Vortelio. Answer concisely. I use a GTX 1650…',
+    signInRegister: '👤 Sign in / Register',
+    newTab: 'New chat',
+    newTabTitle: 'New tab',
+    codePreview: '👁 Preview',
+    codeRun: '▶ Run',
+    codeCopy: '📋 Copy',
+    codeCopied: '✅ Copied',
+    codeWriting: '✍ writing…',
+    onThisPC: '💻 On this PC',
+    cloudAndServer: '☁️ Cloud & server',
+    editBtn: '✏️ Edit',
+    fitOk: '✅ Fits in memory',
+    fitTight: '⚠️ Tight fit',
+    fitOver: '❌ Too big',
+    maxPanels: 'Max 4 panes',
+    addPane: '＋ Pane',
+    removePane: '－ Pane',
+    splitHint: 'Independent chats side by side — type in all of them at once',
+    offlineAuth: '⚠️ No internet connection: sign-in is unavailable. You can continue without an account — everything works locally.',
+    copyReply: 'Copy the reply',
+    regenerate: 'Regenerate the reply',
+    editQuestion: 'Edit the question',
+    copyQuestion: 'Copy the question',
+    replyCopied: '📋 Reply copied',
+    questionCopied: '📝 Question copied',
+    toastClose: 'Click to dismiss',
+    reasoning: '💡 Reasoning',
   }
 };
 
@@ -2891,8 +3032,8 @@ function applyLang() {
   s('back-btn-lbl', 'back');
   s('footer-note', 'footerNote');
 
-  // Input area
-  p('msg-input', 'placeholder');
+  // Input area (per-domain placeholders live in DC; only the chat one is translated)
+  if (typeof domain === 'undefined' || domain === 'chat') p('inp', 'placeholder');
   const hint = document.getElementById('mode-hint-text') || document.getElementById('mode-hint');
   if (hint) hint.textContent = t('sendHint');
   const topbar = document.getElementById('topbar-title');
@@ -2962,6 +3103,9 @@ function applyLang() {
 
   // Refresh model list if visible (to re-render translated buttons)
   if (document.getElementById('ws-models')?.classList.contains('on')) loadModels();
+  if (typeof renderChatHistory === 'function' && typeof savedChats !== 'undefined') renderChatHistory();
+  if (typeof renderTabs === 'function' && typeof openTabs !== 'undefined') renderTabs();
+  if (typeof renderReg === 'function' && typeof REG !== 'undefined' && document.getElementById('ws-registry')?.classList.contains('on')) renderReg(REG);
 }
 
 // ── Settings ─────────────────────────────────────────
@@ -3169,11 +3313,11 @@ function personalSysMsgs() {
 try { if (new URLSearchParams(location.search).has('embed')) document.body.classList.add('embed-mode'); } catch {}
 
 // ── Multiple chat tabs open at once in the same window ──────────────
-let openTabs = [{ id: 't0', name: 'Nuova chat', history: [], msgsHtml: '', chatId: null, model: '', modelLbl: '' }];
+let openTabs = [{ id: 't0', name: t('newTab'), history: [], msgsHtml: '', chatId: null, model: '', modelLbl: '' }];
 let activeTab = 0;
 function deriveTabName(hist) {
   const u = (hist || []).find(m => m.role === 'user');
-  return (u && u.content) ? String(u.content).replace(/\s+/g, ' ').slice(0, 26) : 'Nuova chat';
+  return (u && u.content) ? String(u.content).replace(/\s+/g, ' ').slice(0, 26) : t('newTab');
 }
 
 // ── Smart chat titles ────────────────────────────────────────
@@ -3248,7 +3392,7 @@ async function maybeNameChat(chatId, tabRef, userText, aiText) {
   const title = await generateChatTitle(userText, aiText);
   if (!title) { if (tabRef && tabRef.title === '…') tabRef.title = ''; return; }
   const sc = savedChats.find(c => c.id === chatId);
-  if (sc) { sc.name = title; try { localStorage.setItem('pullai_chats', JSON.stringify(savedChats)); } catch {} }
+  if (sc) { sc.name = title; persistChats(); }
   if (tabRef) { tabRef.title = title; tabRef.name = title; }
   renderChatHistory();
   renderTabs();
@@ -3278,7 +3422,7 @@ function applyTab(t) {
   else if (t.msgsHtml) { msgs.innerHTML = t.msgsHtml; t.msgsHtml = ''; }
   if (msgs.childNodes.length) { msgs.style.display = 'block'; document.getElementById('welcome').style.display = 'none'; }
   else { msgs.style.display = 'none'; document.getElementById('welcome').style.display = 'flex'; }
-  document.getElementById('canvas').scrollTop = 9999;
+  scrollBottom(document.getElementById('canvas'));
   reflectGenState(); // composer reflects THIS tab's generation state
 }
 // Composer send/stop button reflects whether the active tab is generating.
@@ -3304,7 +3448,7 @@ function activateTab(i) {
 }
 function openNewTab() {
   snapshotActiveTab();
-  openTabs.push({ id: 't' + Date.now(), name: 'Nuova chat', history: [], msgsHtml: '', chatId: null, model: selectedModel, modelLbl: document.getElementById('model-lbl').textContent });
+  openTabs.push({ id: 't' + Date.now(), name: t('newTab'), history: [], msgsHtml: '', chatId: null, model: selectedModel, modelLbl: document.getElementById('model-lbl').textContent });
   activeTab = openTabs.length - 1;
   chatHistory = []; currentChatId = null; attachments = []; renderAttachRow();
   document.getElementById('inp').value = '';
@@ -3319,7 +3463,7 @@ function closeTab(i, ev) {
   if (i < 0 || i >= openTabs.length) return;
   const wasActive = i === activeTab;
   openTabs.splice(i, 1);
-  if (!openTabs.length) { activeTab = 0; openTabs.push({ id: 't' + Date.now(), name: 'Nuova chat', history: [], msgsHtml: '', chatId: null, model: selectedModel, modelLbl: '' }); applyTab(openTabs[0]); renderTabs(); return; }
+  if (!openTabs.length) { activeTab = 0; openTabs.push({ id: 't' + Date.now(), name: t('newTab'), history: [], msgsHtml: '', chatId: null, model: selectedModel, modelLbl: '' }); applyTab(openTabs[0]); renderTabs(); return; }
   if (i < activeTab) activeTab--;
   if (activeTab >= openTabs.length) activeTab = openTabs.length - 1;
   if (wasActive) applyTab(openTabs[activeTab]);
@@ -3336,7 +3480,7 @@ function renderTabs() {
        <span class="tab-name">${esc(t.name || 'Chat')}</span>
        <span class="tab-x" onclick="closeTab(${i},event)">✕</span>
      </div>`).join('') +
-    `<span class="chat-tab-add" onclick="openNewTab()" title="Nuova scheda">＋</span>`;
+    `<span class="chat-tab-add" onclick="openNewTab()" title="${esc(t('newTabTitle'))}">＋</span>`;
 }
 
 // ── Split view: two (or more) independent chats side by side ─────────
@@ -3370,15 +3514,15 @@ function renderSplitPanes(n) {
   for (let i = 0; i < n; i++) panes += '<iframe class="split-pane" src="/?embed=1"></iframe>';
   sv.innerHTML =
     '<div class="split-toolbar">' +
-    '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="addSplitPane()">＋ Pannello</button>' +
-    '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="removeSplitPane()">－ Pannello</button>' +
-    '<span style="font-size:11px;color:var(--text3)">Chat affiancate e indipendenti — scrivi in tutte contemporaneamente</span>' +
+    '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="addSplitPane()">' + esc(t('addPane')) + '</button>' +
+    '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="removeSplitPane()">' + esc(t('removePane')) + '</button>' +
+    '<span style="font-size:11px;color:var(--text3)">' + esc(t('splitHint')) + '</span>' +
     '</div><div class="split-row" id="split-row">' + panes + '</div>';
   sv.dataset.built = '1';
 }
 function addSplitPane() {
   const row = document.getElementById('split-row'); if (!row) return;
-  if (row.children.length >= 4) { toast('Massimo 4 pannelli'); return; }
+  if (row.children.length >= 4) { toast(t('maxPanels')); return; }
   const f = document.createElement('iframe'); f.className = 'split-pane'; f.src = '/?embed=1';
   row.appendChild(f);
 }
@@ -3425,9 +3569,10 @@ let installedModels = [];
 
 // ── Init ──────────────────────────────────────────
 function init() {
-  fbInit();           // initialize Firebase Auth (async — onAuthStateChanged calls authApplySession)
-  authApplySession(); // show overlay immediately while Firebase loads
   applyTheme(currentTheme);
+  authApplySession(); // show overlay immediately while Firebase loads
+  loadFirebaseSDK();  // non-blocking: the UI works offline; sign-in appears once the SDK is up
+  if (window.innerWidth < 760) document.querySelector('.sidebar')?.classList.add('collapsed');
   applyLang();
   updateRemoteBadge();
   loadSavedChats();
@@ -3486,6 +3631,7 @@ async function installPWA() {
 
 let vortelioUpdateInfo = null;
 let _updateNotified = false;
+let _lastUpdateCheck = 0;
 
 function renderVortelioUpdate(info) {
   vortelioUpdateInfo = info || null;
@@ -3499,7 +3645,7 @@ function renderVortelioUpdate(info) {
   const sideBtn = document.getElementById('sidebar-update-btn');
   const sideLbl = document.getElementById('sidebar-update-lbl');
   if (sideBtn) sideBtn.style.display = available ? 'flex' : 'none';
-  if (sideLbl && latest) sideLbl.textContent = 'Aggiorna a ' + latest;
+  if (sideLbl && latest) sideLbl.textContent = t('updateTo') + latest;
   // One-time notification on open when a new version is available.
   if (available && !_updateNotified) {
     _updateNotified = true;
@@ -3597,7 +3743,9 @@ async function loadStatus() {
     document.getElementById('hw-dot').classList.remove('off');
     document.getElementById('hw-lbl').textContent = d.hardware || 'CPU';
     document.getElementById('ver').textContent = d.version ? ('v' + d.version) : 'v?';
-    checkVortelioUpdate();
+    // Update check hits GitHub: once on connect, then at most every 6 hours
+    // (it used to run on every 15 s status poll).
+    if (!_lastUpdateCheck || Date.now() - _lastUpdateCheck > 6 * 3600 * 1000) { _lastUpdateCheck = Date.now(); checkVortelioUpdate(); }
     await refreshModels();
     autoSelectModel();
     if (!_onboardChecked) { _onboardChecked = true; maybeShowOnboarding(); }
@@ -3668,8 +3816,13 @@ function autoSelectModel() {
 }
 
 // Decide whether to show first-run onboarding (no model + no cloud key + not done).
+let _onbDeferred = false;
 function maybeShowOnboarding() {
   if (localStorage.getItem('vortelio_onboarded')) return;
+  // Never stack it under the sign-in overlay: wait until that is dismissed.
+  const ao = document.getElementById('auth-overlay');
+  if (ao && ao.style.display !== 'none') { _onbDeferred = true; return; }
+  _onbDeferred = false;
   const hasLocal = installedModels.some(x => x.type === 'llm');
   const hasCloud = (_cloudProviders || []).some(p => p.has_key);
   if (!hasLocal && !hasCloud) openOnboarding();
@@ -3804,7 +3957,8 @@ function updateModelDDForDomain() {
       models.push({ v: 'customep:' + ep.id, l: ep.label || ep.model, tag: '🖥 ' + (ep.name || 'server'), cloud: true });
     }
   }
-  buildModelDD(models);
+  const _dd = document.getElementById('model-dd');
+  if (!_dd || !_dd.classList.contains('open')) buildModelDD(models);
   if (!models.find(m => m.v === selectedModel)) {
     const first = models[0];
     if (first) selectModel(first.v, first.l);
@@ -4781,14 +4935,18 @@ function toggleDD(name) {
   closeAllDD();
   if (!isOpen) {
     const r = btn.getBoundingClientRect();
-    // Position above the button
-    dd.style.left = r.left + 'px';
+    // Position above the button, clamped inside the viewport
+    const ddW = dd.offsetWidth || 240;
+    dd.style.left = Math.max(8, Math.min(r.left, window.innerWidth - ddW - 8)) + 'px';
     dd.style.bottom = (window.innerHeight - r.top + 6) + 'px';
     dd.style.top = 'auto';
+    dd.style.maxHeight = Math.max(160, r.top - 12) + 'px';
+    dd.style.overflowY = 'auto';
     // If not enough space above, open below
     if (r.top < 300) {
       dd.style.top = (r.bottom + 6) + 'px';
       dd.style.bottom = 'auto';
+      dd.style.maxHeight = Math.max(160, window.innerHeight - r.bottom - 12) + 'px';
     }
     dd.classList.add('open');
   }
@@ -5110,6 +5268,7 @@ function newChat() {
   chatHistory = [];
   attachments = [];
   currentChatId = null;
+  _cloudChatId = null;
   if (openTabs[activeTab]) { openTabs[activeTab].history = []; openTabs[activeTab].chatId = null; }
   renderAttachRow();
   document.getElementById('inp').value = '';
@@ -5354,19 +5513,21 @@ async function streamCloudInto(provider, model, history, content, canvas, signal
       if (ev.error) throw new Error(ev.error);
       if (ev.event) {
         const data = ev.data || {};
-        if (ev.event === 'media_generated') { try { replaceOrInsertMedia(content, data, tn); } catch {} canvas.scrollTop = 9999; continue; }
-        if (ev.event === 'notice') { if (data && data.text) { const bar=document.createElement('div'); bar.className='inline-notice'; bar.innerHTML='<span>ℹ️</span><span>'+esc(data.text)+'</span>'; content.insertBefore(bar, tn); } canvas.scrollTop = 9999; continue; }
-        if (ev.event === 'approval_request') { try { content.insertBefore(cloudApprovalEl(data), tn); } catch {} canvas.scrollTop = 9999; continue; }
-        if (ev.event === 'ask_user') { try { content.insertBefore(askUserEl(data), tn); } catch {} canvas.scrollTop = 9999; continue; }
-        if (ev.event === 'tool_call')   { const blk = makeToolBlock(data); content.insertBefore(blk, tn); _cloudTB[data.id || data.call_id || ('t'+Object.keys(_cloudTB).length)] = blk; maybeAddMediaPlaceholder(content, tn, data.name); canvas.scrollTop = 9999; continue; }
-        if (ev.event === 'tool_result') { fillToolResult(_cloudTB[data.id || data.call_id] || Object.values(_cloudTB).pop(), data); canvas.scrollTop = 9999; continue; }
+        if (ev.event === 'media_generated') { try { replaceOrInsertMedia(content, data, tn); } catch {} scrollBottom(canvas); continue; }
+        if (ev.event === 'notice') { if (data && data.text) { const bar=document.createElement('div'); bar.className='inline-notice'; bar.innerHTML='<span>ℹ️</span><span>'+esc(data.text)+'</span>'; content.insertBefore(bar, tn); } scrollBottom(canvas); continue; }
+        if (ev.event === 'approval_request') { try { content.insertBefore(cloudApprovalEl(data), tn); } catch {} scrollBottom(canvas); continue; }
+        if (ev.event === 'ask_user') { try { content.insertBefore(askUserEl(data), tn); } catch {} scrollBottom(canvas); continue; }
+        if (ev.event === 'tool_call')   { const blk = makeToolBlock(data); content.insertBefore(blk, tn); _cloudTB[data.id || data.call_id || ('t'+Object.keys(_cloudTB).length)] = blk; maybeAddMediaPlaceholder(content, tn, data.name); scrollBottom(canvas); continue; }
+        if (ev.event === 'tool_result') { fillToolResult(_cloudTB[data.id || data.call_id] || Object.values(_cloudTB).pop(), data); scrollBottom(canvas); continue; }
         continue;
       }
       const d = ev.delta || '';
-      if (d) { fullText += d; tn.innerHTML = renderMessage(fullText); canvas.scrollTop = 9999; }
+      if (d) { fullText += d; scheduleRender(tn, () => renderMessage(fullText)); }
     }
   }
+  flushRender(tn);
   tn.innerHTML = renderMessage(fullText, true); // final render: drop "writing" badge on unclosed fences
+  scrollFollow(canvas);
   return fullText;
 }
 
@@ -5404,7 +5565,7 @@ async function doChat(text, files, signal) {
 
   inner.appendChild(avatar); inner.appendChild(content);
   grp.appendChild(inner); msgs.appendChild(grp);
-  canvas.scrollTop = 9999;
+  scrollBottom(canvas);
   startLiveTimer(grp, _t0); // chronometer ticks while the reply is generated
 
   // Build the effective prompt: text + attached-file context (content for text
@@ -5486,11 +5647,11 @@ async function doChat(text, files, signal) {
       if (!tblock) {
         tblock = document.createElement('div');
         tblock.className = 'thinking-block';
-        tblock.innerHTML = '<div class="thinking-label">💡 Reasoning</div><div class="thinking-text"></div>';
+        tblock.innerHTML = '<div class="thinking-label">' + esc(t('reasoning')) + '</div><div class="thinking-text"></div>';
         content.insertBefore(tblock, textNode.parentNode || content.firstChild);
       }
       const tb = tblock.querySelector('.thinking-text');
-      if (tb) tb.textContent += tok;
+      if (tb) tb.appendChild(document.createTextNode(tok));
     };
 
     // Helper: handle a tool_call event payload
@@ -5522,7 +5683,7 @@ async function doChat(text, files, signal) {
       content.insertBefore(block, textNode);
       maybeAddMediaPlaceholder(content, textNode, tc.name); // animated square while it renders
       _toolBlocks[tc.id] = block;
-      canvas.scrollTop = 9999;
+      scrollBottom(canvas);
     };
 
     // Helper: handle a tool_result event payload
@@ -5544,7 +5705,7 @@ async function doChat(text, files, signal) {
       }
       // Keep the block COLLAPSED by default — it's just a compact line; the user
       // clicks the header to expand and see arguments/result.
-      canvas.scrollTop = 9999;
+      scrollBottom(canvas);
     };
 
     // Helper: render an approval request card (risky coding action)
@@ -5561,7 +5722,7 @@ async function doChat(text, files, signal) {
           <button class="btn danger" onclick="resolveApproval('${esc(ap.id)}',false,this)">✗ Deny</button>
         </div>`;
       content.insertBefore(card, textNode);
-      canvas.scrollTop = 9999;
+      scrollBottom(canvas);
     };
 
     // Helper: render a one-line inline notice (e.g. tools degraded for this model)
@@ -5571,7 +5732,7 @@ async function doChat(text, files, signal) {
       bar.className = 'inline-notice';
       bar.innerHTML = '<span>ℹ️</span><span>' + esc(n.text) + '</span>';
       content.insertBefore(bar, textNode);
-      canvas.scrollTop = 9999;
+      scrollBottom(canvas);
     };
 
     // Helper: process a decoded content token (handles <think> tags inline)
@@ -5613,8 +5774,8 @@ async function doChat(text, files, signal) {
           }
         }
       }
-      if (toDisplay) { full += toDisplay; textNode.innerHTML = renderMessage(full); }
-      canvas.scrollTop = 9999;
+      if (toDisplay) { full += toDisplay; scheduleRender(textNode, () => renderMessage(full)); }
+      else scrollFollow(canvas);
     };
 
     while (true) {
@@ -5632,8 +5793,8 @@ async function doChat(text, files, signal) {
           if (obj.event === 'tool_call') { try { _handleToolCall(obj.data); } catch {} continue; }
           if (obj.event === 'tool_result') { try { _handleToolResult(obj.data); } catch {} continue; }
           if (obj.event === 'approval_request') { try { _handleApproval(obj.data); } catch {} continue; }
-          if (obj.event === 'ask_user') { try { content.insertBefore(askUserEl(obj.data), textNode); canvas.scrollTop = 9999; } catch {} continue; }
-          if (obj.event === 'media_generated') { try { replaceOrInsertMedia(content, obj.data, textNode); canvas.scrollTop = 9999; } catch {} continue; }
+          if (obj.event === 'ask_user') { try { content.insertBefore(askUserEl(obj.data), textNode); scrollBottom(canvas); } catch {} continue; }
+          if (obj.event === 'media_generated') { try { replaceOrInsertMedia(content, obj.data, textNode); scrollBottom(canvas); } catch {} continue; }
           if (obj.event === 'notice') { try { _handleNotice(obj.data); } catch {} continue; }
           if (obj.done) break;
           if (typeof obj.response === 'string') _appendToken(obj.response);
@@ -5664,7 +5825,9 @@ async function doChat(text, files, signal) {
       }
     }
     _appendToken('', true); // flush any held-back tail
+    flushRender(textNode);
     textNode.innerHTML = renderMessage(full, true); // final render: no "writing" badge on unclosed fences
+    scrollFollow(canvas);
     chatHistory.push({role:'assistant', content:full});
     autoSaveCurrentChat();
     addReplyMeta(grp, _t0, full);
@@ -5702,7 +5865,7 @@ function renderMessage(text, done) {
       result += '<div class="code-block code-partial">' +
         '<div class="code-header">' +
         '<span class="code-lang">' + _he(lang || 'code') + '</span>' +
-        '<span class="code-writing">✍ scrivendo\u2026</span>' +
+        '<span class="code-writing">' + _he(t('codeWriting')) + '</span>' +
         '</div>' +
         '<pre id="' + id + '" data-raw="' + raw64 + '"><code>' + _he(code) + '</code></pre>' +
         '</div>';
@@ -5717,15 +5880,16 @@ function renderMessage(text, done) {
       result += '<div class="code-block">' +
         '<div class="code-header">' +
         '<span class="code-lang">' + _he(lang || 'code') + '</span>' +
-        (previewable ? '<button class="code-copy-btn" onclick="previewHtmlB64(\'' + raw64 + '\',this)">👁 Anteprima</button>' : '') +
-        (runnable ? '<button class="code-copy-btn" onclick="runCodeB64(\'' + raw64 + '\',\'' + lc + '\',this)">▶ Esegui</button>' : '') +
-        '<button class="code-copy-btn" onclick="copyCodeB64(\'' + raw64 + '\',this)">📋 Copia</button>' +
+        (previewable ? '<button class="code-copy-btn" onclick="previewHtmlB64(\'' + raw64 + '\',this)">' + _he(t('codePreview')) + '</button>' : '') +
+        (runnable ? '<button class="code-copy-btn" onclick="runCodeB64(\'' + raw64 + '\',\'' + lc + '\',this)">' + _he(t('codeRun')) + '</button>' : '') +
+        '<button class="code-copy-btn" onclick="copyCodeB64(\'' + raw64 + '\',this)">' + _he(t('codeCopy')) + '</button>' +
         '</div>' +
         '<pre id="' + id + '" data-raw="' + raw64 + '"><code>' + _he(code) + '</code></pre>' +
         '<div class="code-output" style="display:none"></div>' +
         (previewable ? '<div class="code-preview" style="display:none"></div>' : '') +
         '</div>';
       pos = close === -1 ? text.length : close + 3;
+      if (text[pos] === '\n') pos++; // the line break that ends the fence is not content
     }
   }
   return result;
@@ -5774,11 +5938,89 @@ function _he(s) {
     .replace(/>/g,'&gt;');
   // Note: real \n chars are preserved in <pre> elements by browsers
 }
+// Inline markdown: code spans are protected first so `**` or `_` inside them
+// are never styled; then bold / italic / strike / links.
+function _mdInline(s) {
+  const codes = [];
+  let out = _he(s).replace(/`([^`\n]+)`/g, (_, c) => { codes.push(c); return '\u0000' + (codes.length - 1) + '\u0000'; });
+  out = out
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.+?)__/g, '<strong>$1</strong>')
+    .replace(/(^|[^*\w])\*([^*\n]+?)\*(?!\w)/g, '$1<em>$2</em>')
+    .replace(/(^|[^_\w])_([^_\n]+?)_(?!\w)/g, '$1<em>$2</em>')
+    .replace(/~~(.+?)~~/g, '<del>$1</del>')
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, txt, url) => '<a href="' + url.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener">' + txt + '</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (_, pre, url) => pre + '<a href="' + url.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener">' + url + '</a>');
+  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => '<code class="inline-code">' + codes[+i] + '</code>');
+}
+const _MD_ITEM = /^(\s*)([-*+•]|\d+[.)])\s+(.*)$/;
+function _mdList(lines, i) {
+  const first = lines[i].match(_MD_ITEM);
+  const indent = first[1].length;
+  const ordered = /\d/.test(first[2]);
+  const startNum = ordered ? parseInt(first[2]) || 1 : 1;
+  let html = ordered ? ('<ol' + (startNum !== 1 ? ' start="' + startNum + '"' : '') + '>') : '<ul>';
+  while (i < lines.length) {
+    const m = lines[i].match(_MD_ITEM);
+    if (!m || m[1].length < indent) break;
+    if (m[1].length === indent && /\d/.test(m[2]) !== ordered) break; // list type changed → new list
+    if (m[1].length > indent) {                       // nested list → attach to the previous item
+      const [sub, ni] = _mdList(lines, i);
+      html = html.endsWith('</li>') ? html.slice(0, -5) + sub + '</li>' : html + '<li>' + sub + '</li>';
+      i = ni; continue;
+    }
+    let txt = m[3], cb = '';
+    const tk = txt.match(/^\[([ xX])\]\s+(.*)$/);
+    if (tk) { cb = '<input type="checkbox" disabled' + (tk[1] !== ' ' ? ' checked' : '') + '> '; txt = tk[2]; }
+    html += '<li>' + cb + _mdInline(txt) + '</li>';
+    i++;
+    // indented continuation lines belong to the item above
+    while (i < lines.length && lines[i].trim() !== '' && !_MD_ITEM.test(lines[i]) && /^\s{2,}/.test(lines[i])) {
+      html = html.slice(0, -5) + '<br>' + _mdInline(lines[i].trim()) + '</li>'; i++;
+    }
+  }
+  return [html + (ordered ? '</ol>' : '</ul>'), i];
+}
+const _MD_TABLE_SEP = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+function _mdTable(lines, i) {
+  const cells = ln => ln.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+  const head = cells(lines[i]);
+  const aligns = cells(lines[i + 1]).map(c => /^:-+:$/.test(c) ? 'center' : /-+:$/.test(c) ? 'right' : '');
+  let html = '<table><thead><tr>' + head.map((c, k) => '<th' + (aligns[k] ? ' style="text-align:' + aligns[k] + '"' : '') + '>' + _mdInline(c) + '</th>').join('') + '</tr></thead><tbody>';
+  i += 2;
+  while (i < lines.length && lines[i].includes('|') && lines[i].trim() !== '') {
+    html += '<tr>' + cells(lines[i]).map((c, k) => '<td' + (aligns[k] ? ' style="text-align:' + aligns[k] + '"' : '') + '>' + _mdInline(c) + '</td>').join('') + '</tr>';
+    i++;
+  }
+  return [html + '</tbody></table>', i];
+}
+// Block-level markdown (headings, lists, quotes, tables, rules). Plain text lines
+// keep the old behaviour: one <br> per newline, so streaming output looks the same.
 function _md(s) {
-  return _he(s)
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/`([^`\n]+)`/g,'<code class="inline-code">$1</code>')
-    .replace(/\n/g,'<br>');
+  const lines = String(s).split('\n');
+  let out = '', i = 0, para = [];
+  const flush = () => {
+    while (para.length && para[para.length - 1] === '') para.pop();
+    if (para.length) out += para.map(_mdInline).join('<br>');
+    para = [];
+  };
+  while (i < lines.length) {
+    const ln = lines[i];
+    let m;
+    if ((m = ln.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/))) { flush(); const lv = Math.min(m[1].length, 4); out += '<h' + lv + '>' + _mdInline(m[2]) + '</h' + lv + '>'; i++; continue; }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(ln)) { flush(); out += '<hr>'; i++; continue; }
+    if (_MD_ITEM.test(ln)) { flush(); const [h, ni] = _mdList(lines, i); out += h; i = ni; continue; }
+    if (ln.includes('|') && i + 1 < lines.length && _MD_TABLE_SEP.test(lines[i + 1]) && lines[i + 1].includes('-')) { flush(); const [h, ni] = _mdTable(lines, i); out += h; i = ni; continue; }
+    if (/^\s*>/.test(ln)) {
+      flush(); const q = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) { q.push(lines[i].replace(/^\s*>\s?/, '')); i++; }
+      out += '<blockquote>' + _md(q.join('\n')) + '</blockquote>'; continue;
+    }
+    if (ln === '' && !para.length && (out.endsWith('>') && !out.endsWith('<br>'))) { i++; continue; } // no blank gap right after a block
+    para.push(ln); i++;
+  }
+  flush();
+  return out;
 }
 
 function copyCode(id) {
@@ -5809,7 +6051,7 @@ function copyCodeB64(b64, btn) {
     const text = decodeURIComponent(escape(atob(b64)));
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(
-        () => { if(btn){const orig=btn.textContent;btn.textContent='✅ Copied';setTimeout(()=>btn.textContent=orig,1500);} toast('✅ Code copied','ok'); },
+        () => { if(btn){const orig=btn.textContent;btn.textContent=t('codeCopied');setTimeout(()=>btn.textContent=orig,1500);} toast('✅ Code copied','ok'); },
         () => fallbackCopy(text)
       );
     } else { fallbackCopy(text); }
@@ -5829,10 +6071,10 @@ async function doGenerate(text, files, signal) {
   const isSquare = (domain === 'image' || domain === 'video' || domain === 'threed');
   const grp = document.createElement('div');
   grp.className = 'msg-group msg-ai';
-  grp.innerHTML = `<div class="msg-inner"><div class="ai-avatar">PA</div><div class="content"><div id="gen-holder"></div></div></div>`;
-  msgs.appendChild(grp); canvas.scrollTop = 9999;
+  grp.innerHTML = `<div class="msg-inner"><div class="ai-avatar">VT</div><div class="content"><div class="gen-holder"></div></div></div>`;
+  msgs.appendChild(grp); scrollBottom(canvas);
   const contentEl = grp.querySelector('.content');
-  const holder = grp.querySelector('#gen-holder');
+  const holder = grp.querySelector('.gen-holder');
 
   // Build an animated placeholder: a shimmer square (with % + elapsed time in the
   // middle) for visual media, an advancing bar for audio.
@@ -5867,7 +6109,8 @@ async function doGenerate(text, files, signal) {
       const bar = ph.querySelector('#prog-bar'); if (bar && _lastPct <= 0) { bar.classList.remove('indeterminate'); bar.style.width = pct + '%'; }
     }
   }, 100);
-  window._stopGenTimer = () => { try { clearInterval(_genTimer); } catch {} };
+  const _stopThisTimer = () => { try { clearInterval(_genTimer); } catch {} };
+  window._stopGenTimer = _stopThisTimer;
 
   function updateProgress(pct, msg) {
     _lastPct = pct;
@@ -5879,7 +6122,7 @@ async function doGenerate(text, files, signal) {
       if (bar && pct > 0) { bar.classList.remove('indeterminate'); bar.style.width = pct + '%'; }
       const m = ph.querySelector('#prog-msg'); if (m && msg) m.textContent = msg;
     }
-    canvas.scrollTop = 9999;
+    scrollBottom(canvas);
   }
 
   try {
@@ -5892,7 +6135,7 @@ async function doGenerate(text, files, signal) {
 
     if (!r.ok) {
       const d = await r.json().catch(()=>({}));
-      contentEl.innerHTML = `<span style="color:var(--red)">❌ ${esc(d.error||'Error')}</span>`;
+      contentEl.innerHTML = `<span style="color:#dc2626">❌ ${esc(friendlyError(d.error||'Error'))}</span>`;
       return;
     }
 
@@ -5936,13 +6179,13 @@ async function doGenerate(text, files, signal) {
       }
     }
 
-    if (window._stopGenTimer) window._stopGenTimer();
+    _stopThisTimer();
     if (errorData) {
-      contentEl.innerHTML = `<span style="color:var(--red)">❌ ${esc(errorData.error||'Error')}</span>`;
+      contentEl.innerHTML = `<span style="color:#dc2626">❌ ${esc(friendlyError(errorData.error||'Error'))}</span>`;
       return;
     }
     if (!resultData) {
-      contentEl.innerHTML = `<span style="color:var(--red)">❌ No result received</span>`;
+      contentEl.innerHTML = `<span style="color:#dc2626">❌ No result received</span>`;
       return;
     }
 
@@ -6012,10 +6255,13 @@ async function doGenerate(text, files, signal) {
       contentEl.innerHTML = `<span style="color:#16a34a">✅ ${d.saved_to ? 'Saved to: ' + esc(d.saved_to) : 'Done'}</span>`;
     }
     toast('✅ Done');
-  } catch {
-    contentEl.innerHTML = '<span style="color:#e04040">⚠️ Server unreachable</span>';
+  } catch (e) {
+    _stopThisTimer();
+    contentEl.innerHTML = (e && e.name === 'AbortError')
+      ? '<span style="color:var(--text3)">[cancelled]</span>'
+      : '<span style="color:#e04040">⚠️ Server unreachable</span>';
   }
-  canvas.scrollTop = 9999;
+  scrollBottom(canvas);
 }
 
 function addUserMsg(text, files) {
@@ -6036,11 +6282,11 @@ function addUserMsg(text, files) {
   const bar = grp.querySelector('.msg-actions');
   const mk = (icon, title, fn) => { const b = document.createElement('button'); b.className = 'msg-act'; b.title = title; b.textContent = icon; b.onclick = fn; return b; };
   bar.append(
-    mk('✏️', 'Modifica la domanda', () => { const inp = document.getElementById('inp'); if (inp) { inp.value = text || ''; autoSize(inp); inp.focus(); } }),
-    mk('📝', 'Copia la domanda', () => { navigator.clipboard.writeText(text || ''); toast('📝 Domanda copiata'); })
+    mk('✏️', t('editQuestion'), () => { const inp = document.getElementById('inp'); if (inp) { inp.value = text || ''; autoSize(inp); inp.focus(); } }),
+    mk('📝', t('copyQuestion'), () => { navigator.clipboard.writeText(text || ''); toast(t('questionCopied')); })
   );
   msgs.appendChild(grp);
-  document.getElementById('canvas').scrollTop = 9999;
+  scrollBottom(document.getElementById('canvas'));
 }
 
 // ── Panels ────────────────────────────────────────
@@ -6108,7 +6354,7 @@ async function loadModels() {
       </div>`;
     }).join('');
     el.innerHTML =
-      (localHtml ? '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 8px">💻 Sul tuo PC</div>' + localHtml : '') +
+      (localHtml ? '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 8px">' + esc(t('onThisPC')) + '</div>' + localHtml : '') +
       cloudHtml;
   } catch { el.innerHTML = '<div style="color:var(--err,#dc2626);padding:12px 0">Error loading models</div>'; }
 }
@@ -6123,8 +6369,8 @@ function buildCloudModelsHtml() {
       <span class="type-pill tp-llm">☁️</span>
       <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px">${esc(p.name)}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:1px">${kc} chiav${kc>1?'i':'e'} configurat${kc>1?'e':'a'} · ${(p.models||[]).length} modelli + custom</div></div>
-      <button class="btn" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="editCloudProvider('${esc(p.id)}')">✏️ Modifica</button>
-      <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="removeCloudKey('${esc(p.id)}')">🗑 Rimuovi</button>
+      <button class="btn" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="editCloudProvider('${esc(p.id)}')">${esc(t('editBtn'))}</button>
+      <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="removeCloudKey('${esc(p.id)}')">${esc(t('remove'))}</button>
     </div>`);
   }
   for (const ep of getCustomEndpoints()) {
@@ -6132,7 +6378,7 @@ function buildCloudModelsHtml() {
       <span class="type-pill tp-llm">🖥</span>
       <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px">${esc(ep.name||'Server')} <span style="font-size:11px;color:var(--text3)">(${esc(ep.model)})</span></div>
         <div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(ep.baseURL)}</div></div>
-      <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="removeCustomEndpoint('${esc(ep.id)}')">🗑 Rimuovi</button>
+      <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="removeCustomEndpoint('${esc(ep.id)}')">${esc(t('remove'))}</button>
     </div>`);
   }
   const _mtIcon = { image: '🎨', audio: '🔊', video: '🎬', '3d': '🧊' };
@@ -6142,11 +6388,11 @@ function buildCloudModelsHtml() {
       <span class="type-pill tp-image">${_mtIcon[mp.type] || '☁️'}</span>
       <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px">${esc(mp.name)}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(mp.type)} · API configurata</div></div>
-      <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="removeMediaKey('${esc(mp.id)}')">🗑 Rimuovi</button>
+      <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="removeMediaKey('${esc(mp.id)}')">${esc(t('remove'))}</button>
     </div>`);
   }
   if (!rows.length) return '';
-  return '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px">☁️ Cloud &amp; server</div>' + rows.join('');
+  return '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px">' + esc(t('cloudAndServer')) + '</div>' + rows.join('');
 }
 async function removeMediaKey(providerId) {
   if (!confirm('Rimuovere la API key media di ' + providerId + '?')) return;
@@ -6344,11 +6590,16 @@ function safeId(s) { return String(s).replace(/[^a-z0-9]/gi,'_'); }
 
 // Detected memory budget (RAM−reserve + VRAM), loaded once and reused by the
 // catalog cards so each model can show whether it fits this machine.
-let _sysRes = null;
+let _sysRes = null, _sysResPending = null;
 async function loadSysRes() {
   if (_sysRes) return _sysRes;
-  try { const r = await fetch('/api/system/resources'); _sysRes = await r.json(); } catch {}
-  return _sysRes;
+  if (_sysResPending) return _sysResPending;   // one in-flight request at a time
+  _sysResPending = (async () => {
+    try { const r = await fetch('/api/system/resources'); if (r.ok) _sysRes = await r.json(); } catch {}
+    _sysResPending = null;
+    return _sysRes;
+  })();
+  return _sysResPending;
 }
 // Parse a human size string ("2.0 GB", "400 MB") into GB.
 function parseGB(s) {
@@ -6365,18 +6616,22 @@ function fitBadgeGB(gb) {
   let k = 'ok';
   if (gb > b) k = 'over'; else if (gb > b * 0.75) k = 'tight';
   const F = {
-    ok:    { l: '✅ Entra in memoria', c: '#16a34a', t: 'Entra comodamente nella tua memoria — puoi usarlo.' },
-    tight: { l: '⚠️ Al limite',        c: '#d97706', t: 'Ci sta ma vicino al limite: chiudi altre app, potrebbe andare lento.' },
-    over:  { l: '❌ Troppo grande',     c: '#dc2626', t: 'Più grande della memoria disponibile: rischio crash o estrema lentezza.' },
+    ok:    { l: t('fitOk'),    c: '#16a34a', t: 'Entra comodamente nella tua memoria — puoi usarlo.' },
+    tight: { l: t('fitTight'), c: '#d97706', t: 'Ci sta ma vicino al limite: chiudi altre app, potrebbe andare lento.' },
+    over:  { l: t('fitOver'),  c: '#dc2626', t: 'Più grande della memoria disponibile: rischio crash o estrema lentezza.' },
   }[k];
   return `<span title="${F.t}" style="font-size:10px;font-weight:600;color:${F.c};white-space:nowrap">${F.l}</span>`;
 }
 
-function renderReg(items) {
+function renderReg(items, query) {
   const grid = document.getElementById('reg-grid');
   if (!grid) return;
-  if (!_sysRes) loadSysRes().then(() => renderReg(items)); // fill badges once budget known
-  const filtered = items.filter(m => regFilter === 'all' || m.t === regFilter);
+  // Fill the fit badges once the memory budget is known — but only re-render if
+  // the fetch actually succeeded (otherwise this looped forever while offline).
+  if (!_sysRes && !_sysResPending) loadSysRes().then(res => { if (res) renderReg(items, query); });
+  const q = String(query || '').toLowerCase();
+  const filtered = items.filter(m => (regFilter === 'all' || m.t === regFilter) &&
+    (!q || m.n.toLowerCase().includes(q) || m.d.toLowerCase().includes(q)));
   grid.innerHTML = filtered.map(m => {
     const sid = safeId(m.t+'/'+m.n);
     return `
@@ -6390,7 +6645,7 @@ function renderReg(items) {
       <div style="margin:4px 0 2px">${fitBadgeGB(parseGB(m.s))}</div>
       <div id="dl-prog-${sid}" style="display:none;margin:8px 0 4px">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px">
-          <span id="dl-lbl-${sid}">Connessione…</span>
+          <span id="dl-lbl-${sid}">${esc(t('connecting'))}</span>
           <span id="dl-pct-${sid}">0%</span>
         </div>
         <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden">
@@ -6398,13 +6653,13 @@ function renderReg(items) {
         </div>
         <button onclick="cancelDl('${m.t}/${m.n}')"
           style="margin-top:6px;width:100%;padding:4px;font-size:11px;border:1px solid var(--err-color,#dc2626);color:#dc2626;background:transparent;border-radius:4px;cursor:pointer;font-family:var(--sans)">
-          ⏹ Cancel download
+          ${esc(t('cancelDownload'))}
         </button>
       </div>
       <div class="rcard-foot" id="dl-foot-${sid}">
         <span class="rcard-sz">${m.s} · ${m.l}</span>
         <button class="btn primary" id="dl-btn-${sid}" style="font-size:12px;padding:5px 14px"
-          onclick="pullModel('${m.t}/${m.n}',this)">↓ Download</button>
+          onclick="pullModel('${m.t}/${m.n}',this)">${esc(t('download'))}</button>
       </div>
     </div>`;
   }).join('');
@@ -6414,25 +6669,13 @@ function filterType(t, btn) {
   regFilter = t;
   document.querySelectorAll('.rf-btn').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
-  renderReg(REG);
+  renderReg(REG, _regQuery);
 }
 
+let _regQuery = '';
 function filterReg(q) {
-  const items = REG.filter(m =>
-    (regFilter === 'all' || m.t === regFilter) &&
-    (m.n.toLowerCase().includes(q.toLowerCase()) || m.d.toLowerCase().includes(q.toLowerCase()))
-  );
-  document.getElementById('reg-grid').innerHTML = items.map(m => `
-    <div class="rcard">
-      <span class="type-pill ${tClass[m.t]}">${tIcon[m.t]} ${m.t.toUpperCase()}</span>
-      <div class="rcard-name">${m.n}</div>
-      <div class="rcard-desc">${m.d}</div>
-      <div style="margin:4px 0 2px">${fitBadgeGB(parseGB(m.s))}</div>
-      <div class="rcard-foot">
-        <span class="rcard-sz">${m.s}</span>
-        <button class="btn" style="font-size:12px;padding:5px 12px" onclick="pullModel('${m.t}/${m.n}',this)">↓ Download</button>
-      </div>
-    </div>`).join('');
+  _regQuery = q || '';
+  renderReg(REG, _regQuery);
 }
 
 function showCustomInstall() {
@@ -6795,11 +7038,37 @@ function handleDrop(e) {
 }
 
 // ── Utils ─────────────────────────────────────────
+// Scroll a canvas to its real bottom (a fixed 9999px stopped short on long chats).
+function scrollBottom(el) { if (el) el.scrollTop = el.scrollHeight; }
+// Follow the stream only while the user is already near the bottom, so scrolling
+// up to re-read earlier text is not hijacked by every incoming token.
+function scrollFollow(el) {
+  if (!el) return;
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 160) el.scrollTop = el.scrollHeight;
+}
+// Coalesce streaming re-renders to one per animation frame. Re-rendering the
+// whole message on every token was O(n²) and made long replies stutter.
+function scheduleRender(node, build) {
+  if (!node) return;
+  node._pendingBuild = build;
+  if (node._raf) return;
+  node._raf = requestAnimationFrame(() => {
+    node._raf = 0;
+    const b = node._pendingBuild; node._pendingBuild = null;
+    if (b) node.innerHTML = b();
+    scrollFollow(node.closest('.canvas'));
+  });
+}
+function flushRender(node) {
+  if (!node) return;
+  if (node._raf) { cancelAnimationFrame(node._raf); node._raf = 0; }
+  node._pendingBuild = null;
+}
 let _toastTimer = null;
 function toast(msg, type='') {
   const el = document.getElementById('toast');
   el.textContent = msg; el.className = 'toast show' + (type ? ' '+type : '');
-  el.title = 'Clicca per chiudere';
+  el.title = t('toastClose');
   el.onclick = () => { el.className = 'toast'; };
   if (_toastTimer) clearTimeout(_toastTimer);
   // Errors stay long enough to read (and can be dismissed by clicking).
@@ -6846,21 +7115,42 @@ function doSaveChat() {
   const name = nameEl ? nameEl.value.trim() : '';
   if (!name) return;
   document.getElementById('save-dlg').classList.remove('show');
-  const msgsHtml = document.getElementById('msgs').innerHTML;
+  const msgsHtml = snapshotMsgsHtml();
   const id = currentChatId || Date.now().toString();
   currentChatId = id;
   const chatData = { id, name, messages: chatHistory.slice(), msgsHtml, domain, model: selectedModel, savedAt: new Date().toISOString() };
   const idx = savedChats.findIndex(c => c.id === id);
   if (idx >= 0) savedChats[idx] = chatData; else savedChats.unshift(chatData);
   if (savedChats.length > 50) savedChats = savedChats.slice(0, 50);
-  try { localStorage.setItem('pullai_chats', JSON.stringify(savedChats)); } catch(e) {}
+  const ok = persistChats();
   renderChatHistory();
-  toast('💾 Chat saved: ' + name, 'ok');
+  toast(ok ? (t('chatSaved') + name) : '❌ Storage full — chat not saved', ok ? 'ok' : 'err');
 }
 
 function loadSavedChats() {
   try { savedChats = JSON.parse(localStorage.getItem('pullai_chats') || '[]'); } catch(e) { savedChats = []; }
   renderChatHistory();
+}
+
+// Write the chat list; on quota overflow drop the rendered HTML snapshots of the
+// oldest chats first (the message text is what matters — it is always kept).
+function persistChats() {
+  const key = 'pullai_chats';
+  const tryWrite = () => { localStorage.setItem(key, JSON.stringify(savedChats)); return true; };
+  try { return tryWrite(); } catch (e) {}
+  for (let i = savedChats.length - 1; i >= 0; i--) {
+    if (!savedChats[i].msgsHtml) continue;
+    savedChats[i].msgsHtml = '';
+    try { return tryWrite(); } catch (e) {}
+  }
+  try { savedChats = savedChats.slice(0, 20); return tryWrite(); } catch (e) { return false; }
+}
+// Keep inline data-URI media out of the HTML snapshot (it is huge and the
+// original lives on disk anyway — the saved_to path is kept in the text).
+function snapshotMsgsHtml() {
+  const html = document.getElementById('msgs').innerHTML;
+  if (html.length < 300000) return html;
+  return html.replace(/ src="data:[^"]{2000,}"/g, ' src="" data-stripped="1"');
 }
 
 // Auto-save: every chat is saved silently after each reply (on by default).
@@ -6882,8 +7172,8 @@ function addMsgActions(grp, userText, responseText) {
   const mk = (icon, title, fn) => { const b = document.createElement('button'); b.className = 'msg-act'; b.title = title; b.textContent = icon; b.onclick = fn; return b; };
   // Icon-only: copy reply, regenerate.
   bar.append(
-    mk('📋', 'Copia la risposta', () => { navigator.clipboard.writeText(responseText || ''); toast('📋 Risposta copiata'); }),
-    mk('↻', 'Rigenera la risposta', () => editLastTurn(userText, true))
+    mk('📋', t('copyReply'), () => { navigator.clipboard.writeText(responseText || ''); toast(t('replyCopied')); }),
+    mk('↻', t('regenerate'), () => editLastTurn(userText, true))
   );
   content.appendChild(bar);
 }
@@ -6939,12 +7229,12 @@ function autoSaveCurrentChat() {
   let name = '';
   const firstUser = (chatHistory.find(m => m.role === 'user') || {}).content || '';
   name = firstUser.trim().slice(0, 42) || ('Chat ' + new Date().toLocaleTimeString());
-  const msgsHtml = document.getElementById('msgs').innerHTML;
+  const msgsHtml = snapshotMsgsHtml();
   const chatData = { id, name, messages: chatHistory.slice(), msgsHtml, domain, model: selectedModel, savedAt: new Date().toISOString() };
   const idx = savedChats.findIndex(c => c.id === id);
   if (idx >= 0) savedChats[idx] = chatData; else savedChats.unshift(chatData);
   if (savedChats.length > 50) savedChats = savedChats.slice(0, 50);
-  try { localStorage.setItem('pullai_chats', JSON.stringify(savedChats)); } catch(e) {}
+  persistChats();
   renderChatHistory();
 }
 
@@ -6958,7 +7248,7 @@ function renderChatHistory() {
   el.innerHTML = savedChats.map((c, i) => `
     <div class="hist-item ${c.id===currentChatId?'active':''}" title="${esc(c.name)}">
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="loadChat(${i})">${esc(c.name)}</span>
-      <span style="cursor:pointer;opacity:.4;padding:0 4px;font-size:14px;flex-shrink:0" onclick="deleteChat(${i})" title="Delete">×</span>
+      <span class="hist-x" onclick="deleteChat(${i})" title="${esc(t('remove'))}">×</span>
     </div>`).join('');
 }
 
@@ -6980,37 +7270,31 @@ function loadChat(idx) {
   }
   document.getElementById('welcome').style.display = 'none';
   document.getElementById('msgs').style.display = 'block';
-  document.getElementById('msgs').innerHTML = c.msgsHtml || '';
+  const msgsEl = document.getElementById('msgs');
+  if (c.msgsHtml) msgsEl.innerHTML = c.msgsHtml;
+  else msgsEl.innerHTML = chatHistory.map(m => m.role === 'user'
+    ? `<div class="msg-group msg-user"><div class="msg-inner"><div class="bubble">${esc(m.content)}</div></div></div>`
+    : `<div class="msg-group msg-ai"><div class="msg-inner"><div class="ai-avatar">VT</div><div class="content">${renderMessage(m.content || '', true)}</div></div></div>`).join('');
+  if (openTabs[activeTab]) { openTabs[activeTab].title = c.name; openTabs[activeTab].name = c.name; }
   const sb = document.getElementById('save-chat-btn');
   if (sb) sb.style.display = 'flex';
   showPanel('chat');
-  document.getElementById('canvas').scrollTop = 9999;
+  scrollBottom(document.getElementById('canvas'));
   renderTabs();
-  toast('💬 Chat loaded: ' + c.name + ' (' + chatHistory.filter(m=>m.role==="user").length + ' messages)');
+  toast(t('chatLoaded') + c.name + ' (' + chatHistory.filter(m=>m.role==="user").length + ')');
 }
 
 function deleteChat(idx) {
+  const c = savedChats[idx];
   savedChats.splice(idx, 1);
-  try { localStorage.setItem('pullai_chats', JSON.stringify(savedChats)); } catch(e) {}
+  persistChats();
+  if (c && c.id === currentChatId) currentChatId = null; // otherwise the next auto-save resurrects it
   renderChatHistory();
-  toast('Chat deleted');
+  toast(t('chatDeleted'));
 }
 
 // ── Default Model ────────────────────────────────────────
-
-function setDefaultModel(ref) {
-  const type = ref.split('/')[0];
-  if (defaultModels[type] === ref) {
-    // Already default → unset
-    delete defaultModels[type];
-    toast('☆ Default removed for ' + type.toUpperCase());
-  } else {
-    defaultModels[type] = ref;
-    toast('⭐ Default for ' + type.toUpperCase() + ': ' + ref.split('/').slice(1).join('/'));
-  }
-  localStorage.setItem('pullai_default_models', JSON.stringify(defaultModels));
-  loadModels();
-}
+// setDefaultModel() is defined once, near the defaultModels declaration.
 
 function applyDefaultModel() {
   const typeMap = {chat:'llm', image:'image', audio:'audio', video:'video', threed:'3d'};
@@ -7070,8 +7354,34 @@ function authShowError(id, msg) { const e=document.getElementById(id); if(e){e.t
 function authClearError(id) { const e=document.getElementById(id); if(e) e.style.display='none'; }
 
 // ── Firebase init ─────────────────────────────────────────────
+// Load the SDK from JS, in order, without blocking first paint. Before, the two
+// <script> tags in <head> were synchronous: offline, the page waited on gstatic
+// and then init() crashed on the missing `firebase` global.
+let _fbLoadTried = false;
+function loadFirebaseSDK() {
+  if (_fbLoadTried) return;
+  _fbLoadTried = true;
+  if (typeof firebase !== 'undefined') { fbInit(); return; }
+  const add = (src) => new Promise((res, rej) => {
+    const el = document.createElement('script');
+    el.src = src; el.async = true; el.onload = res; el.onerror = () => rej(new Error('load failed: ' + src));
+    document.head.appendChild(el);
+  });
+  add('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js')
+    .then(() => add('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js'))
+    .then(() => fbInit())
+    .catch(() => {
+      // Offline / blocked: local-only mode. Tell the user why sign-in is unavailable.
+      const note = document.getElementById('auth-offline-note');
+      if (note) { note.textContent = t('offlineAuth'); note.style.display = 'block'; }
+      _fbLoadTried = false; // allow a retry later (e.g. from authShowOverlay)
+    });
+}
 function fbInit() {
   if (_fbApp) return;
+  if (typeof firebase === 'undefined') return;
+  const note = document.getElementById('auth-offline-note');
+  if (note) note.style.display = 'none';
   _fbApp = firebase.initializeApp({
     apiKey:            "AIzaSyAdcdsA3V3CevO70yV1wj67TFNil9XDdQI",
     authDomain:        "vortelio-3e7a8.firebaseapp.com",
@@ -7140,6 +7450,7 @@ function authApplySession() {
   const s = authGetSession();
   if (s) {
     overlay.style.display = 'none';
+    if (_onbDeferred) setTimeout(maybeShowOnboarding, 250);
     const initial = (s.name || s.email || 'G').slice(0,1).toUpperCase();
     if (tbAvatar) {
       if (s.avatar) {
@@ -7177,6 +7488,7 @@ async function authLogin() {
   const email = document.getElementById('auth-email').value.trim();
   const pwd   = document.getElementById('auth-pwd').value;
   if (!email || !pwd) { authShowError('auth-err', 'Please fill in all fields'); return; }
+  if (!_fbAuth) { authShowError('auth-err', t('offlineAuth')); loadFirebaseSDK(); return; }
   const btn = document.querySelector('#auth-login-form .auth-submit');
   if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
   try {
@@ -7195,6 +7507,7 @@ async function authRegister() {
   const pwd   = document.getElementById('auth-reg-pwd').value;
   if (!name || !email || !pwd) { authShowError('auth-reg-err', 'Please fill in all fields'); return; }
   if (pwd.length < 8) { authShowError('auth-reg-err', 'Password must be at least 8 characters'); return; }
+  if (!_fbAuth) { authShowError('auth-reg-err', t('offlineAuth')); loadFirebaseSDK(); return; }
   const btn = document.querySelector('#auth-register-form .auth-submit');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   try {
@@ -7209,6 +7522,7 @@ async function authRegister() {
 }
 
 function authGoogle() {
+  if (!_fbAuth) { authShowError('auth-err', t('offlineAuth')); loadFirebaseSDK(); return; }
   const provider = new firebase.auth.GoogleAuthProvider();
   _fbAuth.signInWithPopup(provider).catch(e => {
     if (e.code !== 'auth/popup-closed-by-user') toast('❌ ' + fbErrorMsg(e), 'err');
@@ -7233,6 +7547,7 @@ function authSkip() {
 function authShowOverlay() {
   const overlay = document.getElementById('auth-overlay');
   if (!overlay) return;
+  if (!_fbAuth) loadFirebaseSDK(); // retry the SDK if the first attempt failed
   authShowLogin();
   const errEl = document.getElementById('auth-err');
   if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
@@ -7288,7 +7603,7 @@ function openSavedChats() {
   const overlay = document.getElementById('saved-chats-overlay');
   if (!overlay) return;
   overlay.style.display = 'flex';
-  loadSavedChats();
+  loadCloudChats();
 }
 
 function closeSavedChats() {
@@ -7296,7 +7611,11 @@ function closeSavedChats() {
   if (overlay) overlay.style.display = 'none';
 }
 
-async function loadSavedChats() {
+// Cloud chats (Firebase account) — distinct from loadSavedChats(), which
+// restores the local sidebar history from localStorage. Two functions with the
+// same name used to collide: the cloud one overwrote the local one and the
+// sidebar history was never rendered on startup.
+async function loadCloudChats() {
   const list = document.getElementById('saved-chats-list');
   if (!list) return;
   list.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:16px">Loading…</div>';
@@ -7325,8 +7644,11 @@ async function loadSavedChats() {
 async function deleteSavedChat(chatId, btn) {
   if (!confirm('Delete this chat?')) return;
   try {
-    await fetch('/api/chats/' + chatId, { method: 'DELETE' });
-    loadSavedChats();
+    const r = await fetch('/api/chats/' + chatId, { method: 'DELETE' });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    if (_cloudChatId === chatId) _cloudChatId = null;
+    loadCloudChats();
     toast('Chat deleted');
   } catch(e) { toast('❌ ' + e.message, 'err'); }
 }
@@ -7335,40 +7657,53 @@ function loadSavedChat(idx) {
   const chat = _savedChats[idx];
   if (!chat) return;
   closeSavedChats();
-  // Restore messages into the chat UI
   const msgsEl = document.getElementById('msgs');
   const welcome = document.getElementById('welcome');
   if (!msgsEl) return;
-  msgsEl.style.display = '';
+  // Restore the model's own context, not just the pixels: without this the
+  // next message is sent with an empty history.
+  chatHistory = (chat.messages || []).map(m => ({ role: m.role, content: m.content }));
+  _cloudChatId = chat.id || null;
+  currentChatId = null;              // cloud chat, not a local sidebar entry
+  msgsEl.style.display = 'block';
   if (welcome) welcome.style.display = 'none';
-  msgsEl.innerHTML = (chat.messages || []).map(m => `
-    <div class="msg ${m.role === 'user' ? 'user' : 'assistant'}">
-      <div class="msg-content">${esc(m.content)}</div>
-    </div>`).join('');
-  msgsEl.scrollTop = msgsEl.scrollHeight;
-  toast('💬 Chat loaded: ' + chat.title);
+  // Use the same DOM shape the chat renders normally, otherwise the restored
+  // messages come back unstyled and later saves cannot read them.
+  msgsEl.innerHTML = chatHistory.map(m => m.role === 'user'
+    ? `<div class="msg-group msg-user"><div class="msg-inner"><div class="bubble">${esc(m.content)}</div></div></div>`
+    : `<div class="msg-group msg-ai"><div class="msg-inner"><div class="ai-avatar">VT</div><div class="content">${renderMessage(m.content || '', true)}</div></div></div>`
+  ).join('');
+  const sb = document.getElementById('save-chat-btn');
+  if (sb) sb.style.display = 'flex';
+  showPanel('chat');
+  const canvas = document.getElementById('canvas');
+  if (canvas) scrollBottom(canvas);
+  toast('💬 Chat loaded: ' + chat.title + ' (' + chatHistory.filter(m => m.role === 'user').length + ' messages)');
 }
+
+// Id of the cloud chat currently open, so re-saving updates it instead of
+// creating a duplicate every time.
+let _cloudChatId = null;
 
 async function saveCurrentChat() {
   if (!_fbUser) { toast('Sign in to save chats', 'err'); return; }
-  const msgsEl = document.getElementById('msgs');
-  if (!msgsEl || !msgsEl.children.length) { toast('No messages to save', 'err'); return; }
-  const messages = [];
-  msgsEl.querySelectorAll('.msg').forEach(el => {
-    const role = el.classList.contains('user') ? 'user' : 'assistant';
-    const content = el.querySelector('.msg-content')?.textContent || '';
-    messages.push({ role, content, timestamp: new Date().toISOString() });
-  });
+  // chatHistory is the source of truth — scraping the DOM missed every message
+  // because the rendered markup uses .msg-group/.bubble, not .msg/.msg-content.
+  const messages = (chatHistory || [])
+    .filter(m => m && m.role && typeof m.content === 'string' && m.content !== '')
+    .map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content, timestamp: new Date().toISOString() }));
+  if (!messages.length) { toast('No messages to save', 'err'); return; }
   const firstUserMsg = messages.find(m => m.role === 'user');
   const title = firstUserMsg ? firstUserMsg.content.slice(0, 60) : ('Chat ' + new Date().toLocaleDateString());
-  const modelSel = document.getElementById('model-select');
-  const model = modelSel ? modelSel.value : '';
   try {
-    await fetch('/api/chats', {
+    const r = await fetch('/api/chats', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ title, model, messages })
+      body: JSON.stringify({ id: _cloudChatId || '', title, model: selectedModel || '', messages })
     });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    if (d.id) _cloudChatId = d.id;
     toast('💾 Chat saved', 'ok');
   } catch(e) { toast('❌ ' + e.message, 'err'); }
 }
@@ -7751,7 +8086,7 @@ function agentAppendMsg(role, html, id) {
     div.innerHTML = `<div class="msg-inner"><div class="ai-avatar">${AGENT_ICONS[currentAgent?.id] || 'AI'}</div><div class="content" id="${id}-content">${html}</div></div>`;
   }
   msgs.appendChild(div);
-  document.getElementById('agent-canvas').scrollTop = 999999;
+  scrollBottom(document.getElementById('agent-canvas'));
   return div;
 }
 
@@ -7803,8 +8138,7 @@ async function sendAgentMsg() {
             const delta = ev.choices?.[0]?.delta?.content || ev.choices?.[0]?.text || '';
             if (delta) {
               fullText += delta;
-              if (contentEl) contentEl.textContent = fullText;
-              document.getElementById('agent-canvas').scrollTop = 999999;
+              scheduleRender(contentEl, () => renderMessage(fullText));
             }
           } catch(_) {}
         }
@@ -7812,13 +8146,15 @@ async function sendAgentMsg() {
     } else {
       const d = await r.json();
       fullText = d.choices?.[0]?.message?.content || d.message?.content || JSON.stringify(d);
-      if (contentEl) contentEl.textContent = fullText;
     }
+    flushRender(contentEl);
+    if (contentEl) contentEl.innerHTML = renderMessage(fullText, true);
 
     agentHistory.push({ role: 'assistant', content: fullText || '(empty response)' });
     if (contentEl && !fullText) contentEl.textContent = '(empty response)';
   } catch(e) {
     const contentEl = document.getElementById(replyId + '-content');
+    flushRender(contentEl); // drop any pending frame so it can't overwrite the error text
     if (e.name !== 'AbortError') {
       if (contentEl) contentEl.innerHTML = `<span style="color:#dc2626">❌ ${esc(e.message)}</span>`;
       toast('❌ ' + e.message, 'err');
@@ -7828,7 +8164,7 @@ async function sendAgentMsg() {
   }
   agentAbort = null;
   setAgentGenerating(false);
-  document.getElementById('agent-canvas').scrollTop = 999999;
+  scrollBottom(document.getElementById('agent-canvas'));
 }
 
 // ── Boot ──────────────────────────────────────────────────────
@@ -8136,7 +8472,7 @@ async function sendCloudMsg() {
   content.appendChild(pulse);
   inner.appendChild(avatar); inner.appendChild(content);
   aiDiv.appendChild(inner);  msgs.appendChild(aiDiv);
-  canvas.scrollTop = 9999;
+  scrollBottom(canvas);
   setCloudGenerating(true);
   cloudAbortCtrl = new AbortController();
 
@@ -8198,18 +8534,19 @@ async function sendCloudMsg() {
         // Agentic tool / media events (same shape as /api/generate).
         if (ev.event) {
           const data = ev.data || {};
-          if (ev.event === 'media_generated') { try { replaceOrInsertMedia(content, data, tn); } catch {} canvas.scrollTop = 9999; continue; }
-        if (ev.event === 'notice') { if (data && data.text) { const bar=document.createElement('div'); bar.className='inline-notice'; bar.innerHTML='<span>ℹ️</span><span>'+esc(data.text)+'</span>'; content.insertBefore(bar, tn); } canvas.scrollTop = 9999; continue; }
-          if (ev.event === 'approval_request') { try { content.insertBefore(cloudApprovalEl(data), tn); } catch {} canvas.scrollTop = 9999; continue; }
-          if (ev.event === 'ask_user') { try { content.insertBefore(askUserEl(data), tn); } catch {} canvas.scrollTop = 9999; continue; }
-          if (ev.event === 'tool_call')   { const blk = makeToolBlock(data); content.insertBefore(blk, tn); _cloudTB[data.id || data.call_id || ('t'+Object.keys(_cloudTB).length)] = blk; maybeAddMediaPlaceholder(content, tn, data.name); canvas.scrollTop = 9999; continue; }
-          if (ev.event === 'tool_result') { fillToolResult(_cloudTB[data.id || data.call_id] || Object.values(_cloudTB).pop(), data); canvas.scrollTop = 9999; continue; }
+          if (ev.event === 'media_generated') { try { replaceOrInsertMedia(content, data, tn); } catch {} scrollBottom(canvas); continue; }
+        if (ev.event === 'notice') { if (data && data.text) { const bar=document.createElement('div'); bar.className='inline-notice'; bar.innerHTML='<span>ℹ️</span><span>'+esc(data.text)+'</span>'; content.insertBefore(bar, tn); } scrollBottom(canvas); continue; }
+          if (ev.event === 'approval_request') { try { content.insertBefore(cloudApprovalEl(data), tn); } catch {} scrollBottom(canvas); continue; }
+          if (ev.event === 'ask_user') { try { content.insertBefore(askUserEl(data), tn); } catch {} scrollBottom(canvas); continue; }
+          if (ev.event === 'tool_call')   { const blk = makeToolBlock(data); content.insertBefore(blk, tn); _cloudTB[data.id || data.call_id || ('t'+Object.keys(_cloudTB).length)] = blk; maybeAddMediaPlaceholder(content, tn, data.name); scrollBottom(canvas); continue; }
+          if (ev.event === 'tool_result') { fillToolResult(_cloudTB[data.id || data.call_id] || Object.values(_cloudTB).pop(), data); scrollBottom(canvas); continue; }
           continue;
         }
         const d = ev.delta || '';
-        if (d) { fullText += d; tn.innerHTML = renderMessage(fullText); canvas.scrollTop = 9999; }
+        if (d) { fullText += d; scheduleRender(tn, () => renderMessage(fullText)); }
       }
     }
+    flushRender(tn);
     if (fullText) tn.innerHTML = renderMessage(fullText, true); // final render: drop "writing" badge on unclosed fences
 
     cloudHistory.push({role:'assistant', content:fullText||'(empty response)'});
@@ -8226,7 +8563,7 @@ async function sendCloudMsg() {
   }
   cloudAbortCtrl = null;
   setCloudGenerating(false);
-  canvas.scrollTop = 9999;
+  scrollBottom(canvas);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -9439,7 +9776,7 @@ if (document.readyState === "loading") {
     <div class="acct-name" id="acct-menu-name">—</div>
     <div class="acct-email" id="acct-menu-email" style="display:none"></div>
     <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-      <div class="acct-email" id="acct-menu-type" style="color:var(--accent);font-size:10px">Account locale</div>
+      <div class="acct-email" id="acct-menu-type" style="color:var(--accent);font-size:10px">Local account</div>
       <span id="acct-plan-badge" style="display:none;font-size:9px;font-weight:700;background:var(--accent);color:#fff;padding:1px 6px;border-radius:8px;letter-spacing:.5px"></span>
     </div>
   </div>
@@ -9463,7 +9800,7 @@ if (document.readyState === "loading") {
     <div class="acct-sep"></div>
     <button class="acct-item danger" onclick="acctLogout()">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h7m-3-3l3 3-3 3"/><path d="M9 4V2H2v10h7v-2"/></svg>
-      Disconnetti
+      <span data-i18n="authLogout">Sign out</span>
     </button>
   </div>
 </div>

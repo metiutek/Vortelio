@@ -152,10 +152,7 @@ func handleAgentDetail(entry agent.CatalogEntry) error {
 		actions = append(actions, "← Back")
 
 		// Truncate description for title
-		desc := entry.Description
-		if len(desc) > 50 {
-			desc = desc[:47] + "…"
-		}
+		desc := truncRunes(entry.Description, 47)
 		sel := selectMenu(entry.Name+" — "+desc, actions)
 		if sel < 0 {
 			return nil

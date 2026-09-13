@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/vortelio/vortelio/internal/version"
@@ -41,7 +42,48 @@ type StartResult struct {
 	LogPath string `json:"log_path,omitempty"`
 }
 
+// Check results are cached: a successful lookup is reused for checkTTL, a
+// failed one for checkErrTTL, so callers (GUI status poll, TUI menu) never hit
+// GitHub in a tight loop or hang for the full timeout when offline.
+const (
+	checkTTL    = 15 * time.Minute
+	checkErrTTL = 2 * time.Minute
+)
+
+var (
+	checkMu   sync.Mutex
+	checkInfo Info
+	checkErr  error
+	checkAt   time.Time
+)
+
 func Check(ctx context.Context) (Info, error) {
+	checkMu.Lock()
+	if !checkAt.IsZero() {
+		ttl := checkTTL
+		if checkErr != nil {
+			ttl = checkErrTTL
+		}
+		if time.Since(checkAt) < ttl {
+			info, err := checkInfo, checkErr
+			checkMu.Unlock()
+			return info, err
+		}
+	}
+	checkMu.Unlock()
+
+	info, err := checkUncached(ctx)
+
+	checkMu.Lock()
+	// Never let a transient failure evict a good result within its TTL.
+	if err == nil || checkErr != nil || time.Since(checkAt) >= checkTTL {
+		checkInfo, checkErr, checkAt = info, err, time.Now()
+	}
+	checkMu.Unlock()
+	return info, err
+}
+
+func checkUncached(ctx context.Context) (Info, error) {
 	info := Info{
 		Current:        version.Version,
 		InstallCommand: "uv tool install --reinstall --refresh \"" + RepoInstallSpec + "\"",

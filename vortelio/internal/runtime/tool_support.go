@@ -15,7 +15,7 @@ var toolCapableFamilies = []string{
 	"granite-3", "granite3",
 	"phi-4", "phi4",
 	"gpt-oss", "gpt-4", "gpt-4o", "gpt-3.5", "o1", "o3", "o4",
-	"claude", "gemini", "gemma-3", "gemma3",
+	"claude", "gemini", "gemma-3", "gemma3", "gemma-4", "gemma4",
 	"deepseek-v3", "deepseek-chat", "deepseek-r1",
 	"smollm2", "llama-4", "llama4",
 }

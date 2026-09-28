@@ -589,6 +589,69 @@ var hfRegistry = map[string]HFEntry{
 		Format: "gguf", Params: "35B", License: "CC-BY-NC-4.0",
 		ChatTemplate: "command-r", StopTokens: []string{"<|END_OF_TURN_TOKEN|>"},
 	},
+	// ── LLM — current generation (2026). The chat template comes from the GGUF
+	// itself (llama-server --jinja), so no hand-written template is needed. ──
+	"llm/qwen3.5:0.8b": {
+		Repo:   "unsloth/Qwen3.5-0.8B-GGUF",
+		File:   "Qwen3.5-0.8B-Q4_K_M.gguf",
+		Format: "gguf", Params: "0.8B", License: "Apache-2.0",
+		ChatTemplate: "chatml", StopTokens: []string{"<|im_end|>"},
+	},
+	"llm/qwen3.5:4b": {
+		Repo:   "unsloth/Qwen3.5-4B-GGUF",
+		File:   "Qwen3.5-4B-Q4_K_M.gguf",
+		Format: "gguf", Params: "4B", License: "Apache-2.0",
+		ChatTemplate: "chatml", StopTokens: []string{"<|im_end|>"},
+	},
+	"llm/qwen3.5:9b": {
+		Repo:   "unsloth/Qwen3.5-9B-GGUF",
+		File:   "Qwen3.5-9B-Q4_K_M.gguf",
+		Format: "gguf", Params: "9B", License: "Apache-2.0",
+		ChatTemplate: "chatml", StopTokens: []string{"<|im_end|>"},
+	},
+	"llm/qwen3.8:27b": {
+		Repo:   "unsloth/Qwen3.8-27B-GGUF",
+		File:   "Qwen3.8-27B-UD-Q4_K_M.gguf",
+		Format: "gguf", Params: "27B", License: "Apache-2.0",
+		ChatTemplate: "chatml", StopTokens: []string{"<|im_end|>"},
+	},
+	"llm/qwen3.6:35b-a3b": {
+		Repo:   "unsloth/Qwen3.6-35B-A3B-GGUF",
+		File:   "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+		Format: "gguf", Params: "35B (3B active)", License: "Apache-2.0",
+		ChatTemplate: "chatml", StopTokens: []string{"<|im_end|>"},
+	},
+	"llm/qwen3-coder:30b": {
+		Repo:   "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+		File:   "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf",
+		Format: "gguf", Params: "30B (3B active)", License: "Apache-2.0",
+		ChatTemplate: "chatml", StopTokens: []string{"<|im_end|>"},
+	},
+	"llm/gemma4:e2b": {
+		Repo:   "unsloth/gemma-4-E2B-it-GGUF",
+		File:   "gemma-4-E2B-it-Q4_K_M.gguf",
+		Format: "gguf", Params: "E2B", License: "Apache-2.0",
+	},
+	"llm/gemma4:e4b": {
+		Repo:   "unsloth/gemma-4-E4B-it-GGUF",
+		File:   "gemma-4-E4B-it-Q4_K_M.gguf",
+		Format: "gguf", Params: "E4B", License: "Apache-2.0",
+	},
+	"llm/gemma4:12b": {
+		Repo:   "unsloth/gemma-4-12b-it-GGUF",
+		File:   "gemma-4-12b-it-Q4_K_M.gguf",
+		Format: "gguf", Params: "12B", License: "Apache-2.0",
+	},
+	"llm/gemma4:26b": {
+		Repo:   "unsloth/gemma-4-26B-A4B-it-GGUF",
+		File:   "gemma-4-26B-A4B-it-UD-Q4_K_M.gguf",
+		Format: "gguf", Params: "26B (4B active)", License: "Apache-2.0",
+	},
+	"llm/gpt-oss:20b": {
+		Repo:   "ggml-org/gpt-oss-20b-GGUF",
+		File:   "gpt-oss-20b-MXFP4.gguf",
+		Format: "gguf", Params: "20B", License: "Apache-2.0",
+	},
 	// ── Image — GGUF (gpustack repos, public, no token) ───────────────────
 	"image/openjourney:latest": {
 		Repo:   "gpustack/stable-diffusion-v1-5-GGUF",

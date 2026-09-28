@@ -1567,7 +1567,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
         <div style="font-size:13px;font-weight:500;margin-bottom:8px">🤗 Cerca modelli su HuggingFace</div>
         <div style="display:flex;gap:6px;margin-bottom:10px">
           <input id="hf-q" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--bg);color:var(--text);font-size:13px;outline:none"
-            placeholder="es. qwen2.5 gguf, llama 3, flux, whisper…" oninput="hfSearchDebounced()" onkeydown="if(event.key==='Enter')hfSearch()">
+            placeholder="es. qwen3.5 gguf, gemma 4, flux, whisper…" oninput="hfSearchDebounced()" onkeydown="if(event.key==='Enter')hfSearch()">
           <button class="btn primary" onclick="hfSearch()">Cerca</button>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px">
@@ -3992,7 +3992,7 @@ function maybeShowOnboarding() {
 }
 
 // ── First-run onboarding ────────────────────────────
-const ONB_RECOMMENDED = 'llm/llama3.2:3b'; // 2 GB, runs on CPU — safe default for any PC
+const ONB_RECOMMENDED = 'llm/qwen3.5:4b'; // 2.7 GB, runs on CPU — safe default for any PC
 let onbDlAC = null;
 
 function onbView(which) {
@@ -5582,7 +5582,7 @@ function _findFirstTag(s, arr) {
 const TOOL_FAMILIES = ['llama-3.1','llama3.1','llama-3.2','llama3.2','llama-3.3','llama3.3','llama-4','llama4',
   'qwen2','qwen2.5','qwen3','qwq','mistral','mixtral','ministral','magistral','devstral','codestral',
   'hermes','command-r','command-a','firefunction','functionary','granite-3','granite3','phi-4','phi4',
-  'gpt-oss','gpt-4','gpt-3.5','o1','o3','o4','claude','gemini','gemma-3','gemma3','deepseek-v3','deepseek-chat','deepseek-r1','smollm2'];
+  'gpt-oss','gpt-4','gpt-3.5','o1','o3','o4','claude','gemini','gemma-3','gemma3','gemma-4','gemma4','deepseek-v3','deepseek-chat','deepseek-r1','smollm2'];
 function modelSupportsTools(ref) {
   const n = String(ref || '').toLowerCase();
   return TOOL_FAMILIES.some(f => n.includes(f));
@@ -6710,22 +6710,17 @@ async function doDel() {
 // ── Registry ──────────────────────────────────────
 const REG = [
   // ── LLM ─────────────────────────────────────────────────────────
-  {t:'llm',  n:'llama3.2:3b',       d:'Meta Llama 3.2 — lightweight and fast',           s:'2.0 GB', l:'Meta',       gpu:'CPU OK'},
-  {t:'llm',  n:'llama3.1:8b',       d:'Meta Llama 3.1 — great quality/VRAM ratio',       s:'4.9 GB', l:'Meta',       gpu:'≥6GB VRAM'},
-  {t:'llm',  n:'qwen2.5:0.5b',      d:'Qwen 2.5 ultra-lightweight, runs everywhere',     s:'0.4 GB', l:'Apache-2.0', gpu:'CPU OK'},
-  {t:'llm',  n:'qwen2.5:7b',        d:'Qwen 2.5 — great for coding and chat',            s:'4.7 GB', l:'Apache-2.0', gpu:'≥6GB VRAM'},
-  {t:'llm',  n:'qwen2.5:14b',       d:'Qwen 2.5 14B — high quality',                     s:'9.0 GB', l:'Apache-2.0', gpu:'≥10GB VRAM'},
-  {t:'llm',  n:'qwen2.5-coder:7b',  d:'Specialized in coding, very precise',             s:'4.7 GB', l:'Apache-2.0', gpu:'≥6GB VRAM'},
-  {t:'llm',  n:'phi4:latest',       d:'Microsoft Phi-4 — 14B, excellent reasoning',      s:'9.1 GB', l:'MIT',        gpu:'≥10GB VRAM'},
-  {t:'llm',  n:'phi3.5:mini',       d:'Microsoft Phi-3.5 Mini — fast on CPU',            s:'2.2 GB', l:'MIT',        gpu:'CPU OK'},
-  {t:'llm',  n:'mistral:7b',        d:'Mistral 7B v0.3 — solid and reliable',            s:'4.1 GB', l:'Apache-2.0', gpu:'≥6GB VRAM'},
-  {t:'llm',  n:'mistral-nemo:12b',  d:'Mistral Nemo — 128K context, multilingual',       s:'7.1 GB', l:'Apache-2.0', gpu:'≥8GB VRAM'},
-  {t:'llm',  n:'gemma3:4b',         d:'Google Gemma 3 — 4B, fast and precise',           s:'3.3 GB', l:'Gemma',      gpu:'≥4GB VRAM'},
-  {t:'llm',  n:'gemma3n:e4b',       d:'Google Gemma 3n E4B — runs natively (no Ollama)', s:'4.5 GB', l:'Gemma',      gpu:'CPU OK'},
-  {t:'llm',  n:'gemma3:12b',        d:'Google Gemma 3 — 12B, excellent quality',         s:'8.1 GB', l:'Gemma',      gpu:'≥8GB VRAM'},
-  {t:'llm',  n:'deepseek-r1:7b',    d:'DeepSeek R1 — reasoning with chain-of-thought',   s:'4.7 GB', l:'MIT',        gpu:'≥6GB VRAM'},
-  {t:'llm',  n:'deepseek-r1:14b',   d:'DeepSeek R1 14B — advanced reasoning',            s:'9.0 GB', l:'MIT',        gpu:'≥10GB VRAM'},
-  {t:'llm',  n:'command-r:35b',     d:'Cohere Command R — great for RAG and long chats', s:'20 GB',  l:'CC-BY-NC',   gpu:'≥16GB VRAM'},
+  {t:'llm',  n:'qwen3.5:4b',        d:'Qwen 3.5 — best all-rounder for most PCs',         s:'2.7 GB', l:'Apache-2.0', gpu:'CPU OK'},
+  {t:'llm',  n:'gemma4:e4b',        d:'Google Gemma 4 — fast, great in many languages',   s:'5.0 GB', l:'Apache-2.0', gpu:'CPU OK'},
+  {t:'llm',  n:'qwen3.5:9b',        d:'Qwen 3.5 9B — smarter, still light',               s:'5.7 GB', l:'Apache-2.0', gpu:'≥8GB VRAM'},
+  {t:'llm',  n:'gemma4:12b',        d:'Google Gemma 4 12B — high quality',                s:'7.1 GB', l:'Apache-2.0', gpu:'≥8GB VRAM'},
+  {t:'llm',  n:'gpt-oss:20b',       d:'OpenAI gpt-oss — strong reasoning',                s:'12 GB',  l:'Apache-2.0', gpu:'≥16GB RAM'},
+  {t:'llm',  n:'qwen3-coder:30b',   d:'Qwen3 Coder — for programming, fast (MoE)',        s:'18.6 GB',l:'Apache-2.0', gpu:'≥24GB RAM'},
+  {t:'llm',  n:'gemma4:26b',        d:'Google Gemma 4 26B — top quality, fast (MoE)',     s:'17 GB',  l:'Apache-2.0', gpu:'≥24GB RAM'},
+  {t:'llm',  n:'qwen3.8:27b',       d:'Qwen 3.8 27B — the most capable local model',      s:'16.5 GB',l:'Apache-2.0', gpu:'≥24GB VRAM'},
+  {t:'llm',  n:'qwen3.6:35b-a3b',   d:'Qwen 3.6 35B — big but fast (MoE)',                s:'22 GB',  l:'Apache-2.0', gpu:'≥32GB RAM'},
+  {t:'llm',  n:'gemma4:e2b',        d:'Google Gemma 4 E2B — for older or small PCs',      s:'3.1 GB', l:'Apache-2.0', gpu:'CPU OK'},
+  {t:'llm',  n:'qwen3.5:0.8b',      d:'Qwen 3.5 0.8B — tiny, runs anywhere',              s:'0.5 GB', l:'Apache-2.0', gpu:'CPU OK'},
   // ── IMAGE ────────────────────────────────────────────────────────
   {t:'image',n:'flux:schnell',      d:'FLUX.1 Schnell — top quality, fast',              s:'23 GB',  l:'Apache-2.0', gpu:'≥8GB VRAM'},
   {t:'image',n:'flux:dev',          d:'FLUX.1 Dev — better quality than Schnell',        s:'24 GB',  l:'NC',         gpu:'≥12GB VRAM'},

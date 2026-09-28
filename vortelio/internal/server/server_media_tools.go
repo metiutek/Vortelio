@@ -124,8 +124,9 @@ func (m *mediaProvider) listModels() (string, error) {
 		{"ref": "image/flux:schnell", "note": "FLUX.1 Schnell — top quality, large"},
 		{"ref": "audio/whisper:base", "note": "Whisper — speech-to-text"},
 		{"ref": "audio/kokoro", "note": "Kokoro — text-to-speech"},
-		{"ref": "llm/qwen2.5:7b", "note": "Qwen2.5 7B — capable chat/coding"},
-		{"ref": "llm/llama3.2:3b", "note": "Llama 3.2 3B — light, fast"},
+		{"ref": "llm/qwen3.5:9b", "note": "Qwen 3.5 9B — capable chat/coding"},
+		{"ref": "llm/qwen3.5:4b", "note": "Qwen 3.5 4B — light, fast"},
+		{"ref": "llm/gemma4:e4b", "note": "Gemma 4 E4B — fast, multilingual"},
 	}
 	b, _ := json.Marshal(map[string]interface{}{"installed": installed, "installable": installable})
 	return string(b), nil
@@ -154,8 +155,12 @@ func resolveInstallRef(q string) string {
 		return "audio/whisper:base"
 	case strings.Contains(s, "kokoro"), strings.Contains(s, "tts"), strings.Contains(s, "voice"), strings.Contains(s, "speech"):
 		return "audio/kokoro:latest"
+	case strings.Contains(s, "coder"):
+		return "llm/qwen3-coder:30b"
 	case strings.Contains(s, "qwen"):
-		return "llm/qwen2.5:7b"
+		return "llm/qwen3.5:9b"
+	case strings.Contains(s, "gemma"):
+		return "llm/gemma4:e4b"
 	case strings.Contains(s, "llama"):
 		return "llm/llama3.2:3b"
 	}

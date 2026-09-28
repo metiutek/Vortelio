@@ -127,7 +127,7 @@ func (c *CodeCommand) Run(args []string) error {
 			s.cloudProvider = cl[0].Provider
 			s.cloudModel = cl[0].Model
 		} else {
-			return fmt.Errorf("nessun LLM installato e nessun cloud configurato.\n  vortelio pull llm/qwen2.5:7b")
+			return fmt.Errorf("nessun LLM installato e nessun cloud configurato.\n  vortelio pull llm/qwen3.5:9b")
 		}
 	}
 	s.hw = runtime.DetectHardware()

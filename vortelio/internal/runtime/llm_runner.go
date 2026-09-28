@@ -127,9 +127,34 @@ func (r *LLMRunner) runInteractive(opts *RunOptions) error {
 
 // ensureServer starts llama-server if not already running and waits for it to be ready.
 func (r *LLMRunner) ensureServer() error {
-	srv := r.findBin("llama-server", "llama-server.exe")
+	srv := LlamaServerBin()
 	if srv == "" {
-		return r.fallbackPrint()
+		srv = r.findBin("llama-server", "llama-server.exe")
+	}
+	if srv == "" {
+		// First run (typical on Linux/macOS pip installs): fetch llama.cpp now
+		// instead of failing silently.
+		fmt.Println("📦  llama.cpp not found — downloading it (one-time)…")
+		if _, err := InstallLlamaCpp(r.hw, CLIProgress()); err != nil {
+			return fmt.Errorf("llama.cpp is not installed and the automatic download failed (%v). "+
+				"Check your connection and run `vortelio setup`", err)
+		}
+		fmt.Println()
+		if srv = LlamaServerBin(); srv == "" {
+			return fmt.Errorf("llama.cpp was downloaded but llama-server was not found in %s", LlamaDir())
+		}
+	}
+	// Never launch while an update is replacing the binaries.
+	llamaInstallMu.RLock()
+	defer llamaInstallMu.RUnlock()
+
+	// Pre-flight: the model file must exist. Ollama-imported models point straight
+	// at ~/.ollama/models/blobs, which vanishes when Ollama is uninstalled or its
+	// blobs are pruned. llama-server then exits instantly with no output, which
+	// used to surface as "too large for this machine" — misleading, and the CPU
+	// retry cannot fix it either.
+	if err := r.checkModelFile(); err != nil {
+		return err
 	}
 
 	// Determine GPU layers: model override > hardware auto-detect
@@ -181,7 +206,6 @@ func (r *LLMRunner) ensureServer() error {
 			"--host", "127.0.0.1",
 			"--ctx-size", fmt.Sprintf("%d", ctxSize),
 			"--n-gpu-layers", fmt.Sprintf("%d", nGL),
-			"--log-disable",
 			"-np", "1",
 		}
 
@@ -530,7 +554,32 @@ func isFatalLoadError(log string) bool {
 	return strings.Contains(l, "wrong number of tensors") ||
 		strings.Contains(l, "unknown model architecture") ||
 		strings.Contains(l, "unsupported model architecture") ||
-		strings.Contains(l, "unknown architecture")
+		strings.Contains(l, "unknown architecture") ||
+		strings.Contains(l, "no such file") ||
+		strings.Contains(l, "failed to open")
+}
+
+// checkModelFile verifies the model file is still on disk before we bother
+// starting llama-server, and explains what to do when it is not.
+func (r *LLMRunner) checkModelFile() error {
+	ref := r.model.Name
+	if r.model.Tag != "" {
+		ref = ref + ":" + r.model.Tag
+	}
+	if r.model.LocalPath == "" {
+		return fmt.Errorf("%s has no model file recorded on disk. Re-download it: vortelio pull %s", ref, ref)
+	}
+	if _, err := os.Stat(r.model.LocalPath); err != nil {
+		hint := ""
+		if strings.HasPrefix(r.model.Source, "ollama-import") {
+			hint = "\n    This model was imported from Ollama and only referenced its blob; " +
+				"the blob is gone (Ollama uninstalled, or its blobs pruned)."
+		}
+		return fmt.Errorf("the file for %s is missing:\n    %s%s\n"+
+			"    Re-download it (vortelio pull %s), or drop the entry (vortelio remove %s).",
+			ref, r.model.LocalPath, hint, ref, ref)
+	}
+	return nil
 }
 
 // classifyLoadError turns a raw llama-server stderr tail into a short, clear
@@ -542,8 +591,7 @@ func classifyLoadError(log string) string {
 		strings.Contains(l, "unknown model architecture") ||
 		strings.Contains(l, "unsupported model architecture") ||
 		strings.Contains(l, "unknown architecture"):
-		return "This model's architecture isn't supported by the bundled llama.cpp engine. " +
-			"Update llama.cpp to a newer build (run `vortelio setup`, or replace the binaries in ~/.vortelio/bin) to run this model."
+		return archUnsupportedMsg
 	case strings.Contains(l, "out of memory") ||
 		strings.Contains(l, "cudamalloc") ||
 		strings.Contains(l, "failed to allocate") ||
@@ -557,17 +605,26 @@ func classifyLoadError(log string) string {
 	return ""
 }
 
-func (r *LLMRunner) fallbackPrint() error {
-	fmt.Println()
-	fmt.Println("⚠️   llama-server not found.")
-	fmt.Println()
-	fmt.Println("    Le versioni recenti di llama.cpp includono llama-server.")
-	fmt.Println("    Download the full package from:")
-	fmt.Println("    https://github.com/ggerganov/llama.cpp/releases")
-	fmt.Println()
-	fmt.Println("    Oppure esegui: vortelio setup")
-	fmt.Printf("    Modello: %s\n", r.model.LocalPath)
-	return nil
+// archUnsupportedMsg is returned when the installed llama.cpp is too old for a
+// model; ModelManager recognises it and updates llama.cpp automatically.
+const archUnsupportedMsg = "This model's architecture isn't supported by the installed llama.cpp engine. " +
+	"Update llama.cpp (Settings → Engine, or run `vortelio setup --force`) to run this model."
+
+// IsArchUnsupported reports whether err means "llama.cpp is too old for this model".
+func IsArchUnsupported(err error) bool {
+	return err != nil && strings.Contains(err.Error(), archUnsupportedMsg)
+}
+
+// CLIProgress prints a single updating progress line on the terminal.
+func CLIProgress() func(string, float64) {
+	last := ""
+	return func(msg string, pct float64) {
+		line := fmt.Sprintf("   %s %3.0f%%", msg, pct*100)
+		if line != last {
+			fmt.Printf("\r%-70s", line)
+			last = line
+		}
+	}
 }
 
 // NewLLMRunnerForServer creates an LLMRunner for use by the HTTP server.

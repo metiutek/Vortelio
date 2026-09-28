@@ -33,7 +33,7 @@
   --text: #0d0d0d;
   --text2: #555;
   --text3: #999;
-  --accent: #10a37f;
+  --accent: #635bff;
   --accent-light: #e6f7f2;
   --sans: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --mono: 'Söhne Mono', 'JetBrains Mono', 'Cascadia Code', Consolas, Menlo, monospace;
@@ -515,7 +515,7 @@ textarea.inp::placeholder { color: var(--text3); }
   --bg: #0d0d0d; --bg2: #141414; --bg3: #1e1e1e;
   --border: #2a2a2a; --border2: #383838;
   --text: #f0ede8; --text2: #b0b0b0; --text3: #666;
-  --accent: #10a37f; --accent-light: rgba(16,163,127,.15);
+  --accent: #635bff; --accent-light: rgba(99,91,255,.15);
 }
 /* Ensure inputs/selects use CSS vars in dark mode */
 .dark input, .dark textarea, .dark select {
@@ -626,7 +626,7 @@ textarea.inp::placeholder { color: var(--text3); }
 .topbar-btn:hover { background: var(--bg3); color: var(--text); border-color: var(--border2); }
 .topbar-btn.update { color: #fff; font-weight: 600; border: none; background: var(--accent); animation: updateGlow 2.2s ease-in-out infinite; }
 .topbar-btn.update:hover { background: var(--accent); filter: brightness(1.1); color: #fff; border: none; }
-@keyframes updateGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } 50% { box-shadow: 0 0 0 4px rgba(16,185,129,.20); } }
+@keyframes updateGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(99,91,255,0); } 50% { box-shadow: 0 0 0 4px rgba(99,91,255,.20); } }
 
 /* ── CPU/GPU split button ─────────────────────────────── */
 .hw-split {
@@ -1040,7 +1040,7 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
 .nav-item.active { background: var(--accent-light); color: var(--accent); font-weight: 500; }
 .nav-item > span { font-size: 14px; flex-shrink: 0; width: 18px; text-align: center; }
 .dark .nav-item:hover { background: var(--bg3) !important; }
-.dark .nav-item.active { background: rgba(16,163,127,.18) !important; }
+.dark .nav-item.active { background: rgba(99,91,255,.18) !important; }
 
 /* ── Onboarding cards ── */
 .onb-card { display: flex; align-items: center; gap: 14px; text-align: left; padding: 16px; border: 1px solid var(--border2); border-radius: 12px; background: var(--bg); cursor: pointer; transition: all .14s; width: 100%; }
@@ -1050,7 +1050,7 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
 .onb-card .onb-d { font-size: 12.5px; color: var(--text2); margin-top: 3px; line-height: 1.45; }
 .onb-h { font-size: 15px; font-weight: 600; }
 .dark .onb-card { background: var(--bg2) !important; border-color: var(--border) !important; }
-.dark .onb-card:hover { background: rgba(16,163,127,.14) !important; }
+.dark .onb-card:hover { background: rgba(99,91,255,.14) !important; }
 
 /* ── Agent config popover ── */
 .agent-pop { position: fixed; z-index: 9000; width: 340px; max-height: 80vh; overflow-y: auto; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,.18); padding: 14px; display: none; }
@@ -1081,14 +1081,14 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
 .plus-menu .dd-item.on .cap-dot { background: var(--accent); }
 .plus-menu .dd-item.sel { background: var(--accent-light); }
 .plus-menu .dd-arrow { margin-left: auto; color: var(--text3); }
-.dark .plus-menu .dd-item.on, .dark .plus-menu .dd-item.sel { background: rgba(16,163,127,.18) !important; }
+.dark .plus-menu .dd-item.on, .dark .plus-menu .dd-item.sel { background: rgba(99,91,255,.18) !important; }
 
 /* ── Active capability chips in composer ── */
 .cap-chips { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .cap-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 3px 8px; border-radius: 13px; background: var(--accent-light); color: var(--accent); border: 1px solid transparent; }
 .cap-chip .x { cursor: pointer; opacity: .7; font-weight: 600; }
 .cap-chip .x:hover { opacity: 1; }
-.dark .cap-chip { background: rgba(16,163,127,.18) !important; color: #5fd0ad !important; }
+.dark .cap-chip { background: rgba(99,91,255,.18) !important; color: #aaa4ff !important; }
 
 /* ── Top-bar mode segmented control ── */
 .topbar-modes { display: inline-flex; gap: 2px; background: var(--bg3); border: 1px solid var(--border); border-radius: 9px; padding: 2px; }
@@ -1105,7 +1105,7 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
 .set-link .sl-ic { font-size: 18px; }
 .set-link .sl-sub { font-size: 11px; color: var(--text3); }
 .dark .set-link { background: var(--bg2) !important; border-color: var(--border) !important; }
-.dark .set-link:hover { background: rgba(16,163,127,.12) !important; }
+.dark .set-link:hover { background: rgba(99,91,255,.12) !important; }
 
 /* ── Small screens ───────────────────────────────────── */
 @media (max-width: 760px) {
@@ -1136,6 +1136,126 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ══ 2026 refresh — calm, minimal, modern. Appended last: overrides legacy rules. ══ */
+:root {
+  --bg: #ffffff; --bg2: #f8f8f9; --bg3: #f1f1f3;
+  --border: #ebebee; --border2: #dcdce1;
+  --text: #17171c; --text2: #5b5b66; --text3: #9c9ca6;
+  --accent: #635bff; --accent-light: #f0efff;
+  --sans: 'Inter', 'Inter var', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'JetBrains Mono', 'Cascadia Code', ui-monospace, Consolas, Menlo, monospace;
+  --radius: 18px; --radius-sm: 12px; --radius-xs: 10px;
+}
+.dark {
+  --bg: #111114; --bg2: #16161a; --bg3: #1f1f24;
+  --border: #26262c; --border2: #34343c;
+  --text: #f3f3f5; --text2: #a3a3ad; --text3: #6e6e78;
+  --accent: #8a84ff; --accent-light: rgba(138,132,255,.14);
+}
+html, body { -webkit-font-smoothing: antialiased; }
+svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* Sidebar */
+.sidebar { width: 252px; background: var(--bg2); padding: 12px 10px 10px; }
+.dark .sidebar { background: var(--bg2) !important; }
+.sidebar-logo { padding: 4px 8px 12px; gap: 9px; }
+.logo-mark { width: 28px; height: 28px; border-radius: 9px; color: #fff; background: linear-gradient(140deg, #7c74ff, #4f46e5); box-shadow: 0 2px 8px rgba(79,70,229,.25); }
+.dark .logo-mark { background: linear-gradient(140deg, #7c74ff, #4f46e5) !important; }
+.logo-mark svg { width: 16px; height: 16px; }
+.logo-name { font-size: 15px; font-weight: 600; letter-spacing: -.01em; color: var(--text); }
+.dark .logo-name { color: var(--text) !important; }
+.logo-ver { display: none; }
+.new-chat-btn { border: none; background: transparent; color: var(--text); font-weight: 500; padding: 8px 10px; margin-bottom: 2px; border-radius: 10px; gap: 10px; }
+.new-chat-btn:hover { background: var(--bg3); border: none; }
+.sidebar-nav { display: flex; flex-direction: column; gap: 1px; }
+.nav-item { gap: 10px; padding: 8px 10px; border-radius: 10px; font-size: 14px; color: var(--text2); transition: background .12s, color .12s; }
+.nav-item:hover { background: var(--bg3); color: var(--text); }
+.nav-item.active, .dark .nav-item.active { background: var(--bg3) !important; color: var(--text); font-weight: 500; }
+.nav-item.active svg.ic { color: var(--accent); }
+.nav-divider { height: 1px; background: var(--border); margin: 8px 10px; }
+.sidebar-section { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text3); padding: 14px 10px 6px; }
+.sidebar-section.collapsible { padding-top: 10px; }
+.hist-item { padding: 7px 10px; border-radius: 10px; font-size: 13.5px; }
+.hist-item:hover, .hist-item.active { background: var(--bg3); }
+.sidebar-foot { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 1px; }
+.nav-update { color: var(--accent) !important; font-weight: 600; }
+.hw-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px 2px; font-size: 12px; color: var(--text3); min-width: 0; }
+#hw-lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hw-dot { width: 7px; height: 7px; background: #22c55e; }
+
+/* Top bar */
+.main-topbar { height: 52px; border-bottom: none; padding: 0 16px; }
+.dark .main-topbar { border-color: transparent !important; }
+.topbar-btn { border: none; background: transparent; border-radius: 10px; padding: 7px 10px; font-size: 13px; }
+.topbar-btn:hover { border: none; background: var(--bg3); }
+.topbar-btn.icon-only { padding: 7px; }
+.topbar-btn.update { background: var(--accent); color: #fff; }
+#topbar-username { display: none; }
+.topbar-modes { background: var(--bg3); border: none; border-radius: 12px; padding: 3px; }
+.topbar-modes .tm { padding: 6px 14px; border-radius: 9px; font-size: 13px; }
+.topbar-modes .tm.active { box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+
+/* Welcome */
+.welcome { gap: 10px; padding-bottom: 12vh; }
+.welcome-title { font-size: 30px; font-weight: 600; letter-spacing: -.025em; }
+.welcome-sub { font-size: 15px; color: var(--text3); max-width: 420px; }
+.suggestion-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 640px; margin-top: 18px; }
+.suggestion { border-radius: 999px; padding: 8px 16px; background: var(--bg); border: 1px solid var(--border2); }
+.suggestion:hover { background: var(--bg3); border-color: var(--border2); }
+.suggestion b { display: none; }
+.suggestion span { font-size: 13.5px; color: var(--text2); }
+.suggestion:hover span { color: var(--text); }
+
+/* Composer */
+.input-zone::before { display: none; }
+.input-box { max-width: 760px; border: 1px solid var(--border2); border-radius: 24px; box-shadow: 0 6px 28px rgba(20,20,40,.07); }
+.input-box:focus-within { border-color: var(--border2); box-shadow: 0 8px 32px rgba(20,20,40,.11); }
+.dark .input-box { box-shadow: 0 6px 28px rgba(0,0,0,.4); }
+.text-row { padding: 14px 14px 8px 18px; }
+.attach-input-btn { border: none; width: 34px; height: 34px; }
+.ctrl-btn { border-color: transparent; background: transparent; border-radius: 10px; padding: 6px 10px; }
+.ctrl-btn:hover { background: var(--bg3); border-color: transparent; }
+.ctrl-plus { border: 1px solid var(--border2); border-radius: 50%; width: 32px; height: 32px; }
+#out-wrap, #mode-hint { display: none !important; }
+#footer-note { display: none; }
+.send-btn { width: 38px; height: 38px; }
+.dd-menu { border-radius: 14px; border-color: var(--border); box-shadow: 0 12px 40px rgba(20,20,40,.14); padding: 5px; }
+.dd-item { border-radius: 9px; }
+.dd-header { text-transform: none; letter-spacing: 0; font-size: 12px; }
+.dark .ctrl-btn:not(.ctrl-plus):not(.active) { border-color: transparent !important; background: transparent !important; }
+.dark .ctrl-btn:hover { background: var(--bg3) !important; }
+
+/* Messages */
+.msg-inner, .media-wrap { max-width: 760px; }
+.msg-user .bubble { background: var(--bg3); border: none; border-radius: 20px; }
+.ai-avatar { background: linear-gradient(140deg, #7c74ff, #4f46e5); border-radius: 50%; font-size: 0; }
+.ai-avatar::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+
+/* Panels, cards, buttons */
+.panel-inner { max-width: 880px; padding: 40px 32px; }
+.panel-title { font-size: 24px; font-weight: 600; letter-spacing: -.02em; }
+.btn { border-radius: 10px; border-color: var(--border2); padding: 7px 14px; }
+.btn.primary { background: var(--text); border-color: var(--text); }
+.rf-btn { border-radius: 10px; }
+.rcard { background: var(--bg); border-radius: 16px; padding: 18px; }
+.rcard:hover { border-color: var(--border2); box-shadow: 0 4px 18px rgba(20,20,40,.06); }
+.search-box { border-radius: 12px; padding: 10px 14px; }
+.mtrow { padding: 14px 0; }
+.dialog { border-radius: 20px; border-color: var(--border); }
+.toast { border-radius: 12px; }
+.rcard-name { font-size: 15px; font-weight: 600; }
+.rcard-desc { font-size: 13px; color: var(--text3); }
+.rcard-fit:empty { display: none; }
+.rcard-sz { font-family: var(--sans); font-size: 12.5px; }
+.reg-filters { gap: 4px; }
+.rf-btn { border: none; background: transparent; padding: 6px 12px; }
+.rf-btn:hover { background: var(--bg3); }
+.rf-btn.on { background: var(--text); color: var(--bg); }
+@media (max-width: 760px) {
+  .welcome-title { font-size: 24px; }
+  .panel-inner { padding: 20px 14px; }
+}
 </style>
 </head>
 <body>
@@ -1144,27 +1264,26 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
 <!-- ── SIDEBAR ── -->
 <div class="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-mark">VT</div>
+    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6l7 13 7-13"/></svg></div>
     <span class="logo-name">Vortelio</span>
     <span class="logo-ver" id="ver">v…</span>
   </div>
 
-  <button class="new-chat-btn" onclick="newChat()">
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="7" y1="1" x2="7" y2="13"/><line x1="1" y1="7" x2="13" y2="7"/></svg>
+  <button class="new-chat-btn" onclick="showPanel('chat');newChat();clearNavActive();document.getElementById('nav-chat')?.classList.add('active')">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
     <span id="new-chat-lbl">New chat</span>
   </button>
 
   <div class="sidebar-nav" id="sidebar-nav">
-    <div class="sidebar-section">Create</div>
-    <button class="nav-item active" id="nav-chat" onclick="studio('chat')"><span>💬</span> Chat</button>
-    <button class="nav-item" id="nav-image" onclick="studio('image')"><span>🎨</span> Images</button>
-    <button class="nav-item" id="nav-video" onclick="studio('video')"><span>🎬</span> Video</button>
-    <button class="nav-item" id="nav-audio" onclick="studio('audio')"><span>🔊</span> Audio &amp; music</button>
-    <button class="nav-item" id="nav-threed" onclick="studio('threed')"><span>🧊</span> 3D</button>
+    <button class="nav-item active" id="nav-chat" onclick="studio('chat')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.8 7.2L3 20l1.4-4.6A8.4 8.4 0 1 1 21 11.5z"/></svg> Chat</button>
+    <button class="nav-item" id="nav-image" onclick="studio('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/></svg> Images</button>
+    <button class="nav-item" id="nav-video" onclick="studio('video')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="3"/><path d="m16 10.5 6-3.5v10l-6-3.5"/></svg> Video</button>
+    <button class="nav-item" id="nav-audio" onclick="studio('audio')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Audio &amp; music</button>
+    <button class="nav-item" id="nav-threed" onclick="studio('threed')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg> 3D</button>
 
-    <div class="sidebar-section">Models</div>
-    <button class="nav-item" onclick="sideGo('models')"><span>💾</span> My models</button>
-    <button class="nav-item" onclick="sideGo('registry')"><span>⬇️</span> Download models</button>
+    <div class="nav-divider"></div>
+    <button class="nav-item" id="nav-models" onclick="sideGo('models')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 4.5-9 4.5-9-4.5z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg> My models</button>
+    <button class="nav-item" id="nav-registry" onclick="sideGo('registry')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg> Download models</button>
 
     <!-- Power features tucked under a collapsible group to keep the default view calm -->
     <button class="sidebar-section collapsible" id="adv-toggle" onclick="toggleNavGroup('adv')" aria-expanded="false">
@@ -1172,11 +1291,11 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
       <svg class="sec-chevron" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3.5l3 3 3-3"/></svg>
     </button>
     <div class="nav-group" id="nav-adv">
-      <button class="nav-item" onclick="openAgentConfig();clearNavActive()"><span>🎓</span> Skills &amp; agent</button>
-      <button class="nav-item" onclick="openMcpManager();clearNavActive()"><span>🔌</span> External tools (MCP)</button>
-      <button class="nav-item" onclick="sideGo('agents')"><span>🧩</span> AI agents</button>
-      <button class="nav-item" onclick="sideGo('crewai')"><span>🤖</span> CrewAI</button>
-      <button class="nav-item" onclick="sideGo('tools')"><span>🔧</span> Advanced tools</button>
+      <button class="nav-item" onclick="openAgentConfig();clearNavActive()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg> Skills &amp; agent</button>
+      <button class="nav-item" onclick="openMcpManager();clearNavActive()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5"/><path d="M6 7h12v4a6 6 0 0 1-12 0z"/><path d="M12 17v5"/></svg> External tools (MCP)</button>
+      <button class="nav-item" id="nav-agents" onclick="sideGo('agents')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg> AI agents</button>
+      <button class="nav-item" id="nav-crewai" onclick="sideGo('crewai')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4.2a3.5 3.5 0 0 1 0 7.6M22 21a7 7 0 0 0-4.5-6.5"/></svg> CrewAI</button>
+      <button class="nav-item" id="nav-tools" onclick="sideGo('tools')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg> Advanced tools</button>
     </div>
   </div>
 
@@ -1185,10 +1304,10 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
     <!-- populated by JS -->
   </div>
 
-  <div style="margin-top:auto">
+  <div class="sidebar-foot">
     <!-- Shown when a newer version is available on main -->
-    <button class="nav-item" id="sidebar-update-btn" onclick="startVortelioUpdate()" style="display:none;color:var(--accent);font-weight:600">
-      <span>⬆️</span> <span id="sidebar-update-lbl" data-i18n="updateVortelio">Update Vortelio</span>
+    <button class="nav-item nav-update" id="sidebar-update-btn" onclick="startVortelioUpdate()" style="display:none">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg> <span id="sidebar-update-lbl" data-i18n="updateVortelio">Update Vortelio</span>
     </button>
     <!-- Account info (when logged in) -->
     <div class="auth-user-bar" id="auth-user-bar" style="display:none">
@@ -1200,15 +1319,16 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
       <button class="btn" style="font-size:11px;padding:2px 8px;flex-shrink:0" onclick="authLogout()">Sign out</button>
     </div>
     <!-- Login button (when not logged in) -->
-    <div id="auth-login-prompt" style="display:none;padding:8px 10px;border-top:1px solid var(--border)">
-      <button class="btn" style="width:100%;font-size:12px;padding:6px" onclick="authShowOverlay()" data-i18n="signInRegister">
-        👤 Sign in / Register
+    <div id="auth-login-prompt" style="display:none;padding:4px 0">
+      <button class="btn" style="width:100%;font-size:12px;padding:6px;justify-content:center" onclick="authShowOverlay()" data-i18n="signInRegister">
+        Sign in / Register
       </button>
     </div>
+    <button class="nav-item" onclick="openSettings()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg> Settings</button>
     <!-- HW status -->
-    <div style="padding:6px 10px;display:flex;gap:8px;align-items:center;border-top:1px solid var(--border);padding-top:8px">
+    <div class="hw-row">
       <div class="hw-dot off" id="hw-dot"></div>
-      <span style="font-size:12px;color:var(--text3)" id="hw-lbl">—</span>
+      <span id="hw-lbl">—</span>
     </div>
   </div>
 </div>
@@ -1227,16 +1347,8 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V2z"/><rect x="4" y="9" width="6" height="4"/><rect x="4" y="2" width="5" height="3"/></svg>
           Save
         </button>
-        <button class="topbar-btn" onclick="openSettings()" title="Settings">
-          <svg class="gear-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
-            <circle cx="8" cy="8" r="2.5"/>
-            <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/>
-          </svg>
-          Settings
-        </button>
-        <button class="topbar-btn" id="split-btn" onclick="toggleSplit()" title="Affianca due chat nella stessa finestra">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="5.2" height="10" rx="1"/><rect x="7.8" y="2" width="5.2" height="10" rx="1"/></svg>
-          Split
+        <button class="topbar-btn icon-only" id="split-btn" onclick="toggleSplit()" title="Two chats side by side">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16"/></svg>
         </button>
       </div>
       <div style="flex:1"></div>
@@ -1288,7 +1400,7 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
     <div class="chat-tabs" id="chat-tabs"></div>
     <div class="canvas" id="canvas" ondragover="inputDragOver(event)" ondragleave="inputDragLeave(event)" ondrop="handleDrop(event)">
       <div class="welcome" id="welcome">
-        <div class="welcome-logo">VT</div>
+        
         <div class="welcome-title" id="welcome-title">What do you want to create?</div>
         <div class="welcome-sub" id="welcome-sub">Choose an output type below, select a model, and write your prompt.</div>
         <div class="suggestion-grid" id="suggestions">
@@ -1407,7 +1519,7 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
 
           <!-- Simple Private toggle (Assistant view) -->
           <button class="ctrl-btn" id="private-btn" onclick="toggleIncognito()" title="Private chat — not saved" style="display:none">
-            <span>🕶</span><span id="private-lbl">Private</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span id="private-lbl">Private</span>
           </button>
 
           <!-- Active capability chips -->
@@ -1444,7 +1556,6 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
   <div class="panel" id="ws-registry">
     <div class="panel-inner">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
-        <button class="btn" onclick="showPanel('models')"><span id="back-btn-lbl">← Back</span></button>
         <div class="panel-title" style="margin:0" id="panel-registry-title">Download models</div>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -1522,11 +1633,11 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
       </div>
       <div class="reg-filters" id="reg-filters">
         <button class="rf-btn on" onclick="filterType('all',this)" data-i18n="all">All</button>
-        <button class="rf-btn" onclick="filterType('llm',this)">💬 LLM</button>
+        <button class="rf-btn" onclick="filterType('llm',this)">Chat</button>
         <button class="rf-btn" onclick="filterType('image',this)" data-i18n="imagesLbl">🎨 Images</button>
-        <button class="rf-btn" onclick="filterType('audio',this)">🔊 Audio</button>
-        <button class="rf-btn" onclick="filterType('video',this)">🎬 Video</button>
-        <button class="rf-btn" onclick="filterType('3d',this)">🧊 3D</button>
+        <button class="rf-btn" onclick="filterType('audio',this)">Audio</button>
+        <button class="rf-btn" onclick="filterType('video',this)">Video</button>
+        <button class="rf-btn" onclick="filterType('3d',this)">3D</button>
       </div>
       <div class="reg-grid" id="reg-grid"></div>
     </div>
@@ -2253,6 +2364,13 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
         <span class="info-label">Hardware</span>
         <span class="info-value" id="settings-hw">—</span>
       </div>
+      <div class="info-row" title="llama.cpp runs the chat models. Newer builds support newer models.">
+        <span class="info-label">Engine (llama.cpp)</span>
+        <span class="info-value" style="display:flex;align-items:center;gap:8px">
+          <span id="settings-engine">—</span>
+          <button class="btn" id="engine-update-btn" style="display:none;font-size:11px;padding:3px 10px" onclick="updateEngine()">Update</button>
+        </span>
+      </div>
       <div class="info-row">
         <span class="info-label" data-i18n="installedCount">Modelli installati</span>
         <span class="info-value" id="settings-models">—</span>
@@ -2622,7 +2740,7 @@ var _fbApp = null, _fbAuth = null, _fbUser = null, _fbIdToken = null, _fbProfile
 const LANGS = {
   it: {
     // UI labels
-    newChat: '+ Nuova chat',
+    newChat: 'Nuova chat',
     installedModels: 'Modelli installati',
     settings: '⚙️ Impostazioni',
     save: '💾 Salva',
@@ -2699,7 +2817,7 @@ const LANGS = {
     sugg3D: '🧊 3D',
     sugg3DPrompt: 'Una sedia di design minimalista',
     // Sidebar
-    newChat: '+ Nuova chat',
+    newChat: 'Nuova chat',
     noChats: 'Nessuna chat salvata',
     installedBtn: 'Modelli installati',
     // Panels
@@ -2775,7 +2893,7 @@ const LANGS = {
     installedModelsItem: 'Modelli installati…',
     runCodeNote: 'Nei blocchi di codice premi Esegui per lanciarli (Python/JS/Bash/PowerShell/Go).',
     hfSearchBtn: '🔍 Cerca su HuggingFace',
-    imagesLbl: '🎨 Immagini',
+    imagesLbl: 'Immagini',
     autosave: 'Salvataggio automatico',
     autosaveDesc: 'Salva ogni chat nella cronologia in automatico (le chat private non vengono mai salvate).',
     personalInfo: '🧠 Informazioni personali (memoria)',
@@ -2810,7 +2928,7 @@ const LANGS = {
     reasoning: '💡 Ragionamento',
   },
   en: {
-    newChat: '+ New chat',
+    newChat: 'New chat',
     installedModels: 'Installed models',
     settings: '⚙️ Settings',
     save: '💾 Save',
@@ -2883,7 +3001,7 @@ const LANGS = {
     sugg3D: '🧊 3D',
     sugg3DPrompt: 'A minimalist design chair',
     // Sidebar
-    newChat: '+ New chat',
+    newChat: 'New chat',
     noChats: 'No saved chats',
     installedBtn: 'Installed models',
     // Panels
@@ -2959,7 +3077,7 @@ const LANGS = {
     installedModelsItem: 'Installed models…',
     runCodeNote: 'In code blocks press Run to execute them (Python/JS/Bash/PowerShell/Go).',
     hfSearchBtn: '🔍 Search HuggingFace',
-    imagesLbl: '🎨 Images',
+    imagesLbl: 'Images',
     autosave: 'Auto-save',
     autosaveDesc: 'Save every chat to the history automatically (private chats are never saved).',
     personalInfo: '🧠 Personal info (memory)',
@@ -3122,7 +3240,8 @@ function openSettings() {
   const verEl = document.getElementById('ver');
   document.getElementById('settings-ver').textContent = verEl ? verEl.textContent : '—';
   const hwEl = document.getElementById('hw-lbl');
-  document.getElementById('settings-hw').textContent = hwEl ? hwEl.textContent : '—';
+  document.getElementById('settings-hw').textContent = hwEl ? (hwEl.title || hwEl.textContent) : '—';
+  loadEngineStatus();
   document.getElementById('settings-models').textContent = installedModels.length + ' models';
   document.getElementById('theme-light').classList.toggle('active', currentTheme==='light');
   document.getElementById('theme-dark').classList.toggle('active', currentTheme==='dark');
@@ -3735,13 +3854,57 @@ function showUpdateOverlay(latest) {
 }
 
 // ── Status ────────────────────────────────────────
+// "CUDA (GPU 0: NVIDIA GeForce GTX 1650 with Max-Q Design, 4 GB VRAM)" -> "GTX 1650 · 4 GB"
+function shortHW(s) {
+  s = s || 'CPU';
+  const m = /GPU\s*\d*:?\s*(?:NVIDIA\s+)?(?:GeForce\s+)?(?:AMD\s+)?(?:Radeon\s+)?([^,()]+?)(?:\s+with[^,]*)?,\s*([\d.]+\s*GB)/i.exec(s);
+  if (m) return m[1].trim() + ' · ' + m[2];
+  const p = /\(([^,)]+)/.exec(s);
+  return (p ? p[1] : s).trim();
+}
+// ── llama.cpp engine: status + one-click update (Settings → Info) ──
+let _engineTimer = null, _engineWasRunning = false;
+function renderEngine(d) {
+  const el = document.getElementById('settings-engine');
+  const btn = document.getElementById('engine-update-btn');
+  if (!el || !btn) return;
+  const L = d.llama || {}, J = d.job || {};
+  if (J.running) {
+    el.textContent = (J.message || 'Updating…') + ' ' + Math.round((J.percent || 0) * 100) + '%';
+    btn.style.display = 'none';
+    return;
+  }
+  if (J.done && J.error) el.textContent = 'Update failed: ' + J.error;
+  else if (!L.installed) el.textContent = 'Not installed — downloads on first chat';
+  else el.textContent = 'build ' + (L.build || '?') + (L.update_available ? ' · ' + L.latest_build + ' available' : ' · up to date');
+  btn.textContent = L.installed ? 'Update' : 'Install';
+  btn.style.display = (L.update_available && (L.managed || !L.installed)) ? '' : 'none';
+}
+async function loadEngineStatus() {
+  try {
+    const d = await (await fetch('/api/engine')).json();
+    renderEngine(d);
+    clearTimeout(_engineTimer);
+    const running = !!(d.job && d.job.running);
+    if (running) _engineTimer = setTimeout(loadEngineStatus, 1000);
+    else if (_engineWasRunning && d.job && d.job.done && !d.job.error) toast('llama.cpp updated', 'ok');
+    _engineWasRunning = running;
+  } catch {}
+}
+async function updateEngine() {
+  const btn = document.getElementById('engine-update-btn');
+  if (btn) btn.style.display = 'none';
+  try { await fetch('/api/engine/update', {method: 'POST'}); } catch {}
+  loadEngineStatus();
+}
+
 async function loadStatus() {
   try {
     const r = await fetch('/api/status', {signal: AbortSignal.timeout(6000)});
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     document.getElementById('hw-dot').classList.remove('off');
-    document.getElementById('hw-lbl').textContent = d.hardware || 'CPU';
+    const _hwl = document.getElementById('hw-lbl'); _hwl.textContent = shortHW(d.hardware); _hwl.title = d.hardware || 'CPU';
     document.getElementById('ver').textContent = d.version ? ('v' + d.version) : 'v?';
     // Update check hits GitHub: once on connect, then at most every 6 hours
     // (it used to run on every 15 s status poll).
@@ -4869,7 +5032,7 @@ async function loadMcpList() {
     const servers = d.servers || [];
     if (!servers.length) { box.innerHTML = '<div style="color:var(--text3);font-size:12px">No MCP servers configured.</div>'; return; }
     box.innerHTML = servers.map(s => {
-      const dot = s.status==='connected' ? '#10a37f' : (s.status==='error' ? '#e04040' : '#999');
+      const dot = s.status==='connected' ? '#635bff' : (s.status==='error' ? '#e04040' : '#999');
       const tools = (s.tool_names||[]).length ? (s.tool_names.length + ' tools') : (s.last_error || s.status);
       return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
         <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0"></span>
@@ -4922,7 +5085,7 @@ async function resolveApproval(id, approved, btn) {
     card.classList.add('resolved');
     const actions = card.querySelector('.ap-actions');
     if (actions) actions.innerHTML = approved
-      ? '<span style="color:#10a37f;font-size:12px">✓ Approved</span>'
+      ? '<span style="color:#635bff;font-size:12px">✓ Approved</span>'
       : '<span style="color:#e04040;font-size:12px">✗ Denied</span>';
   }
 }
@@ -5257,7 +5420,7 @@ function studio(type) {
   clearNavActive();
   document.getElementById('nav-' + type)?.classList.add('active');
 }
-function sideGo(panel) { showPanel(panel); clearNavActive(); }
+function sideGo(panel) { showPanel(panel); clearNavActive(); document.getElementById('nav-' + panel)?.classList.add('active'); }
 
 function toggleSidebar() {
   document.querySelector('.sidebar').classList.toggle('collapsed');
@@ -5288,27 +5451,27 @@ function updateWelcomeSuggestions() {
   if (dev) {
     title = 'What do you want to build?';
     sub = 'Set a working folder, pick a model, and describe the task. The agent reads, edits and runs code — asking before anything risky.';
-    sets = [['💬 Explain','Explain what this project does'],['🔎 Find','Find where the server starts and show me'],['🛠 Fix','Find and fix the bug in this function'],['📄 Read','Summarize the file I have open']];
+    sets = [['Explain','Explain what this project does'],['Find','Find where the server starts and show me'],['Fix','Find and fix the bug in this function'],['Read','Summarize the file I have open']];
   } else if (domain === 'image') {
     title = 'Create an image';
-    sub = 'Describe what you want to see. Pick an image model below, then generate.';
-    sets = [['🐱 Animal','A cat astronaut, watercolor style'],['🌄 Scene','A sunset over snowy mountains, photorealistic'],['🎨 Art','Abstract colorful shapes, minimalist'],['🏠 Design','A cozy modern living room, interior render']];
+    sub = 'Describe what you want to see.';
+    sets = [['Animal','A cat astronaut, watercolor style'],['Scene','A sunset over snowy mountains, photorealistic'],['Art','Abstract colorful shapes, minimalist'],['Design','A cozy modern living room, interior render']];
   } else if (domain === 'video') {
     title = 'Create a video';
-    sub = 'Describe a short clip. Pick a video model below, then generate.';
-    sets = [['🌊 Nature','Waves crashing on a beach at sunset'],['🚗 Motion','A car driving through a neon city'],['🎬 Scene','A paper plane flying over rooftops'],['✨ Abstract','Colorful ink spreading in water']];
+    sub = 'Describe a short clip.';
+    sets = [['Nature','Waves crashing on a beach at sunset'],['Motion','A car driving through a neon city'],['Scene','A paper plane flying over rooftops'],['Abstract','Colorful ink spreading in water']];
   } else if (domain === 'audio') {
     title = 'Create audio';
-    sub = 'Type text to speak, or describe music. Pick an audio model below.';
-    sets = [['🗣 Speech','Read this aloud: Welcome to Vortelio!'],['🎵 Music','Calm lo-fi piano for studying'],['🔔 Sound','A short cheerful notification chime'],['📢 Voice','An energetic podcast intro line']];
+    sub = 'Type text to read aloud, or describe some music.';
+    sets = [['Speech','Read this aloud: Welcome to Vortelio!'],['Music','Calm lo-fi piano for studying'],['Sound','A short cheerful notification chime'],['Voice','An energetic podcast intro line']];
   } else if (domain === 'threed') {
     title = 'Create a 3D model';
-    sub = 'Describe an object or attach an image. Pick a 3D model below.';
-    sets = [['🪑 Object','A minimalist wooden chair'],['🤖 Character','A cute robot figurine'],['🏺 Prop','An ancient clay vase'],['🚀 Vehicle','A small toy rocket']];
+    sub = 'Describe an object, or attach a picture of it.';
+    sets = [['Object','A minimalist wooden chair'],['Character','A cute robot figurine'],['Prop','An ancient clay vase'],['Vehicle','A small toy rocket']];
   } else {
     title = 'How can I help you?';
-    sub = 'Just type below. I can search the web, work with your files, and create images — automatically, whenever it helps.';
-    sets = [['🔎 Search the web',"What are today's top news headlines?"],['🖼 Create an image','Draw a cat astronaut, watercolor style'],['📄 Work with a file','Summarize the document I attach'],['💡 Explain simply','Explain how the internet works, in simple terms']];
+    sub = 'Ask anything. Everything runs on your computer.';
+    sets = [['Search the web',"What are today's top news headlines?"],['Create an image','Draw a cat astronaut, watercolor style'],['Work with a file','Summarize the document I attach'],['Explain simply','Explain how the internet works, in simple terms']];
   }
   if (wt) wt.textContent = title;
   if (ws) ws.textContent = sub;
@@ -6635,14 +6798,10 @@ function renderReg(items, query) {
   grid.innerHTML = filtered.map(m => {
     const sid = safeId(m.t+'/'+m.n);
     return `
-    <div class="rcard">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
-        <span class="type-pill ${tClass[m.t]}">${tIcon[m.t]} ${m.t.toUpperCase()}</span>
-        ${m.gpu ? `<span style="font-size:10px;color:var(--text3)">${m.gpu}</span>` : ''}
-      </div>
+    <div class="rcard"${m.gpu ? ` title="${esc(m.gpu)}"` : ''}>
       <div class="rcard-name">${m.n}</div>
       <div class="rcard-desc">${m.d}</div>
-      <div style="margin:4px 0 2px">${fitBadgeGB(parseGB(m.s))}</div>
+      <div class="rcard-fit">${fitBadgeGB(parseGB(m.s))}</div>
       <div id="dl-prog-${sid}" style="display:none;margin:8px 0 4px">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px">
           <span id="dl-lbl-${sid}">${esc(t('connecting'))}</span>
@@ -6657,7 +6816,7 @@ function renderReg(items, query) {
         </button>
       </div>
       <div class="rcard-foot" id="dl-foot-${sid}">
-        <span class="rcard-sz">${m.s} · ${m.l}</span>
+        <span class="rcard-sz">${m.s}</span>
         <button class="btn primary" id="dl-btn-${sid}" style="font-size:12px;padding:5px 14px"
           onclick="pullModel('${m.t}/${m.n}',this)">${esc(t('download'))}</button>
       </div>

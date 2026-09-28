@@ -87,7 +87,14 @@ func (m *ModelManager) GetOrLoadWithContext(model *hub.Model, hw *Hardware, keep
 		runner.SetContextSize(ctxSize)
 	}
 	if err := runner.EnsureServer(); err != nil {
-		return nil, err
+		// A model newer than the installed llama.cpp: update the engine once and
+		// retry, so new architectures just work.
+		if !IsArchUnsupported(err) || !m.updateLlamaForNewModel(hw) {
+			return nil, err
+		}
+		if err := runner.EnsureServer(); err != nil {
+			return nil, err
+		}
 	}
 
 	m.mu.Lock()
@@ -121,6 +128,29 @@ func (m *ModelManager) Unload(model *hub.Model) {
 			delete(m.entries, key)
 		}
 	}
+}
+
+// UnloadAll stops every running llama-server (e.g. before replacing llama.cpp).
+func (m *ModelManager) UnloadAll() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for key, e := range m.entries {
+		e.runner.stopServer()
+		delete(m.entries, key)
+	}
+}
+
+// updateLlamaForNewModel installs a newer llama.cpp when one exists. Reports
+// whether an update was installed (so loading is worth retrying).
+func (m *ModelManager) updateLlamaForNewModel(hw *Hardware) bool {
+	invalidateLlamaLatest() // a new build may have landed since the last check
+	st := CheckLlama()
+	if !st.UpdateAvailable || (st.Installed && !st.Managed) {
+		return false
+	}
+	m.UnloadAll() // Windows keeps DLLs locked while a server runs
+	_, err := InstallLlamaCpp(hw, nil)
+	return err == nil
 }
 
 // ListLoaded returns all currently loaded models with expiry info.

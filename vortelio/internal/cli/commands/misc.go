@@ -272,6 +272,10 @@ func (c *ServeCommand) Run(args []string) error {
 		}
 	}
 	fmt.Printf("    Press Ctrl+C to stop.\n\n")
+	// Install llama.cpp if missing / keep it current, in the background.
+	server.AutoUpdateEngine(func(format string, args ...any) {
+		fmt.Printf("⚙️   "+format+"\n", args...)
+	})
 
 	server.InitLogger("info")
 

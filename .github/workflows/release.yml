@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     tags: ['v*']
+    # Also release automatically whenever the version is bumped on main, so
+    # linux/mac users (who download the binary from Releases) never hit a 404.
+    branches: [main]
+    paths:
+      - vortelio/internal/version/version.go
+      - .github/workflows/release.yml
   workflow_dispatch:
 
 permissions:
@@ -10,8 +16,32 @@ permissions:
   id-token: write
 
 jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      exists: ${{ steps.v.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver=$(awk -F'"' '/^var Version/{print $2}' vortelio/internal/version/version.go)
+          [ -n "$ver" ] || { echo "::error::cannot read version.go"; exit 1; }
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          if gh release view "v$ver" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release v$ver already exists — skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: version
+    if: ${{ needs.version.outputs.exists != 'true' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -26,7 +56,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: vortelio/go.mod
           cache-dependency-path: vortelio/go.sum
       - name: Build
         working-directory: vortelio
@@ -36,7 +66,7 @@ jobs:
           CGO_ENABLED: '0'
         run: |
           mkdir -p dist
-          go build -trimpath -ldflags="-s -w" \
+          go build -trimpath -ldflags="-s -w -X github.com/vortelio/vortelio/internal/version.Version=${{ needs.version.outputs.version }}" \
             -o "dist/vortelio-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" \
             ./cmd/vortelio
       - uses: actions/upload-artifact@v4
@@ -75,8 +105,8 @@ jobs:
 
   release:
     name: GitHub Release
-    needs: [build, sign-windows]
-    if: ${{ always() && !failure() && !cancelled() }}
+    needs: [version, build, sign-windows]
+    if: ${{ always() && !failure() && !cancelled() && needs.version.outputs.exists != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -104,6 +134,10 @@ jobs:
         run: sha256sum * > SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: Vortelio v${{ needs.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
           files: dist/*
           generate_release_notes: true
           draft: false
@@ -112,7 +146,8 @@ jobs:
   pypi:
     name: Publish Python wrapper to PyPI
     needs: [build, sign-windows]
-    if: ${{ always() && !failure() && !cancelled() }}
+    # Only on explicit tag pushes; main-branch auto-releases just publish binaries.
+    if: ${{ always() && !failure() && !cancelled() && startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     environment: pypi
     steps:

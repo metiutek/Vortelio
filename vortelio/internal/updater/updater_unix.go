@@ -8,7 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
+
+// shellQuote wraps s in single quotes for POSIX sh, escaping embedded quotes.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
 
 func StartDetached(restartGUI bool) (StartResult, error) {
 	uv, err := exec.LookPath("uv")

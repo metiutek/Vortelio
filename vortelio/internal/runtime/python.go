@@ -149,7 +149,7 @@ func CheckPythonPackage(pythonBin, pkg string) bool {
 }
 
 // escapePy makes a string safe to embed inside a Python literal delimited by
-// """…""" or '''…'''. Both quote styles are escaped: a prompt containing ''' or
+// """…""" or ”'…”'. Both quote styles are escaped: a prompt containing ”' or
 // """ would otherwise close the literal early and break (or inject into) the
 // generated script.
 func escapePy(s string) string {

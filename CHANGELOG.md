@@ -2,6 +2,24 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.86] — 2026-09-28
+### Changed
+- Model catalog refreshed: Qwen 3.5 (0.8B/4B/9B), Qwen 3.8 27B, Qwen 3.6 35B-A3B, Qwen3 Coder 30B, Gemma 4 (E2B/E4B/12B/26B), gpt-oss 20B. Older models stay installable by name.
+- Onboarding recommends `qwen3.5:4b`; Gemma 4 recognised as tool-capable.
+
+## [0.3.85] — 2026-09-28
+### Changed
+- New UI: calmer, minimal look — SVG icons, indigo accent, fewer controls on screen, simpler model catalog.
+### Added
+- llama.cpp is installed automatically on first use and kept up to date (at startup, and when a model needs a newer engine). Settings shows the engine build with a one-click update.
+### Fixed
+- Chat stayed silent when llama.cpp was missing.
+- llama.cpp download on macOS/Linux (upstream switched to `.tar.gz`, shared-library symlinks).
+
+## [0.3.84] — 2026-09-28
+### Fixed
+- Linux/macOS builds failed (`shellQuote` undefined), so no release was published after v0.3.76 and `vortelio` returned HTTP 404 on first run. Releases are now published automatically when the version changes.
+
 ## [Unreleased]
 ### Added
 - Python wrapper package (`vortelio-pip/`) — install via `uv tool install vortelio` or `pip install vortelio`

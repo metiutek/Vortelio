@@ -20,7 +20,7 @@
 
 <br/>
 
-<img src="assets/demo.gif" alt="Vortelio demo" width="100%" />
+<img src="docs/screenshots/chat-light.jpg" alt="Vortelio chat" width="100%" />
 
 </div>
 
@@ -135,11 +135,11 @@ go build -o vortelio ./cmd/vortelio
 # Open the web UI (auto-starts background server)
 vortelio gui
 
-# Pull a model from HuggingFace
-vortelio pull llama-3.2-3b-instruct
+# Pull a model (llama.cpp is downloaded automatically on first use)
+vortelio pull llm/qwen3.5:4b
 
 # Run inference from the CLI
-vortelio run llama-3.2-3b-instruct "Explain quantum entanglement in one tweet"
+vortelio run llm/qwen3.5:4b "Explain quantum entanglement in one tweet"
 
 # Serve OpenAI / Ollama compatible API
 vortelio serve --port 11500
@@ -150,19 +150,19 @@ vortelio stop           # graceful shutdown
 
 # Use it from any OpenAI SDK
 curl http://localhost:11500/v1/chat/completions \
-  -d '{"model":"llama-3.2-3b-instruct","messages":[{"role":"user","content":"hi"}]}'
+  -d '{"model":"qwen3.5:4b","messages":[{"role":"user","content":"hi"}]}'
 ```
 
 ---
 
 ## ✨ Features
 
-- 🧠 **LLMs** — llama.cpp backend, GGUF, chat + completions, streaming
+- 🧠 **LLMs** — llama.cpp backend (installed and kept up to date automatically, so new model architectures just work), GGUF, chat + completions, streaming
 - 🎨 **Images** — Stable Diffusion, FLUX, SDXL via `diffusers`
 - 🎤 **Audio** — Whisper STT (faster-whisper), Kokoro/Bark TTS
 - 🎬 **Video** — WAN 2.1, AnimateDiff, CogVideo
 - 🧊 **3D** — TripoSR, Shap-E, LGM, TRELLIS
-- 🌐 **Web UI** — single-file HTML, dark theme, code blocks, streaming
+- 🌐 **Web UI** — clean, minimal single-file UI, light & dark theme, code blocks, streaming
 - 🔌 **API compatibility** — drop-in for OpenAI `/v1/chat/completions` and Ollama `/api/chat`
 - ☁️ **Cloud proxy** — OpenAI, Anthropic, Gemini, Groq, Mistral, OpenRouter, Ollama Cloud
 - 🤖 **AI agents** — install/start/stop OpenClaw, Open Code, Open WebUI, Flowise, CrewAI from the UI
@@ -176,7 +176,7 @@ curl http://localhost:11500/v1/chat/completions \
 
 ## 🧩 Supported models
 
-LLM: Llama, Qwen, Mistral, Gemma, Phi (any GGUF). Image: Stable Diffusion 1.5/2/XL, FLUX.1, Kandinsky. Audio: Whisper (all sizes), Kokoro, Bark. Video: WAN 2.1, AnimateDiff, CogVideo-X. 3D: TripoSR, Shap-E, LGM, TRELLIS.
+LLM: Qwen 3.5 / 3.6 / 3.8, Qwen3 Coder, Gemma 4, gpt-oss, Llama, Mistral, Phi — any GGUF llama.cpp can run. Image: Stable Diffusion 1.5/2/XL, FLUX.1, Kandinsky. Audio: Whisper (all sizes), Kokoro, Bark. Video: WAN 2.1, AnimateDiff, CogVideo-X. 3D: TripoSR, Shap-E, LGM, TRELLIS.
 
 Pull anything from HuggingFace:
 
@@ -247,7 +247,7 @@ vortelio serve   # CrewAI server auto-starts when you click Start in the UI
 
 Open **Web UI → 🤖 CrewAI** (sidebar) or click **Gestisci Crew** on the running agent card:
 
-1. **New Crew** → give it a name, pick a local model (e.g. `mistral:7b`), choose `sequential` or `hierarchical`
+1. **New Crew** → give it a name, pick a local model (e.g. `qwen3.5:4b`), choose `sequential` or `hierarchical`
 2. **Add agents** — define role, goal, backstory for each
 3. **Add tasks** — description, expected output, assign to an agent
 4. **Save & Run** — output streams live in the UI
@@ -262,7 +262,7 @@ GET http://localhost:11500/api/crewai/crews
 POST http://localhost:11500/api/crewai/crews/research_team
 {
   "name": "research_team",
-  "model": "mistral:7b",
+  "model": "qwen3.5:4b",
   "process": "sequential",
   "agents": [
     {"role": "Researcher", "goal": "Find key facts about X", "backstory": "Expert analyst"},
@@ -276,7 +276,7 @@ POST http://localhost:11500/api/crewai/crews/research_team
 
 # Run the crew (SSE stream)
 POST http://localhost:11500/api/crewai/crews/research_team/run
-{"model": "mistral:7b", "inputs": {"topic": "quantum computing"}}
+{"model": "qwen3.5:4b", "inputs": {"topic": "quantum computing"}}
 ```
 
 > CrewAI runs on **port 8500** (local only). All LLM calls go to Vortelio's OpenAI-compatible API — no external API keys required.
@@ -298,7 +298,7 @@ client = OpenAI(base_url="http://localhost:11500/v1", api_key="local")
 
 # Chat with a local LLM
 response = client.chat.completions.create(
-    model="mistral:7b",
+    model="qwen3.5:4b",
     messages=[{"role": "user", "content": "Explain quantum computing in simple terms"}]
 )
 print(response.choices[0].message.content)
@@ -315,7 +315,7 @@ audio = client.audio.transcriptions.create(model="audio/whisper:large-v3", file=
 ```python
 from langchain_openai import ChatOpenAI
 
-llm = ChatOpenAI(base_url="http://localhost:11500/v1", api_key="local", model="mistral:7b")
+llm = ChatOpenAI(base_url="http://localhost:11500/v1", api_key="local", model="qwen3.5:4b")
 result = llm.invoke("What is the capital of Italy?")
 ```
 
@@ -326,7 +326,7 @@ import OpenAI from "openai";
 
 const client = new OpenAI({ baseURL: "http://localhost:11500/v1", apiKey: "local" });
 const chat = await client.chat.completions.create({
-  model: "mistral:7b",
+  model: "qwen3.5:4b",
   messages: [{ role: "user", content: "Hello!" }],
 });
 ```
@@ -336,18 +336,18 @@ const chat = await client.chat.completions.create({
 ```bash
 curl http://localhost:11500/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"mistral:7b","messages":[{"role":"user","content":"Hello!"}],"stream":false}'
+  -d '{"model":"qwen3.5:4b","messages":[{"role":"user","content":"Hello!"}],"stream":false}'
 ```
 
 ---
 
 ## 🖥️ Screenshots
 
-> Drop demo GIFs / screenshots in `docs/screenshots/` and reference here.
+| Chat | Dark theme |
+|---|---|
+| <img src="docs/screenshots/chat-light.jpg" alt="Chat" /> | <img src="docs/screenshots/chat-dark.jpg" alt="Dark theme" /> |
 
-```
-[ chat UI ]   [ image gen ]   [ model hub ]   [ cloud panel ]
-```
+<img src="docs/screenshots/models.jpg" alt="Model catalog — shows whether each model fits your machine" width="100%" />
 
 ---
 
@@ -381,7 +381,7 @@ go test ./...
 Yes. Apache 2.0 license. No paid tier, no telemetry, no account required.
 
 **How do I run LLMs locally for free?**
-Install Vortelio, then `vortelio pull llm/mistral:7b` and `vortelio run llm/mistral:7b "your prompt"`. No API key, no cloud, no cost.
+Install Vortelio, then `vortelio pull llm/qwen3.5:4b` and `vortelio run llm/qwen3.5:4b "your prompt"`. No API key, no cloud, no cost.
 
 **How is Vortelio different from Ollama?**
 Ollama only runs LLMs. Vortelio runs LLMs **plus** Stable Diffusion image generation, Whisper speech-to-text, Kokoro text-to-speech, WAN 2.1 video, TripoSR 3D — all from one binary. Vortelio also exposes Ollama-compatible API so your existing Ollama clients work unchanged.
@@ -396,7 +396,7 @@ Yes. `vortelio pull image/dreamshaper:latest` then `vortelio run image/dreamshap
 Yes. Vortelio serves OpenAI-compatible endpoints at `http://localhost:11500/v1/`. Change `base_url` to `http://localhost:11500/v1` and `api_key` to any string. Supports `/v1/chat/completions`, `/v1/embeddings`, `/v1/images/generations`, `/v1/audio/transcriptions`.
 
 **Does CrewAI work locally without OpenAI API key?**
-Yes. Vortelio runs CrewAI agents against your local models. No external API keys needed. Set model to any model you've pulled (e.g. `mistral:7b`).
+Yes. Vortelio runs CrewAI agents against your local models. No external API keys needed. Set model to any model you've pulled (e.g. `qwen3.5:4b`).
 
 **Does it work without a GPU?**
 LLMs and Whisper run on CPU (slower but functional). Image, video, and 3D generation need a GPU — NVIDIA CUDA, AMD ROCm, or Apple Metal.

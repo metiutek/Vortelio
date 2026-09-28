@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sync/atomic"
 	"time"
 
+	"github.com/vortelio/vortelio/internal/config"
 	"github.com/vortelio/vortelio/internal/updater"
 )
 
@@ -57,9 +59,46 @@ func handleUpdateStart(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, res)
 	go func() {
 		time.Sleep(500 * time.Millisecond)
-		select {
-		case shutdownCh <- struct{}{}:
-		default:
+		requestShutdown()
+	}()
+}
+
+func requestShutdown() {
+	select {
+	case shutdownCh <- struct{}{}:
+	default:
+	}
+}
+
+// AutoUpdateVortelio installs new Vortelio versions by itself when the user
+// enabled auto_update in config. It only fires while the server is idle (no
+// request in flight, e.g. no chat streaming), then restarts the GUI.
+func AutoUpdateVortelio(logf func(format string, args ...any)) {
+	go func() {
+		time.Sleep(2 * time.Minute) // let startup settle
+		for {
+			if config.Get().AutoUpdate && tryAutoUpdate(logf) {
+				return
+			}
+			time.Sleep(30 * time.Minute)
 		}
 	}()
+}
+
+func tryAutoUpdate(logf func(format string, args ...any)) bool {
+	info, err := updater.CheckWithTimeout(15 * time.Second)
+	if err != nil || !info.Available {
+		return false
+	}
+	if atomic.LoadInt64(&mReqInFlight) > 0 {
+		return false // busy: retry on the next tick
+	}
+	logf("Auto-update: installing Vortelio %s (current %s)", info.Latest, info.Current)
+	if _, err := updater.StartDetached(true); err != nil {
+		logf("Auto-update failed: %v", err)
+		return false
+	}
+	time.Sleep(500 * time.Millisecond)
+	requestShutdown()
+	return true
 }

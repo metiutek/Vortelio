@@ -22,6 +22,7 @@ type Config struct {
 	StripePricePro        string   `json:"stripe_price_pro"`        // Stripe Price ID per piano Pro (€9.99/mese)
 	StripePriceBusiness   string   `json:"stripe_price_business"`   // Stripe Price ID per piano Business (€20/mese)
 	StripePriceEnterprise string   `json:"stripe_price_enterprise"` // Stripe Price ID per piano Enterprise (€150/mese)
+	AutoUpdate            bool     `json:"auto_update"`             // installa da solo le nuove versioni di Vortelio (server idle)
 }
 
 var (
@@ -39,6 +40,18 @@ func Load() *Config {
 		}
 	})
 	return instance
+}
+
+// Save scrive la configurazione corrente in config.json.
+func Save() error {
+	data, err := json.MarshalIndent(Get(), "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(HomeDir(), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(HomeDir(), "config.json"), data, 0644)
 }
 
 // Get restituisce la configurazione già caricata (o i default se Load non chiamato).

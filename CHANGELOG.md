@@ -2,6 +2,12 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.87] — 2026-09-28
+### Fixed
+- Windows: updating from the web GUI or `vortelio update` did nothing. The updater was killed together with uv's launcher job when Vortelio exited; it now starts outside that job and completes.
+### Added
+- Auto-update (off by default): Settings → Updates → Auto-update, or `vortelio update --auto on|off`. The server installs new versions when idle and restarts itself.
+
 ## [0.3.86] — 2026-09-28
 ### Changed
 - Model catalog refreshed: Qwen 3.5 (0.8B/4B/9B), Qwen 3.8 27B, Qwen 3.6 35B-A3B, Qwen3 Coder 30B, Gemma 4 (E2B/E4B/12B/26B), gpt-oss 20B. Older models stay installable by name.

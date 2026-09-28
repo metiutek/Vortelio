@@ -2226,6 +2226,20 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
       </div>
     </div>
 
+    <!-- Updates -->
+    <div class="settings-section">
+      <div class="settings-section-title">Updates</div>
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">Auto-update</div>
+          <div class="settings-row-sub">Install new Vortelio versions automatically when the server is idle. Vortelio restarts by itself afterwards.</div>
+        </div>
+        <div class="settings-row-ctrl">
+          <label class="switch"><input type="checkbox" id="set-autoupdate" onchange="setAutoUpdate(this.checked)"><span class="sl"></span></label>
+        </div>
+      </div>
+    </div>
+
     <!-- Chats -->
     <div class="settings-section">
       <div class="settings-section-title">Chat</div>
@@ -3234,6 +3248,9 @@ function openSettings() {
   document.getElementById('settings-panel').classList.add('open');
   document.getElementById('settings-overlay').classList.add('open');
   const as = document.getElementById('set-autosave'); if (as) as.checked = autoSaveOn;
+  fetch('/api/config').then(r => r.json()).then(c => {
+    const au = document.getElementById('set-autoupdate'); if (au) au.checked = !!c.auto_update;
+  }).catch(() => {});
   const pi = document.getElementById('set-personal'); if (pi) pi.value = personalInfo;
   const sl = document.getElementById('ctx-slider');
   if (sl) { sl.value = contextSize; updateCtxLabel(contextSize); }
@@ -7309,6 +7326,21 @@ function snapshotMsgsHtml() {
 
 // Auto-save: every chat is saved silently after each reply (on by default).
 let autoSaveOn = localStorage.getItem('pullai_autosave') !== 'false';
+async function setAutoUpdate(on) {
+  const cb = document.getElementById('set-autoupdate');
+  try {
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ auto_update: !!on })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    toast(on ? '⬆️ Auto-update on' : 'Auto-update off');
+  } catch(e) {
+    if (cb) cb.checked = !on;
+    toast('❌ ' + e.message, 'err');
+  }
+}
 function setAutoSave(on) {
   autoSaveOn = !!on;
   localStorage.setItem('pullai_autosave', autoSaveOn ? 'true' : 'false');

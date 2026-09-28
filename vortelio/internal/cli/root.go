@@ -109,6 +109,7 @@ func (r *rootCommand) printHelp() {
 	fmt.Println("  vortelio cleanup                        Analyze disk space")
 	fmt.Println("  vortelio cleanup       --delete         Delete unnecessary files")
 	fmt.Println("  vortelio update        [--check]        Check and install Vortelio updates")
+	fmt.Println("  vortelio update --auto on|off           Toggle automatic updates")
 	fmt.Println("  vortelio help                           Show this message")
 	fmt.Println()
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")

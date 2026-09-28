@@ -41,6 +41,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if v, ok := patch["python_bin"].(string); ok {
 			cfg.PythonBin = v
 		}
+		if v, ok := patch["auto_update"].(bool); ok {
+			cfg.AutoUpdate = v
+		}
 		if v, ok := patch["allow_origins"].([]interface{}); ok {
 			origins := make([]string, 0, len(v))
 			for _, o := range v {

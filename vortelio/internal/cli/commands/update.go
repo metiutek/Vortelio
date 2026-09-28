@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vortelio/vortelio/internal/config"
 	"github.com/vortelio/vortelio/internal/updater"
 )
 
@@ -17,6 +18,33 @@ func (c *UpdateCommand) Name() string  { return "update" }
 func (c *UpdateCommand) Run(args []string) error {
 	checkOnly := hasArg(args, "--check")
 	force := hasArg(args, "--force")
+
+	// vortelio update --auto on|off — toggle automatic updates (server side).
+	for i, arg := range args {
+		if !strings.EqualFold(arg, "--auto") {
+			continue
+		}
+		cfg := config.Get()
+		if i+1 < len(args) {
+			switch strings.ToLower(args[i+1]) {
+			case "on", "true", "1":
+				cfg.AutoUpdate = true
+			case "off", "false", "0":
+				cfg.AutoUpdate = false
+			default:
+				return fmt.Errorf("uso: vortelio update --auto on|off")
+			}
+			if err := config.Save(); err != nil {
+				return fmt.Errorf("salvataggio config fallito: %w", err)
+			}
+		}
+		if cfg.AutoUpdate {
+			fmt.Println("Aggiornamento automatico: ATTIVO (il server installa le nuove versioni quando e' inattivo).")
+		} else {
+			fmt.Println("Aggiornamento automatico: DISATTIVO. Attivalo con: vortelio update --auto on")
+		}
+		return nil
+	}
 
 	info, err := updater.CheckWithTimeout(10 * time.Second)
 	if err != nil {

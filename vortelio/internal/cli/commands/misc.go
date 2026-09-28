@@ -277,6 +277,11 @@ func (c *ServeCommand) Run(args []string) error {
 		fmt.Printf("⚙️   "+format+"\n", args...)
 	})
 
+	// Install new Vortelio versions by itself if auto_update is on.
+	server.AutoUpdateVortelio(func(format string, args ...any) {
+		fmt.Printf("⬆️   "+format+"\n", args...)
+	})
+
 	server.InitLogger("info")
 
 	if !noBrowser {

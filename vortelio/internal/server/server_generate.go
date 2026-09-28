@@ -297,8 +297,12 @@ func handleGenerateLLM(w http.ResponseWriter, r *http.Request, model *hub.Model,
 		sopts.MaxToolRounds = 40
 	}
 
+	// Always capture reasoning: models like Qwen 3.5, Gemma 4 or gpt-oss think
+	// on their own (llama-server returns it separately), so the GUI must show
+	// it even when the "Think" toggle — which only asks non-reasoning models to
+	// reason — is off.
 	var thinkBuf strings.Builder
-	if req.Think {
+	{
 		sopts.ThinkEmit = func(token string) {
 			thinkBuf.WriteString(token)
 			if streaming {

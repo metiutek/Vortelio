@@ -52,11 +52,27 @@ var ModelChoices = map[string][][2]string{
 		{"sonar-pro", "Sonar Pro"},
 		{"sonar-reasoning", "Sonar Reasoning"},
 	},
+	// Ollama Cloud: the live catalog is fetched by Choices(); this is the
+	// offline fallback (2026-09), cheapest first. Free accounts get starter
+	// credits usable on the cheaper models; buying credits unlocks the rest.
 	"ollamacloud": {
+		{"gpt-oss:20b", "gpt-oss 20B"},
+		{"nemotron-3-nano:30b", "Nemotron 3 Nano 30B"},
+		{"nemotron-3-super", "Nemotron 3 Super"},
+		{"gemma4:31b", "Gemma 4 31B"},
 		{"gpt-oss:120b", "gpt-oss 120B"},
-		{"deepseek-v3.1:671b", "DeepSeek V3.1 671B"},
-		{"qwen3-coder:480b", "Qwen3 Coder 480B"},
-		{"kimi-k2:1t", "Kimi K2 1T"},
+		{"glm-5.3-flash", "GLM 5.3 Flash"},
+		{"deepseek-v4.1-flash", "DeepSeek V4.1 Flash"},
+		{"minimax-m2.7", "MiniMax M2.7"},
+		{"mistral-large-3:675b", "Mistral Large 3 675B"},
+		{"minimax-m3", "MiniMax M3"},
+		{"kimi-k2.6", "Kimi K2.6"},
+		{"kimi-k2.7-code", "Kimi K2.7 Code"},
+		{"deepseek-v4-pro:0813", "DeepSeek V4 Pro"},
+		{"glm-5.3", "GLM 5.3"},
+		{"glm-5.2", "GLM 5.2"},
+		{"nemotron-3-ultra", "Nemotron 3 Ultra"},
+		{"kimi-k3", "Kimi K3"},
 	},
 }
 
@@ -77,7 +93,7 @@ func ModelsWithKeys() []CloudModel {
 		if LoadKey(p.ID) == "" {
 			continue
 		}
-		choices := ModelChoices[p.ID]
+		choices := Choices(p.ID)
 		if len(choices) == 0 {
 			choices = [][2]string{{p.DefaultModel, p.DefaultModel}}
 		}

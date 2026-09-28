@@ -110,9 +110,12 @@ install never breaks:
 vortelio update          # CLI
 ```
 
-…or click **🔄 Update Vortelio** in the menu / **Aggiorna Vortelio** in the web UI.
+…or click **🔄 Update Vortelio** in the menu / **Update** in the web UI.
 A notification appears automatically when a new version is available. Avoid
 re-running `uv tool install` by hand while Vortelio is open.
+
+To install new versions automatically, turn on **Settings → Updates → Auto-update**
+or run `vortelio update --auto on`: the server updates itself when idle and restarts.
 
 ### Windows installer
 
@@ -152,6 +155,36 @@ vortelio stop           # graceful shutdown
 curl http://localhost:11500/v1/chat/completions \
   -d '{"model":"qwen3.5:4b","messages":[{"role":"user","content":"hi"}]}'
 ```
+
+---
+
+## 💻 Vortelio Code — coding agent in your terminal
+
+`vortelio code` is an interactive coding agent in the style of Claude Code, Codex and
+OpenCode, running on your local models (or a cloud key you already have).
+
+```bash
+cd my-project
+vortelio code                          # interactive session
+vortelio code "fix the failing tests"  # start with a prompt
+vortelio code -p "explain main.go"     # one-shot, prints the answer (scripts / CI)
+vortelio code -c                       # continue the last session in this folder
+vortelio code --plan                   # read-only: investigate and propose a plan
+```
+
+- **Tools** — read (numbered, paged), edit (exact unique match, colored diff), write, glob `**`,
+  regex grep, shell with timeout, todo list, web search/fetch, `ask_user`; MCP and media optional.
+- **Permission modes** (Shift+Tab) — `plan` read-only · `ask` confirm edits and commands ·
+  `edits` accept edits, ask for commands · `auto` no prompts. Allow/deny rules such as
+  `run_shell(go test*)` in `.vortelio/settings.json`; deny always wins.
+- **Project memory** — `AGENTS.md` (also `CLAUDE.md` / `VORTELIO.md`) loaded every session;
+  `/init` writes it, `# note` appends to it.
+- **Sessions** — saved automatically; `/resume`, `-c`, `-r <id>`. `/compact` (also automatic
+  when the context fills up), `/undo` reverts the last turn's file changes, `/diff`.
+- **Input** — `@file` attaches a file, `!cmd` runs a shell command, `Esc` interrupts,
+  custom commands from `.vortelio/commands/*.md`, reasoning of thinking models shown live.
+
+`/help` lists every command; `/config` and `/permissions` show and change the settings.
 
 ---
 

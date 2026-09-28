@@ -93,7 +93,7 @@ func (r *rootCommand) printHelp() {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("  vortelio pull          <model>          Download a model from HuggingFace")
 	fmt.Println("  vortelio run           <model> [prompt] Run a model")
-	fmt.Println("  vortelio code          [goal] [--auto]  Vortelio coding agent in the terminal")
+	fmt.Println("  vortelio code          [prompt] [-p]    Coding agent in the terminal (vortelio code --help)")
 	fmt.Println("  vortelio list                           List downloaded models")
 	fmt.Println("  vortelio rm            <model>          Remove a model")
 	fmt.Println("  vortelio rm            --all            Remove all models")

@@ -1,695 +1,463 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/fs"
+	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
+	goruntime "runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
+	"golang.org/x/term"
+
+	"github.com/vortelio/vortelio/internal/cloud"
 	"github.com/vortelio/vortelio/internal/hub"
 	"github.com/vortelio/vortelio/internal/runtime"
 	"github.com/vortelio/vortelio/internal/server"
-	"golang.org/x/term"
+	"github.com/vortelio/vortelio/internal/version"
 )
 
-// ANSI helpers
-const (
-	cReset = "\033[0m"
-	cDim   = "\033[2m"
-	cBold  = "\033[1m"
-	cCyan  = "\033[36m"
-	cGreen = "\033[32m"
-	cYell  = "\033[33m"
-	cRed   = "\033[31m"
-	cMag   = "\033[35m"
-	cBlue  = "\033[34m"
-	cInv   = "\033[7m"
-	// Highlighted bar for the submitted question so it stands out from output.
-	cQBg    = "\033[48;5;24m" // dark teal background
-	cQFg    = "\033[97m"      // bright white text
-	cThinkC = "\033[38;5;213m"
-)
-
-// spinFrames is the braille spinner used by the live working animation.
-var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-
-// CodeCommand is the Vortelio terminal coding agent, on the same harness as the
-// Developer GUI: agentic tool loop, coding tools, web, media, skills, MCP.
+// CodeCommand is `vortelio code`: an interactive coding agent in the terminal,
+// modeled on Claude Code / Codex / OpenCode. It runs local models (llama.cpp)
+// or cloud models with the same tool harness as the Developer GUI.
 type CodeCommand struct{}
 
 func NewCodeCommand() *CodeCommand  { return &CodeCommand{} }
 func (c *CodeCommand) Name() string { return "code" }
 
+const (
+	defaultContextTokens = 16384
+	cloudContextTokens   = 128000
+	defaultMaxTurns      = 30
+)
+
+type codeOpts struct {
+	model        string
+	dir          string
+	mode         string
+	print        bool
+	outputFormat string
+	prompt       string
+	cont         bool
+	resume       string
+	resumePick   bool
+	cpu          bool
+	maxTurns     int
+}
+
+type fileCheckpoint struct {
+	path    string
+	before  []byte
+	existed bool
+}
+
 type codeSession struct {
-	model         *hub.Model
+	t        *terminal
+	ui       *codeUI
+	opts     codeOpts
+	settings codeSettings
+	warns    []string
+
+	workdir string
+	mode    string
+
+	local         *hub.Model
 	runner        *runtime.LLMRunner
 	hw            *runtime.Hardware
-	workdir       string
-	mode          string // plan | ask | auto
-	autonomous    bool
-	mcpOn         bool
-	skills        []string
-	messages      []map[string]interface{}
 	cloudProvider string
 	cloudModel    string
-	history       []string // typed prompts, for ↑/↓ recall in the input box
+
+	messages       []chatMsg
+	summary        string // compacted earlier conversation
+	pendingContext string // output of !commands, prepended to the next prompt
+	sess           *savedSession
+	state          *server.CodingState
+	skills         []string
+	mcpOn          bool
+	media          bool
+	showThinking   bool
+
+	instr      []instrFile
+	customCmds map[string]customCommand
+	history    []string
+
+	undo      [][]fileCheckpoint
+	turnCPs   []fileCheckpoint
+	turnSeen  map[string]bool
+	cancel    context.CancelFunc
+	cancelled bool
+	sessAllow []string // "always allow" rules added during this session (not yet saved)
+
+	toolsChars int // size of the tool definitions (context accounting)
+	lastUsage  int
+	mu         sync.Mutex
 }
 
-var slashCmds = []struct{ Cmd, Desc string }{
-	{"/model", "cambia modello (locali + cloud)"},
-	{"/skills", "attiva/disattiva skill"},
-	{"/mcp", "attiva/disattiva tool MCP"},
-	{"/mode", "plan · ask · auto (conferma azioni)"},
-	{"/auto", "modalità autonoma verso l'obiettivo"},
-	{"/init", "genera/aggiorna PROJECT.md (riassunto del progetto)"},
-	{"/cd", "cambia cartella di lavoro"},
-	{"/clear", "azzera il contesto"},
-	{"/help", "elenco comandi"},
-	{"/exit", "esci"},
-}
+// ── entry point ──────────────────────────────────────────────────────────────
 
 func (c *CodeCommand) Run(args []string) error {
-	s := &codeSession{mode: "ask"}
-	s.workdir, _ = os.Getwd()
-	var modelRef string
-	var firstPrompt []string
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--model", "-m":
-			if i+1 < len(args) {
-				modelRef = args[i+1]
-				i++
-			}
-		case "--dir", "-d":
-			if i+1 < len(args) {
-				s.workdir = args[i+1]
-				i++
-			}
-		case "--auto", "--autonomous":
-			s.autonomous = true
-			s.mode = "auto"
-		case "--yes", "-y":
-			s.mode = "auto"
-		case "--cpu":
-		case "--help", "-h":
-			printCodeHelp()
-			return nil
-		default:
-			if !strings.HasPrefix(args[i], "--") {
-				firstPrompt = append(firstPrompt, args[i])
-			}
-		}
+	opts, err := parseCodeArgs(args)
+	if err != nil {
+		return err
 	}
-
-	store := hub.NewModelStore()
-	if modelRef != "" {
-		ref, err := hub.ParseModelRef(modelRef)
-		if err != nil {
-			return fmt.Errorf("modello non valido: %w", err)
-		}
-		s.model, err = store.Resolve(ref)
-		if err != nil {
-			return fmt.Errorf("modello non trovato: %w", err)
-		}
-	} else if !s.restoreFromPrefs(store) {
-		// No explicit model and nothing restorable from last session → default.
-		s.model = pickDefaultLLM(store)
+	if opts == nil {
+		return nil // --help
 	}
-	if s.model == nil && s.cloudProvider == "" {
-		if cl := server.CloudModelsForCLI(); len(cl) > 0 {
-			s.cloudProvider = cl[0].Provider
-			s.cloudModel = cl[0].Model
-		} else {
-			return fmt.Errorf("nessun LLM installato e nessun cloud configurato.\n  vortelio pull llm/qwen3.5:9b")
-		}
+	s := &codeSession{opts: *opts, state: server.NewCodingState(), turnSeen: map[string]bool{}}
+	s.workdir = opts.dir
+	if s.workdir == "" {
+		s.workdir, _ = os.Getwd()
 	}
+	if abs, err := filepath.Abs(s.workdir); err == nil {
+		s.workdir = abs
+	}
+	if fi, err := os.Stat(s.workdir); err != nil || !fi.IsDir() {
+		return fmt.Errorf("working directory not found: %s", s.workdir)
+	}
+	s.settings, s.warns = effectiveSettings(s.workdir)
+	s.mode = s.settings.Mode
+	if opts.mode != "" {
+		s.mode = opts.mode
+	}
+	s.showThinking = boolOr(s.settings.ShowThinking, true)
+	s.mcpOn = boolOr(s.settings.MCP, false)
+	s.media = boolOr(s.settings.MediaTools, false)
+	s.instr = loadInstructions(s.workdir)
+	s.customCmds = loadCustomCommands(s.workdir)
 	s.hw = runtime.DetectHardware()
-	for _, a := range args {
-		if a == "--cpu" {
-			s.hw.Backend = runtime.BackendCPU
+	if opts.cpu {
+		s.hw.Backend = runtime.BackendCPU
+	}
+	// The local llama-server belongs to this process: stop it on exit so it does
+	// not linger holding RAM/VRAM.
+	defer runtime.GlobalModelManager.UnloadAll()
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sig)
+	go func() {
+		if _, ok := <-sig; ok {
+			runtime.GlobalModelManager.UnloadAll()
+			os.Exit(130)
+		}
+	}()
+
+	if opts.print {
+		return s.runPrint()
+	}
+	return s.runInteractive()
+}
+
+func parseCodeArgs(args []string) (*codeOpts, error) {
+	o := &codeOpts{outputFormat: "text"}
+	var words []string
+	need := func(i int, flag string) (string, error) {
+		if i+1 >= len(args) {
+			return "", fmt.Errorf("%s needs a value", flag)
+		}
+		return args[i+1], nil
+	}
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch a {
+		case "-h", "--help":
+			printCodeHelp()
+			return nil, nil
+		case "-p", "--print":
+			o.print = true
+		case "-m", "--model":
+			v, err := need(i, a)
+			if err != nil {
+				return nil, err
+			}
+			o.model, i = v, i+1
+		case "-d", "--dir", "-C", "--cd":
+			v, err := need(i, a)
+			if err != nil {
+				return nil, err
+			}
+			o.dir, i = v, i+1
+		case "--mode", "--permission-mode":
+			v, err := need(i, a)
+			if err != nil {
+				return nil, err
+			}
+			if !validMode(v) {
+				return nil, fmt.Errorf("unknown mode %q (plan, ask, edits, auto)", v)
+			}
+			o.mode, i = v, i+1
+		case "-y", "--yes", "--auto", "--autonomous", "--dangerously-skip-permissions":
+			o.mode = "auto"
+		case "--plan":
+			o.mode = "plan"
+		case "--output-format":
+			v, err := need(i, a)
+			if err != nil {
+				return nil, err
+			}
+			if v != "text" && v != "json" {
+				return nil, fmt.Errorf("--output-format must be text or json")
+			}
+			o.outputFormat, i = v, i+1
+		case "-c", "--continue":
+			o.cont = true
+		case "-r", "--resume":
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") && looksLikeSessionID(args[i+1]) {
+				o.resume, i = args[i+1], i+1
+			} else {
+				o.resumePick = true
+			}
+		case "--cpu":
+			o.cpu = true
+		case "--max-turns":
+			v, err := need(i, a)
+			if err != nil {
+				return nil, err
+			}
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 1 {
+				return nil, fmt.Errorf("--max-turns must be a positive number")
+			}
+			o.maxTurns, i = n, i+1
+		default:
+			if strings.HasPrefix(a, "-") && len(a) > 1 {
+				return nil, fmt.Errorf("unknown flag %s (see vortelio code --help)", a)
+			}
+			words = append(words, a)
 		}
 	}
+	o.prompt = strings.Join(words, " ")
+	return o, nil
+}
 
+var sessionIDRE = regexp.MustCompile(`^\d{8}-\d{6}-[0-9a-f]{8}$`)
+
+func looksLikeSessionID(s string) bool { return sessionIDRE.MatchString(s) }
+
+func printCodeHelp() {
+	fmt.Print(`vortelio code — AI coding agent in your terminal
+
+Usage:
+  vortelio code [prompt]              interactive session (optional first prompt)
+  vortelio code -p "prompt"           run once, print the answer, exit (scripts/CI)
+  echo "prompt" | vortelio code -p    prompt from stdin
+
+Options:
+  -m, --model <ref>          model: local ("qwen3.5:4b") or cloud ("cloud/ollamacloud/gpt-oss:120b")
+  -d, -C, --dir <path>       working directory (default: current)
+      --mode <mode>          permission mode: plan | ask | edits | auto (default: ask)
+      --plan                 start in plan mode (read-only)
+  -y, --yes, --auto          auto mode: run edits and commands without asking
+  -c, --continue             continue the most recent session in this directory
+  -r, --resume [id]          resume a session (picker if no id)
+      --max-turns <n>        max tool rounds per request (default 30)
+      --output-format <fmt>  with -p: text (default) or json
+      --cpu                  run the local model on CPU
+
+Permission modes:
+  plan   read-only: explores and proposes a plan, never edits or runs commands
+  ask    asks before every file edit and command (default)
+  edits  file edits run freely, commands still ask
+  auto   everything runs without asking (deny rules still apply)
+
+In the session: /help for commands, ? for shortcuts, @file to attach a file,
+!cmd to run a shell command, # note to save a note to AGENTS.md, Esc to interrupt.
+
+Files:
+  AGENTS.md / CLAUDE.md / VORTELIO.md   project instructions (loaded automatically; /init creates AGENTS.md)
+  ~/.vortelio/code_settings.json        global settings (model, mode, permissions…)
+  .vortelio/settings.json               project settings
+  .vortelio/commands/*.md               custom /commands ($ARGUMENTS = text after the command)
+`)
+}
+
+// ── interactive session ──────────────────────────────────────────────────────
+
+func (s *codeSession) runInteractive() error {
+	s.t = openTerminal()
+	defer s.t.Close()
+	s.ui = newCodeUI(os.Stdout, os.Stdout, s.t.tty && os.Getenv("NO_COLOR") == "", s.showThinking)
+	s.history = loadPromptHistory()
+
+	if err := s.pickInitialModel(); err != nil {
+		return err
+	}
+	if err := s.initSession(); err != nil {
+		return err
+	}
+	if b, err := json.Marshal(s.newProvider(context.Background()).Tools()); err == nil {
+		s.toolsChars = len(b)
+	}
 	s.printBanner()
-	if s.cloudProvider == "" {
-		if err := s.loadModel(); err != nil {
-			return err
+	if s.local != nil {
+		if err := s.loadLocal(); err != nil {
+			s.ui.println("%s✗ %v%s", cRed, err, cReset)
 		}
 	}
 
-	if len(firstPrompt) > 0 {
-		s.runTurn(strings.Join(firstPrompt, " "))
+	ed := &lineEditor{t: s.t, history: s.history}
+	ed.status = s.footer
+	ed.complete = s.completions
+	ed.cycleMode = func() { s.setMode(nextMode(s.mode), false) }
+	ed.toggleThk = func() string {
+		s.showThinking = !s.showThinking
+		s.ui.showThinking = s.showThinking
+		if s.showThinking {
+			return "reasoning shown"
+		}
+		return "reasoning hidden"
 	}
 
+	if s.opts.prompt != "" {
+		fmt.Printf("%s> %s%s\n", cGray, s.opts.prompt, cReset)
+		ed.remember(s.opts.prompt)
+		s.handleInput(s.opts.prompt)
+	}
 	for {
-		line, exit := s.readLine()
-		if exit {
+		fmt.Print("\n")
+		line, res := ed.read()
+		if res == edExit {
+			s.goodbye()
 			return nil
 		}
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
+		appendPromptHistory(line)
+		if s.handleInput(line) {
+			s.goodbye()
+			return nil
 		}
-		if strings.HasPrefix(line, "/") {
-			if s.handleCommand(line) {
-				return nil
-			}
-			continue
-		}
-		// Record for ↑/↓ history recall (skip consecutive duplicates).
-		if n := len(s.history); n == 0 || s.history[n-1] != line {
-			s.history = append(s.history, line)
-		}
-		s.runTurn(line)
 	}
 }
 
-func (s *codeSession) loadModel() error {
-	r, err := runtime.GlobalModelManager.GetOrLoad(s.model, s.hw, 30*time.Minute)
-	if err != nil {
-		return fmt.Errorf("caricamento modello fallito: %w", err)
+func (s *codeSession) goodbye() {
+	s.saveSession()
+	if s.sess != nil && len(s.sess.Messages) > 0 {
+		fmt.Printf("\n%sResume this session with: vortelio code --resume %s%s\n", cGray, s.sess.ID, cReset)
 	}
-	s.runner = r
+}
+
+// handleInput dispatches one submitted prompt. Returns true to exit.
+func (s *codeSession) handleInput(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	switch {
+	case trimmed == "":
+		return false
+	case strings.HasPrefix(trimmed, "/") && !strings.HasPrefix(trimmed, "//"):
+		return s.handleCommand(trimmed)
+	case strings.HasPrefix(trimmed, "!"):
+		s.runBang(strings.TrimSpace(trimmed[1:]))
+		return false
+	case strings.HasPrefix(trimmed, "#") && !strings.HasPrefix(trimmed, "##"):
+		s.addMemory(strings.TrimSpace(trimmed[1:]))
+		return false
+	}
+	s.runTurn(line)
+	return false
+}
+
+// ── models ───────────────────────────────────────────────────────────────────
+
+// parseCloudRef accepts "cloud/<provider>/<model>" or "<provider>/<model>".
+func parseCloudRef(ref string) (string, string, bool) {
+	r := strings.TrimPrefix(ref, "cloud/")
+	i := strings.IndexByte(r, '/')
+	if i <= 0 {
+		return "", "", false
+	}
+	prov, model := r[:i], r[i+1:]
+	if _, ok := cloud.FindProvider(prov); !ok {
+		return "", "", false
+	}
+	return prov, model, model != ""
+}
+
+func (s *codeSession) setModelRef(ref string) error {
+	if prov, model, ok := parseCloudRef(ref); ok {
+		if cloud.LoadKey(prov) == "" {
+			p, _ := cloud.FindProvider(prov)
+			return fmt.Errorf("no API key for %s — add one in the web UI (Settings → Add cloud model) or with: vortelio cloud", p.Name)
+		}
+		s.cloudProvider, s.cloudModel = prov, model
+		s.local, s.runner = nil, nil
+		return nil
+	}
+	full := ref
+	switch strings.SplitN(ref, "/", 2)[0] {
+	case "llm", "image", "audio", "video", "3d":
+	default:
+		full = "llm/" + ref // "qwen3.5:4b", "hf.co/owner/repo:file"
+	}
+	r, err := hub.ParseModelRef(full)
+	if err != nil {
+		return fmt.Errorf("invalid model %q: %w", ref, err)
+	}
+	m, err := hub.NewModelStore().Resolve(r)
+	if err != nil {
+		return fmt.Errorf("model %q is not installed (vortelio pull %s)", ref, ref)
+	}
+	if m.Type != "llm" {
+		return fmt.Errorf("%s is a %s model; vortelio code needs a language model", ref, m.Type)
+	}
+	s.local = m
+	s.runner = nil
+	s.cloudProvider, s.cloudModel = "", ""
 	return nil
+}
+
+func (s *codeSession) modelRef() string {
+	if s.cloudProvider != "" {
+		return "cloud/" + s.cloudProvider + "/" + s.cloudModel
+	}
+	if s.local != nil {
+		return s.local.Name + ":" + s.local.Tag
+	}
+	return ""
 }
 
 func (s *codeSession) modelLabel() string {
 	if s.cloudProvider != "" {
-		return "☁ " + s.cloudModel
+		p, _ := cloud.FindProvider(s.cloudProvider)
+		return s.cloudModel + " (" + p.Name + ")"
 	}
-	if s.model != nil {
-		return s.model.Name + ":" + s.model.Tag
+	if s.local != nil {
+		return s.local.Name + ":" + s.local.Tag
 	}
-	return "?"
+	return "no model"
 }
 
-func (s *codeSession) emit(ev string, data interface{}) {
-	b, _ := json.Marshal(data)
-	var m map[string]interface{}
-	_ = json.Unmarshal(b, &m)
-	switch ev {
-	case "tool_call":
-		fmt.Printf("\n  %s⚙ %v%s %s%s%s\n", cCyan, m["name"], cReset, cDim, truncStr(fmt.Sprint(m["arguments"]), 140), cReset)
-	case "tool_result":
-		if e, ok := m["error"].(string); ok && e != "" {
-			fmt.Printf("  %s✕ %s%s\n", cRed, truncStr(e, 200), cReset)
-		} else {
-			fmt.Printf("  %s✓%s %s%s%s\n", cGreen, cReset, cDim, truncStr(fmt.Sprint(m["result"]), 200), cReset)
+func (s *codeSession) pickInitialModel() error {
+	candidates := []string{s.opts.model, s.settings.Model}
+	for i, ref := range candidates {
+		if ref == "" {
+			continue
 		}
-	case "media_generated":
-		fmt.Printf("  %s🎨 %v%s\n", cMag, m["path"], cReset)
-	}
-}
-
-// approve is the synchronous terminal approval for "ask" mode.
-func (s *codeSession) approve(tool, summary, args string) bool {
-	// Once the user picked "a" (auto) — or the session is autonomous — stop
-	// prompting: the gate keeps calling approve with its build-time mode, so this
-	// is what actually silences further confirmations for the rest of the session.
-	if s.mode == "auto" || s.autonomous {
-		return true
-	}
-	fmt.Printf("\n  %s⚠ Conferma azione%s  %s%s%s\n", cYell, cReset, cBold, summary, cReset)
-	fmt.Printf("  %s%s%s\n", cDim, truncStr(args, 200), cReset)
-	fmt.Printf("  [%sy%s] sì   [%sn%s] no   [%sa%s] sì a tutto (auto)  ", cGreen, cReset, cRed, cReset, cCyan, cReset)
-	in := promptLineRaw("")
-	switch strings.ToLower(strings.TrimSpace(in)) {
-	case "y", "yes", "s", "si", "":
-		return true
-	case "a", "all":
-		s.mode = "auto"
-		fmt.Printf("  %smodalità auto attivata%s\n", cDim, cReset)
-		return true
-	default:
-		return false
-	}
-}
-
-// askUser is the terminal answer for the ask_user tool. With options it shows an
-// arrow-selectable list (plus a "write your own" entry); without options (free
-// text) it reads a line. Input is read in raw mode so it works even mid tool-loop.
-func (s *codeSession) askUser(question string, options []string) string {
-	fmt.Printf("\n  %s❓ %s%s\n", cYell, question, cReset)
-	if len(options) > 0 {
-		items := make([]string, 0, len(options)+1)
-		items = append(items, options...)
-		items = append(items, "✏️  Scrivi una risposta…")
-		sel := selectList("↑↓ scegli · Invio conferma:", items, 0)
-		if sel >= 0 && sel < len(options) {
-			return options[sel]
-		}
-		// "write your own" or cancelled → fall through to free text
-	}
-	return promptLineRaw("   ✏️  Risposta: ")
-}
-
-// liveStatus renders the working animation: a spinner with a live phase label
-// (thinking · writing · running a tool), elapsed time and a running token count.
-// It shares stdout with the streamed answer, so content printing and the ticker
-// are serialised through mu; the status line is only drawn at a line boundary and
-// is erased the instant new content arrives, so it never corrupts the output.
-type liveStatus struct {
-	mu          sync.Mutex
-	start       time.Time
-	bytes       int
-	phase       string // pensa | scrive | tool | avvio
-	spin        int
-	atLineStart bool
-	shown       bool
-	tty         bool
-	done        bool
-	resp        *strings.Builder
-}
-
-func (l *liveStatus) tokens() int { return l.bytes/4 + 1 }
-
-func (l *liveStatus) phaseLabel() string {
-	switch l.phase {
-	case "pensa":
-		return cThinkC + "🧠 sta pensando…" + cReset
-	case "scrive":
-		return cGreen + "✍  scrivo la risposta…" + cReset
-	case "tool":
-		return cCyan + "⚙  eseguo strumento…" + cReset
-	default:
-		return cCyan + "⏳ elaboro…" + cReset
-	}
-}
-
-// draw paints the status line in place. Caller holds mu.
-func (l *liveStatus) draw() {
-	if !l.tty || l.done || !l.atLineStart {
-		return
-	}
-	frame := spinFrames[l.spin%len(spinFrames)]
-	l.spin++
-	secs := time.Since(l.start).Seconds()
-	fmt.Printf("\r\033[K  %s%s%s %s  %s· %.1fs · %d token%s",
-		cCyan, frame, cReset, l.phaseLabel(), cDim, secs, l.tokens(), cReset)
-	l.shown = true
-}
-
-// erase clears the status line if present. Caller holds mu.
-func (l *liveStatus) erase() {
-	if l.shown {
-		fmt.Print("\r\033[K")
-		l.shown = false
-	}
-}
-
-// content streams a visible answer token.
-func (l *liveStatus) content(tok string) {
-	l.mu.Lock()
-	l.erase()
-	fmt.Print(tok)
-	if l.resp != nil {
-		l.resp.WriteString(tok)
-	}
-	l.bytes += len(tok)
-	l.phase = "scrive"
-	l.atLineStart = strings.HasSuffix(tok, "\n")
-	l.mu.Unlock()
-}
-
-// think receives reasoning tokens: not printed, only surfaced as the "thinking"
-// state so the user sees the model is reasoning without flooding the answer.
-func (l *liveStatus) think(tok string) {
-	l.mu.Lock()
-	l.phase = "pensa"
-	l.bytes += len(tok)
-	l.mu.Unlock()
-}
-
-func (s *codeSession) runTurn(line string) {
-	line = s.expandFileRefs(line)
-	s.messages = append(s.messages, map[string]interface{}{"role": "user", "content": line})
-	fmt.Print("\n")
-
-	var resp strings.Builder
-	l := &liveStatus{
-		start:       time.Now(),
-		phase:       "avvio",
-		atLineStart: true,
-		tty:         term.IsTerminal(int(os.Stdout.Fd())),
-		resp:        &resp,
-	}
-	stop := make(chan struct{})
-	go func() {
-		t := time.NewTicker(120 * time.Millisecond)
-		defer t.Stop()
-		for {
-			select {
-			case <-stop:
-				return
-			case <-t.C:
-				l.mu.Lock()
-				l.draw()
-				l.mu.Unlock()
+		if err := s.setModelRef(ref); err != nil {
+			if i == 0 {
+				return err // explicit --model must work
 			}
-		}
-	}()
-
-	// Tool events must not collide with the ticker: erase the status, let emit
-	// print its own line(s), then mark the cursor back at a line start.
-	// A tool_call is also model-generated output (the function name + arguments),
-	// so count it toward the live token total — otherwise a tool-heavy turn (many
-	// commands, little final prose) would sit at "1 token" the whole time.
-	wrappedEmit := func(ev string, data interface{}) {
-		l.mu.Lock()
-		l.erase()
-		l.phase = "tool"
-		if ev == "tool_call" {
-			if b, err := json.Marshal(data); err == nil {
-				l.bytes += len(b)
-			}
-		}
-		l.mu.Unlock()
-		s.emit(ev, data)
-		l.mu.Lock()
-		l.atLineStart = true
-		l.mu.Unlock()
-	}
-
-	var err error
-	if s.cloudProvider != "" {
-		var hist []map[string]string
-		for _, m := range s.messages {
-			hist = append(hist, map[string]string{"role": fmt.Sprint(m["role"]), "content": fmt.Sprint(m["content"])})
-		}
-		_, err = server.RunCLICloudTurn(s.cloudProvider, s.cloudModel, s.workdir, s.mode, s.autonomous, s.mcpOn, s.skills, hist, l.content, wrappedEmit, s.approve, s.askUser)
-	} else {
-		prov, sys := server.BuildCLIHarness(s.workdir, s.mode, s.autonomous, s.mcpOn, s.skills, wrappedEmit, s.approve, s.askUser)
-		sopts := runtime.StreamOpts{System: sys, Messages: s.messages, ToolsEnabled: true, ToolProvider: prov}
-		sopts.ThinkEmit = l.think
-		// Raise the per-round token cap: the 512 default truncates any real code
-		// generation (a file the model writes streams as tool arguments here too).
-		sopts.Options.MaxTokens = 4096
-		if s.autonomous {
-			sopts.MaxToolRounds = 40
-		} else {
-			sopts.MaxToolRounds = 16
-		}
-		err = s.runner.StreamWithOpts(sopts, l.content, wrappedEmit)
-	}
-
-	// Tear down the ticker and clear any lingering status line.
-	close(stop)
-	l.mu.Lock()
-	l.done = true
-	l.erase()
-	l.mu.Unlock()
-
-	fmt.Print("\n")
-	if err != nil {
-		fmt.Printf("%s✕ errore: %v%s\n", cRed, err, cReset)
-		return
-	}
-	secs := time.Since(l.start).Seconds()
-	fmt.Printf("%s⏱ %.1fs · ~%d token · %s%s\n", cDim, secs, l.tokens(), s.modelLabel(), cReset)
-	s.messages = append(s.messages, map[string]interface{}{"role": "assistant", "content": resp.String()})
-}
-
-// projectSummaryFile is the canonical project-summary document /init maintains.
-const projectSummaryFile = "PROJECT.md"
-
-// runInit generates (or updates) PROJECT.md: a concise, always-current summary of
-// the project. It drives the same agentic harness autonomously so the model reads
-// the real files and writes the document itself.
-func (s *codeSession) runInit() {
-	target := filepath.Join(s.workdir, projectSummaryFile)
-	_, statErr := os.Stat(target)
-	exists := statErr == nil
-
-	if exists {
-		fmt.Printf("\n  %s⟳ Aggiorno %s…%s\n", cCyan, projectSummaryFile, cReset)
-	} else {
-		fmt.Printf("\n  %s✚ Genero %s…%s\n", cCyan, projectSummaryFile, cReset)
-	}
-
-	var sb strings.Builder
-	if exists {
-		sb.WriteString("Aggiorna il file " + projectSummaryFile + " nella cartella di lavoro. ")
-		sb.WriteString("PRIMA leggilo con read_file, poi confronta con lo stato reale del progetto e aggiorna SOLO le parti " +
-			"diventate obsolete o mancanti, preservando le note scritte a mano. ")
-	} else {
-		sb.WriteString("Crea il file " + projectSummaryFile + " nella cartella di lavoro: un riassunto chiaro e sintetico del progetto. ")
-	}
-	sb.WriteString("Esplora prima il progetto con gli strumenti (list_directory, read_file, glob, grep): " +
-		"leggi i file chiave reali (README, manifest delle dipendenze come go.mod/package.json/requirements.txt/pyproject.toml, " +
-		"entrypoint principali, file di configurazione). NON inventare: descrivi solo ciò che esiste davvero. ")
-	sb.WriteString("Il documento deve essere in Markdown, conciso e ben strutturato, con queste sezioni:\n" +
-		"1. Nome e scopo del progetto (1-2 frasi)\n" +
-		"2. Stack e tecnologie principali\n" +
-		"3. Struttura delle cartelle (le directory principali e a cosa servono)\n" +
-		"4. Componenti / moduli chiave (file principali e loro responsabilità)\n" +
-		"5. Come si installa, avvia, builda e testa (comandi reali)\n" +
-		"6. Configurazione ed env necessari (variabili, chiavi, file di config)\n" +
-		"7. Note di architettura / flusso principale\n" +
-		"8. TODO o punti aperti noti (se rilevabili)\n")
-	sb.WriteString("Inizia il file con una riga di commento HTML: <!-- Generato/aggiornato da `vortelio code /init`. Modificabile a mano. -->\n")
-	sb.WriteString("Alla fine SCRIVI davvero il file con write_file e conferma il percorso completo. " +
-		"Termina con una frase che riassume cosa hai scritto o aggiornato.")
-
-	// /init always runs autonomously for this turn so the tools actually execute
-	// without per-step confirmation, then the previous mode is restored.
-	prevAuto, prevMode := s.autonomous, s.mode
-	s.autonomous, s.mode = true, "auto"
-	s.runTurn(sb.String())
-	s.autonomous, s.mode = prevAuto, prevMode
-}
-
-var fileRefRE = regexp.MustCompile(`@([^\s"']+)`)
-
-func (s *codeSession) expandFileRefs(line string) string {
-	var extras []string
-	out := fileRefRE.ReplaceAllStringFunc(line, func(tok string) string {
-		p := tok[1:]
-		full := p
-		if !filepath.IsAbs(p) {
-			full = filepath.Join(s.workdir, p)
-		}
-		data, err := os.ReadFile(full)
-		if err != nil {
-			return tok
-		}
-		if len(data) > 40000 {
-			data = data[:40000]
-		}
-		extras = append(extras, fmt.Sprintf("\n\n--- File \"%s\" ---\n%s", p, string(data)))
-		fmt.Printf("  %s📎 incluso %s (%d byte)%s\n", cDim, p, len(data), cReset)
-		return p
-	})
-	return out + strings.Join(extras, "")
-}
-
-func (s *codeSession) handleCommand(line string) bool {
-	parts := strings.Fields(line)
-	switch parts[0] {
-	case "/exit", "/quit", "/q":
-		return true
-	case "/help", "/?":
-		printSlashHelp()
-	case "/clear":
-		s.messages = nil
-		fmt.Printf("  %scontesto azzerato%s\n", cDim, cReset)
-	case "/auto":
-		s.autonomous = !s.autonomous
-		if s.autonomous {
-			s.mode = "auto"
-		}
-		fmt.Printf("  %sautonomo: %v%s\n", cYell, s.autonomous, cReset)
-		s.savePrefs()
-	case "/mode":
-		if len(parts) > 1 && (parts[1] == "plan" || parts[1] == "ask" || parts[1] == "auto") {
-			s.mode = parts[1]
-		} else {
-			fmt.Printf("  %smode attuale: %s — usa /mode plan|ask|auto%s\n", cDim, s.mode, cReset)
-			return false
-		}
-		s.autonomous = s.mode == "auto"
-		fmt.Printf("  %smode: %s%s\n", cYell, s.mode, cReset)
-		s.savePrefs()
-	case "/mcp":
-		s.mcpOn = !s.mcpOn
-		fmt.Printf("  %sMCP: %v%s\n", cYell, s.mcpOn, cReset)
-	case "/cd":
-		if len(parts) > 1 {
-			s.workdir = strings.TrimSpace(line[len("/cd "):])
-			fmt.Printf("  %scartella: %s%s\n", cCyan, s.workdir, cReset)
-		}
-	case "/init":
-		s.runInit()
-	case "/model", "/m":
-		s.chooseModel()
-	case "/skills", "/skill":
-		s.chooseSkills()
-	default:
-		fmt.Printf("  %scomando sconosciuto: %s — /help%s\n", cDim, parts[0], cReset)
-	}
-	return false
-}
-
-func (s *codeSession) chooseModel() {
-	models, _ := hub.NewModelStore().List()
-	var llms []*hub.Model
-	for _, m := range models {
-		if m.Type == "llm" {
-			llms = append(llms, m)
-		}
-	}
-	cloud := server.CloudModelsForCLI()
-	if len(llms) == 0 && len(cloud) == 0 {
-		fmt.Printf("  %snessun modello%s\n", cDim, cReset)
-		return
-	}
-
-	var items []string
-	start := 0
-	for _, m := range llms {
-		mark := "  "
-		if s.cloudProvider == "" && s.model != nil && m.Name == s.model.Name && m.Tag == s.model.Tag {
-			mark = "● "
-			start = len(items)
-		}
-		tl := ""
-		if runtime.ModelSupportsTools(m.Name + ":" + m.Tag) {
-			tl = " 🛠"
-		}
-		items = append(items, "💻 "+mark+m.Name+":"+m.Tag+tl)
-	}
-	for _, c := range cloud {
-		mark := "  "
-		if s.cloudProvider == c.Provider && s.cloudModel == c.Model {
-			mark = "● "
-			start = len(items)
-		}
-		items = append(items, "☁ "+mark+c.Label+" · "+c.ProviderName)
-	}
-	sel := selectList("Scegli un modello:", items, start)
-	if sel < 0 {
-		return
-	}
-	if sel < len(llms) {
-		s.cloudProvider = ""
-		s.cloudModel = ""
-		s.model = llms[sel]
-		fmt.Printf("  %s⏳ carico…%s\n", cDim, cReset)
-		if err := s.loadModel(); err != nil {
-			fmt.Printf("  %s%v%s\n", cRed, err, cReset)
-		} else {
-			fmt.Printf("  %s✓ %s:%s%s\n", cGreen, s.model.Name, s.model.Tag, cReset)
-		}
-	} else {
-		c := cloud[sel-len(llms)]
-		s.cloudProvider = c.Provider
-		s.cloudModel = c.Model
-		fmt.Printf("  %s✓ ☁ %s%s\n", cGreen, c.Label, cReset)
-	}
-	s.savePrefs()
-}
-
-func (s *codeSession) chooseSkills() {
-	all := server.ListSkillInfos()
-	if len(all) == 0 {
-		fmt.Printf("  %snessuna skill%s\n", cDim, cReset)
-		return
-	}
-	for {
-		on := map[string]bool{}
-		for _, id := range s.skills {
-			on[id] = true
-		}
-		var items []string
-		for _, sk := range all {
-			box := "[ ] "
-			if on[sk.ID] {
-				box = "[x] "
-			}
-			items = append(items, box+sk.Name)
-		}
-		sel := selectList("Skill (Invio per attivare/disattivare · q per chiudere):", items, 0)
-		if sel < 0 {
-			return
-		}
-		id := all[sel].ID
-		if on[id] {
-			var ns []string
-			for _, x := range s.skills {
-				if x != id {
-					ns = append(ns, x)
-				}
-			}
-			s.skills = ns
-		} else {
-			s.skills = append(s.skills, id)
-		}
-	}
-}
-
-// ── Rich banner ─────────────────────────────────────────────────────
-func (s *codeSession) printBanner() {
-	branch, clean := gitInfo(s.workdir)
-	files := countFiles(s.workdir)
-	fmt.Printf("\n %s%s🤖 Vortelio Code%s\n", cBold, cCyan, cReset)
-	if branch != "" {
-		st := cGreen + "clean" + cReset
-		if !clean {
-			st = cYell + "modificato" + cReset
-		}
-		fmt.Printf("   %s📂 Git:%s %s (%s)\n", cDim, cReset, branch, st)
-	} else {
-		fmt.Printf("   %s📂 Cartella:%s %s\n", cDim, cReset, s.workdir)
-	}
-	fmt.Printf("   %s🗂  Progetto:%s %d file indicizzati\n", cDim, cReset, files)
-	fmt.Printf("   %s🧠 Modello:%s %s   %smode:%s %s\n", cDim, cReset, s.modelLabel(), cDim, cReset, s.mode)
-	fmt.Printf("\n   %sScrivi un obiettivo. %s/%s comandi · %s@%s file · %s/help%s%s\n\n", cDim, cReset, cDim, cReset, cDim, cReset, cDim, cReset)
-}
-
-func gitInfo(dir string) (string, bool) {
-	out, err := exec.Command("git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD").Output()
-	if err != nil {
-		return "", false
-	}
-	branch := strings.TrimSpace(string(out))
-	st, _ := exec.Command("git", "-C", dir, "status", "--porcelain").Output()
-	return branch, strings.TrimSpace(string(st)) == ""
-}
-
-func countFiles(dir string) int {
-	n := 0
-	filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			name := d.Name()
-			if name == ".git" || name == "node_modules" || name == ".venv" || name == "__pycache__" || name == "dist" || name == "build" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		n++
-		if n > 9999 {
-			return filepath.SkipAll
+			s.warns = append(s.warns, "saved model unavailable: "+err.Error())
+			continue
 		}
 		return nil
-	})
-	return n
-}
-
-func printSlashHelp() {
-	fmt.Printf("\n  %sComandi:%s\n", cBold, cReset)
-	for _, c := range slashCmds {
-		fmt.Printf("   %s%-8s%s %s%s%s\n", cCyan, c.Cmd, cReset, cDim, c.Desc, cReset)
 	}
-	fmt.Printf("  %s@percorso/file → include il contenuto del file%s\n", cDim, cReset)
+	if m := pickDefaultLLM(hub.NewModelStore()); m != nil {
+		s.local = m
+		return nil
+	}
+	if cl := server.CloudModelsForCLI(); len(cl) > 0 {
+		s.cloudProvider, s.cloudModel = cl[0].Provider, cl[0].Model
+		return nil
+	}
+	return errors.New("no language model installed and no cloud API key configured.\n  Install one:  vortelio pull qwen3.5:4b\n  or add a cloud key in the web UI (vortelio gui → Settings → Add cloud model)")
 }
 
 func pickDefaultLLM(store *hub.ModelStore) *hub.Model {
@@ -697,49 +465,1143 @@ func pickDefaultLLM(store *hub.ModelStore) *hub.Model {
 	if err != nil {
 		return nil
 	}
-	var firstLLM *hub.Model
+	var first *hub.Model
 	for _, m := range models {
 		if m.Type != "llm" {
 			continue
 		}
-		if firstLLM == nil {
-			firstLLM = m
+		if first == nil {
+			first = m
 		}
 		if runtime.ModelSupportsTools(m.Name + ":" + m.Tag) {
 			return m
 		}
 	}
-	return firstLLM
+	return first
 }
 
-func truncStr(s string, max int) string {
-	// Strip control chars (esp. \r) so printed tool output can't move the cursor
-	// to column 0 and overwrite previous lines (garbled terminal rendering).
-	s = strings.Map(func(r rune) rune {
-		if r == '\n' || r == '\r' || r == '\t' {
-			return ' '
-		}
-		if r < 0x20 || r == 0x7f {
-			return -1
-		}
-		return r
-	}, s)
-	if len(s) > max {
-		return s[:max] + "…"
+func (s *codeSession) contextLimit() int {
+	if s.cloudProvider != "" {
+		return cloudContextTokens
 	}
-	return s
+	if s.settings.ContextTokens > 0 {
+		return s.settings.ContextTokens
+	}
+	return defaultContextTokens
 }
 
-func printCodeHelp() {
-	fmt.Println("vortelio code — agente coding nel terminale (stesso motore del Developer GUI)")
-	fmt.Println("")
-	fmt.Println("Uso:  vortelio code [obiettivo] [flag]")
-	fmt.Println("")
-	fmt.Println("Flag:")
-	fmt.Println("  -m, --model <ref>   Modello (default: primo LLM tool-capable; poi cloud)")
-	fmt.Println("  -d, --dir <path>    Cartella di lavoro")
-	fmt.Println("      --auto / -y     Esegue le azioni senza chiedere conferma")
-	fmt.Println("      --cpu           Forza CPU")
-	fmt.Println("")
-	fmt.Println("In chat:  /model /skills /mcp /mode /auto /init /cd /clear /help /exit  ·  @file")
+func (s *codeSession) loadLocal() error {
+	if s.local == nil {
+		return nil
+	}
+	stop := s.spin("Loading " + s.modelLabel())
+	// The runtime prints its own progress lines; the spinner replaces them in
+	// the interactive UI (they would break the in-place redraw).
+	var restore func()
+	if s.t != nil && s.t.tty {
+		if null, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0); err == nil {
+			orig := os.Stdout
+			os.Stdout = null
+			restore = func() { os.Stdout = orig; null.Close() }
+		}
+	}
+	r, err := runtime.GlobalModelManager.GetOrLoadWithContext(s.local, s.hw, 30*time.Minute, s.contextLimit())
+	if restore != nil {
+		restore()
+	}
+	stop()
+	if err != nil {
+		return fmt.Errorf("could not load %s: %w", s.modelLabel(), err)
+	}
+	s.runner = r
+	if !runtime.ModelSupportsTools(s.local.Name + ":" + s.local.Tag) {
+		s.ui.println("%s⚠ %s may not support tool calling; file edits and commands need a tool-capable model (Qwen 3.x, Gemma 4, gpt-oss, Llama 3.1+…).%s", cYell, s.modelLabel(), cReset)
+	}
+	return nil
+}
+
+// spin shows a one-line spinner until the returned stop func is called.
+func (s *codeSession) spin(label string) func() {
+	if s.t == nil || !s.t.tty {
+		return func() {}
+	}
+	done := make(chan struct{})
+	w := os.Stdout // captured: os.Stdout may be silenced while the spinner runs
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		start := time.Now()
+		for i := 0; ; i++ {
+			fmt.Fprintf(w, "\r\033[K%s%s %s… %s(%ds)%s", cAccent, spinFrames[i%len(spinFrames)], label, cGray, int(time.Since(start).Seconds()), cReset)
+			select {
+			case <-done:
+				fmt.Fprint(w, "\r\033[K")
+				return
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
+	}()
+	return func() { close(done); wg.Wait() }
+}
+
+// ── sessions ─────────────────────────────────────────────────────────────────
+
+func (s *codeSession) initSession() error {
+	var loaded *savedSession
+	switch {
+	case s.opts.resume != "":
+		ss, err := loadSession(s.opts.resume)
+		if err != nil {
+			return err
+		}
+		loaded = ss
+	case s.opts.cont:
+		if list := listSessions(s.workdir); len(list) > 0 {
+			loaded = list[0]
+		} else {
+			s.warns = append(s.warns, "no previous session in this directory; starting a new one")
+		}
+	case s.opts.resumePick:
+		loaded = s.pickSession()
+	}
+	if loaded != nil {
+		s.adoptSession(loaded)
+		return nil
+	}
+	s.sess = &savedSession{ID: newSessionID(), Dir: s.workdir, Created: time.Now()}
+	return nil
+}
+
+func (s *codeSession) adoptSession(ss *savedSession) {
+	s.sess = ss
+	s.messages = nil
+	s.summary = ""
+	for _, m := range ss.Messages {
+		if m.Role == "summary" {
+			s.summary = m.Content
+			continue
+		}
+		s.messages = append(s.messages, m)
+	}
+	if ss.Dir != "" && !samePath(ss.Dir, s.workdir) {
+		if fi, err := os.Stat(ss.Dir); err == nil && fi.IsDir() {
+			s.workdir = ss.Dir
+			s.instr = loadInstructions(s.workdir)
+			s.customCmds = loadCustomCommands(s.workdir)
+		}
+	}
+	if s.opts.model == "" && ss.Model != "" {
+		if err := s.setModelRef(ss.Model); err != nil {
+			s.warns = append(s.warns, "session model unavailable: "+err.Error())
+		}
+	}
+}
+
+func (s *codeSession) pickSession() *savedSession {
+	list := listSessions(s.workdir)
+	if len(list) == 0 {
+		list = listSessions("")
+	}
+	if len(list) == 0 {
+		s.warns = append(s.warns, "no saved sessions")
+		return nil
+	}
+	if len(list) > 50 {
+		list = list[:50]
+	}
+	items := make([]string, len(list))
+	for i, ss := range list {
+		items[i] = fmt.Sprintf("%s  %s%s · %d msgs · %s%s", ss.Updated.Format("Jan 02 15:04"), oneLine(ss.Title, 50), cGray, len(ss.Messages), filepath.Base(ss.Dir), cReset)
+	}
+	idx := selectList(s.t, "Resume a session", items, 0)
+	if idx < 0 {
+		return nil
+	}
+	return list[idx]
+}
+
+func (s *codeSession) saveSession() {
+	if s.sess == nil {
+		return
+	}
+	s.sess.Model = s.modelRef()
+	s.sess.Dir = s.workdir
+	msgs := make([]chatMsg, 0, len(s.messages)+1)
+	if s.summary != "" {
+		msgs = append(msgs, chatMsg{Role: "summary", Content: s.summary})
+	}
+	msgs = append(msgs, s.messages...)
+	s.sess.Messages = msgs
+	if s.sess.Title == "" {
+		for _, m := range s.messages {
+			if m.Role == "user" {
+				s.sess.Title = oneLine(m.Content, 80)
+				break
+			}
+		}
+	}
+	if err := saveSession(s.sess); err != nil && s.ui != nil {
+		s.ui.println("%s⚠ could not save session: %v%s", cYell, err, cReset)
+	}
+}
+
+// ── system prompt & context ──────────────────────────────────────────────────
+
+func (s *codeSession) systemPrompt() string {
+	var b strings.Builder
+	b.WriteString("You are Vortelio Code, an interactive coding agent running in the user's terminal. " +
+		"You help with software engineering tasks in the working directory: reading and changing code, running commands, debugging, explaining.\n\n")
+
+	b.WriteString("# Environment\n")
+	fmt.Fprintf(&b, "- Working directory: %s (relative tool paths resolve here)\n", s.workdir)
+	fmt.Fprintf(&b, "- Platform: %s/%s\n", goruntime.GOOS, goruntime.GOARCH)
+	if goruntime.GOOS == "windows" {
+		b.WriteString("- run_shell uses Windows PowerShell 5.1: chain with `;` (not `&&`), env vars are $env:NAME\n")
+	} else {
+		b.WriteString("- run_shell uses POSIX sh\n")
+	}
+	if branch, dirty := gitState(s.workdir); branch != "" {
+		st := "clean"
+		if dirty > 0 {
+			st = fmt.Sprintf("%d uncommitted changes", dirty)
+		}
+		fmt.Fprintf(&b, "- Git: branch %s (%s)\n", branch, st)
+	} else {
+		b.WriteString("- Git: not a repository\n")
+	}
+	fmt.Fprintf(&b, "- Date: %s\n", time.Now().Format("2006-01-02"))
+	if tree := topLevelListing(s.workdir, 40); tree != "" {
+		b.WriteString("- Top-level entries: " + tree + "\n")
+	}
+
+	b.WriteString(`
+# How to work
+- Look before acting: use glob_search, grep_search and read_file to find and read the real code. Never guess file contents, paths or APIs.
+- Read a file before editing it. Prefer edit_file (small exact replacements, unique old_string) over rewriting whole files. Match the existing style, naming and indentation.
+- For tasks with several steps, track them with todo_write and keep it updated.
+- After changing code, verify it when possible: build, run the tests or the program with run_shell, then fix what fails.
+- Do what was asked, no more: no unrelated refactors, features or new files. Do not create docs or README files unless asked.
+- Never commit, push, delete data or run destructive commands (rm -rf, git reset --hard, force push) unless the user explicitly asks.
+- If a tool call is denied or blocked, do not retry it: adapt, or ask the user.
+- If you need a decision only the user can make, use ask_user with 2-5 options.
+- Paths in tool calls: prefer paths relative to the working directory.
+`)
+	switch s.mode {
+	case "plan":
+		b.WriteString("\n# PLAN MODE (active)\nYou are in read-only plan mode. Investigate with the read-only tools, then present a concise, numbered implementation plan (files to change and how) and stop. Do not try to edit files or run commands — those tools are blocked until the user switches mode.\n")
+	case "auto":
+		b.WriteString("\n# Auto mode\nEdits and commands run without confirmation. Work autonomously until the task is fully done and verified, then summarize.\n")
+	}
+	b.WriteString(`
+# Communication
+- Reply in the user's language. Be concise and direct: no preamble, no filler, no restating the question.
+- Use Markdown sparingly (short lists, fenced code). Refer to code as path:line.
+- When you finish a task, give a brief summary of what changed and how you verified it.
+`)
+	if len(s.instr) > 0 {
+		b.WriteString("\n# Project instructions\nFollow these instructions from the user's instruction files; they override the defaults above.\n")
+		for _, f := range s.instr {
+			fmt.Fprintf(&b, "\n## %s\n%s\n", f.Path, strings.TrimSpace(f.Content))
+		}
+	}
+	if s.summary != "" {
+		b.WriteString("\n# Earlier in this session (summary)\n" + s.summary + "\n")
+	}
+	out := b.String()
+	if len(s.skills) > 0 {
+		out = server.ApplySkills(out, s.skills)
+	}
+	return out
+}
+
+func gitState(dir string) (string, int) {
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return "", 0
+	}
+	st, _ := exec.Command("git", "-C", dir, "status", "--porcelain").Output()
+	n := 0
+	for _, l := range strings.Split(string(st), "\n") {
+		if strings.TrimSpace(l) != "" {
+			n++
+		}
+	}
+	return strings.TrimSpace(string(out)), n
+}
+
+func topLevelListing(dir string, max int) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	var names []string
+	for _, e := range entries {
+		n := e.Name()
+		if n == ".git" || isNoiseDirName(n) {
+			continue
+		}
+		if e.IsDir() {
+			n += "/"
+		}
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	if len(names) > max {
+		names = append(names[:max], fmt.Sprintf("… (+%d)", len(names)-max))
+	}
+	return strings.Join(names, ", ")
+}
+
+// estimateTokens approximates the prompt size (chars/3.5).
+func estimateTokens(chars int) int { return chars * 2 / 7 }
+
+func (s *codeSession) contextUsed() int {
+	n := len(s.systemPrompt()) + s.toolsChars + len(s.pendingContext)
+	for _, m := range s.messages {
+		n += len(m.Content) + 8
+	}
+	return estimateTokens(n)
+}
+
+func (s *codeSession) toolResultLimit() int {
+	// Room for one large result: ~ a quarter of the window, in bytes.
+	lim := s.contextLimit() // tokens ≈ bytes/4 → ctx/4 tokens = ctx bytes
+	if lim > 60000 {
+		lim = 60000
+	}
+	if lim < 6000 {
+		lim = 6000
+	}
+	return lim
+}
+
+// ── the agent turn ───────────────────────────────────────────────────────────
+
+func (s *codeSession) newProvider(ctx context.Context) interface {
+	Tools() []runtime.ToolDef
+	Execute(name, args string) (string, error)
+} {
+	return server.NewCLIToolProvider(server.CLIHarness{
+		WorkDir:      s.workdir,
+		Mode:         s.mode,
+		Autonomous:   s.mode == "auto",
+		MCP:          s.mcpOn,
+		Media:        s.media,
+		Emit:         s.onEvent,
+		Approve:      s.approve,
+		Ask:          s.askUser,
+		Policy:       s.policy,
+		OnFileChange: s.onFileChange,
+		State:        s.state,
+		Ctx:          ctx,
+	})
+}
+
+func (s *codeSession) maxTurns() int {
+	if s.opts.maxTurns > 0 {
+		return s.opts.maxTurns
+	}
+	if s.settings.MaxTurns > 0 {
+		return s.settings.MaxTurns
+	}
+	return defaultMaxTurns
+}
+
+// runTurn sends one user message and streams the agent's work.
+func (s *codeSession) runTurn(userText string) (string, error) {
+	if s.local == nil && s.cloudProvider == "" {
+		s.ui.println("%s✗ no model selected — use /model%s", cRed, cReset)
+		return "", errors.New("no model")
+	}
+	if s.local != nil && s.runner == nil {
+		if err := s.loadLocal(); err != nil {
+			s.ui.println("%s✗ %v%s", cRed, err, cReset)
+			return "", err
+		}
+	}
+	content := s.expandFileRefs(userText)
+	if s.pendingContext != "" {
+		content = s.pendingContext + "\n\n" + content
+		s.pendingContext = ""
+	}
+
+	// Compact before the prompt would overflow the context window.
+	if boolOr(s.settings.AutoCompact, true) && len(s.messages) >= 4 &&
+		s.contextUsed()+estimateTokens(len(content)) > s.contextLimit()*3/4 {
+		s.ui.println("%s✻ Context almost full — compacting the conversation…%s", cGray, cReset)
+		if err := s.compact(""); err != nil {
+			s.ui.println("%s⚠ compaction failed: %v%s", cYell, err, cReset)
+		}
+	}
+	s.messages = append(s.messages, chatMsg{Role: "user", Content: content})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.mu.Lock()
+	s.cancel, s.cancelled = cancel, false
+	s.turnCPs, s.turnSeen = nil, map[string]bool{}
+	s.mu.Unlock()
+	defer cancel()
+
+	prov := s.newProvider(ctx)
+	if s.toolsChars == 0 {
+		if b, err := json.Marshal(prov.Tools()); err == nil {
+			s.toolsChars = len(b)
+		}
+	}
+	sys := s.systemPrompt()
+
+	tty := s.t != nil && s.t.tty
+	s.ui.beginTurn(tty)
+	stopWatch := func() {}
+	if tty {
+		stopWatch = s.t.watch(func() {
+			s.mu.Lock()
+			s.cancelled = true
+			s.mu.Unlock()
+			cancel()
+		})
+	}
+
+	var answer strings.Builder
+	onContent := func(tok string) {
+		answer.WriteString(tok)
+		s.ui.content(tok)
+	}
+	var err error
+	start := time.Now()
+	if s.cloudProvider != "" {
+		split := &thinkTagSplitter{content: onContent, think: s.ui.thinking}
+		hist := make([]map[string]string, 0, len(s.messages))
+		for _, m := range s.messages {
+			hist = append(hist, map[string]string{"role": m.Role, "content": m.Content})
+		}
+		_, err = server.CLICloudTurn(ctx, s.cloudProvider, s.cloudModel, sys, prov, hist, s.maxTurns(), s.toolResultLimit(), split.feed, s.onEvent)
+		split.flush()
+	} else {
+		msgs := []map[string]interface{}{{"role": "system", "content": sys}}
+		for _, m := range s.messages {
+			msgs = append(msgs, map[string]interface{}{"role": m.Role, "content": m.Content})
+		}
+		split := &thinkTagSplitter{content: onContent, think: s.ui.thinking}
+		sopts := runtime.StreamOpts{
+			Messages:        msgs,
+			ToolsEnabled:    true,
+			ToolProvider:    prov,
+			ThinkEmit:       s.ui.thinking,
+			MaxToolRounds:   s.maxTurns(),
+			Ctx:             ctx,
+			ToolResultLimit: s.toolResultLimit(),
+		}
+		// No repetition penalty: code legitimately repeats tokens (braces,
+		// indentation, identifiers) and the chat default of 1.1 corrupts it.
+		sopts.Options.RepeatPenalty = 1.0
+		err = s.runner.StreamWithOpts(sopts, split.feed, s.onEvent)
+		split.flush()
+	}
+	stopWatch()
+	s.ui.endTurn()
+
+	s.mu.Lock()
+	cancelled := s.cancelled
+	if len(s.turnCPs) > 0 {
+		s.undo = append(s.undo, s.turnCPs)
+	}
+	s.turnCPs = nil
+	s.cancel = nil
+	s.mu.Unlock()
+
+	text := strings.TrimSpace(answer.String())
+	if cancelled || errors.Is(err, context.Canceled) {
+		s.ui.println("  %s⎿  Interrupted — tell Vortelio what to do instead.%s", cYell, cReset)
+		text += "\n\n[interrupted by the user]"
+		err = nil
+	} else if err != nil {
+		s.ui.println("%s✗ %v%s", cRed, err, cReset)
+	}
+
+	// Keep a compact log of the actions in the history, so later turns know
+	// what was already read, changed and run without replaying the outputs.
+	hist := text
+	if len(s.ui.toolLog) > 0 {
+		hist = "[Actions: " + strings.Join(s.ui.toolLog, "; ") + "]\n\n" + text
+	}
+	if strings.TrimSpace(hist) == "" {
+		hist = "(no answer)"
+	}
+	s.messages = append(s.messages, chatMsg{Role: "assistant", Content: hist})
+	s.lastUsage = s.contextUsed()
+	if !s.opts.print {
+		s.ui.println("%s✻ %s · ~%s tokens out · context %d%%%s", cGray,
+			time.Since(start).Round(100*time.Millisecond), humanCount(s.ui.tokens()),
+			min(100, s.lastUsage*100/s.contextLimit()), cReset)
+	}
+	s.saveSession()
+	return text, err
+}
+
+// thinkTagSplitter routes <think>…</think> blocks in the content stream (cloud
+// reasoning, or models that inline their reasoning) to the reasoning view.
+type thinkTagSplitter struct {
+	content func(string)
+	think   func(string)
+	buf     string
+	in      bool
+}
+
+func (t *thinkTagSplitter) feed(tok string) {
+	t.buf += tok
+	for t.buf != "" {
+		tag := "<think>"
+		if t.in {
+			tag = "</think>"
+		}
+		if i := strings.Index(t.buf, tag); i >= 0 {
+			t.emit(t.buf[:i])
+			t.buf = t.buf[i+len(tag):]
+			t.in = !t.in
+			continue
+		}
+		// Keep a possible partial tag at the end.
+		keep := 0
+		for k := len(tag) - 1; k > 0; k-- {
+			if strings.HasSuffix(t.buf, tag[:k]) {
+				keep = k
+				break
+			}
+		}
+		t.emit(t.buf[:len(t.buf)-keep])
+		t.buf = t.buf[len(t.buf)-keep:]
+		return
+	}
+}
+
+func (t *thinkTagSplitter) emit(s string) {
+	if s == "" {
+		return
+	}
+	if t.in {
+		t.think(s)
+	} else {
+		t.content(s)
+	}
+}
+
+func (t *thinkTagSplitter) flush() {
+	t.emit(t.buf)
+	t.buf = ""
+}
+
+// onEvent renders tool events coming from the harness.
+func (s *codeSession) onEvent(ev string, data interface{}) {
+	b, _ := json.Marshal(data)
+	var m map[string]interface{}
+	json.Unmarshal(b, &m)
+	str := func(k string) string {
+		if v, ok := m[k].(string); ok {
+			return v
+		}
+		return ""
+	}
+	switch ev {
+	case "tool_call":
+		s.ui.toolCall(str("name"), str("arguments"))
+	case "tool_result":
+		s.ui.toolResult(str("name"), str("result"), str("error"))
+	case "file_diff":
+		add, _ := m["added"].(float64)
+		del, _ := m["removed"].(float64)
+		created, _ := m["created"].(bool)
+		s.ui.fileDiff(str("path"), str("diff"), int(add), int(del), created)
+	case "todo_update":
+		var t struct {
+			Todos []todoView `json:"todos"`
+		}
+		json.Unmarshal(b, &t)
+		s.ui.todos(t.Todos)
+	case "media_generated":
+		s.ui.mediaGenerated(str("path"))
+	}
+}
+
+// policy applies permission rules, then the mode, for each tool call.
+func (s *codeSession) policy(tool, args string) string {
+	if d := s.settings.Permissions.decide(tool, args); d == "deny" {
+		return server.PolicyDeny
+	} else if d == "allow" && s.mode != "plan" {
+		return server.PolicyAllow
+	}
+	if s.mode != "plan" {
+		for _, r := range s.sessAllow {
+			if pr, ok := parseRule(r); ok && pr.matches(tool, args) {
+				return server.PolicyAllow
+			}
+		}
+	}
+	// The mode can change mid-turn (approval "don't ask again"): honor it live.
+	switch s.mode {
+	case "auto":
+		return server.PolicyAllow
+	case "edits":
+		if tool == "write_file" || tool == "edit_file" {
+			return server.PolicyAllow
+		}
+	}
+	return ""
+}
+
+func (s *codeSession) onFileChange(path string, before []byte, existed bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := strings.ToLower(path)
+	if s.turnSeen[key] {
+		return
+	}
+	s.turnSeen[key] = true
+	s.turnCPs = append(s.turnCPs, fileCheckpoint{path: path, before: before, existed: existed})
+}
+
+// approve asks the user to confirm an edit or command (ask/edits modes).
+func (s *codeSession) approve(tool, summary, args string) bool {
+	if s.opts.print || s.t == nil {
+		return false
+	}
+	s.ui.pause()
+	s.t.beginPrompt()
+	defer func() {
+		s.t.endPrompt()
+		s.ui.resume()
+	}()
+
+	head, diff, _ := strings.Cut(summary, "\n")
+	fmt.Printf("%s╭─%s %s%s%s\n", cYell, cReset, cBold, head, cReset)
+	if diff != "" {
+		s.ui.renderDiff(diff, 40)
+	}
+	var cmd string
+	if tool == "run_shell" {
+		var a struct {
+			Command string `json:"command"`
+		}
+		json.Unmarshal([]byte(args), &a)
+		cmd = a.Command
+		fmt.Printf("     %s%s%s\n", cCode, cmd, cReset)
+	}
+	var items []string
+	switch tool {
+	case "write_file", "edit_file":
+		items = []string{"Yes", "Yes, and don't ask again for file edits (accept-edits mode)", "No, and tell Vortelio what to do differently (esc)"}
+	case "run_shell":
+		items = []string{"Yes", fmt.Sprintf("Yes, and don't ask again for `%s` in this project", strings.TrimSuffix(strings.TrimPrefix(suggestShellRule(cmd), "run_shell("), ")")), "No, and tell Vortelio what to do differently (esc)"}
+	default:
+		items = []string{"Yes", "Yes, and don't ask again this session (auto mode)", "No, and tell Vortelio what to do differently (esc)"}
+	}
+	q := "Do you want to proceed?"
+	switch tool {
+	case "edit_file":
+		q = "Do you want to make this edit?"
+	case "write_file":
+		q = "Do you want to write this file?"
+	case "run_shell":
+		q = "Run this command?"
+	}
+	idx := selectList(s.t, q, items, 0)
+	switch idx {
+	case 0:
+		if diff != "" {
+			s.markDiffShown(head)
+		}
+		return true
+	case 1:
+		switch tool {
+		case "write_file", "edit_file":
+			s.setMode("edits", true)
+		case "run_shell":
+			rule := suggestShellRule(cmd)
+			if rule != "" {
+				s.sessAllow = append(s.sessAllow, rule)
+				if err := updateProjectSettings(s.workdir, func(p *codeSettings) {
+					p.Permissions.Allow = appendUnique(p.Permissions.Allow, rule)
+				}); err == nil {
+					s.settings.Permissions.Allow = appendUnique(s.settings.Permissions.Allow, rule)
+					fmt.Printf("  %sSaved rule %s to %s%s\n", cGray, rule, projectSettingsPath(s.workdir), cReset)
+				}
+			}
+		default:
+			s.setMode("auto", true)
+		}
+		if diff != "" {
+			s.markDiffShown(head)
+		}
+		return true
+	default:
+		s.mu.Lock()
+		s.cancelled = true
+		if s.cancel != nil {
+			s.cancel()
+		}
+		s.mu.Unlock()
+		return false
+	}
+}
+
+func (s *codeSession) markDiffShown(head string) {
+	if _, p, ok := strings.Cut(head, ": "); ok {
+		s.ui.mu.Lock()
+		if s.ui.diffShown == nil {
+			s.ui.diffShown = map[string]bool{}
+		}
+		s.ui.diffShown[strings.TrimSpace(p)] = true
+		s.ui.mu.Unlock()
+	}
+}
+
+func appendUnique(list []string, v string) []string {
+	for _, x := range list {
+		if x == v {
+			return list
+		}
+	}
+	return append(list, v)
+}
+
+// askUser answers the ask_user tool.
+func (s *codeSession) askUser(question string, options []string) string {
+	if s.opts.print || s.t == nil {
+		return "No user is available (non-interactive run). Make a reasonable choice yourself and state the assumption."
+	}
+	s.ui.pause()
+	s.t.beginPrompt()
+	defer func() {
+		s.t.endPrompt()
+		s.ui.resume()
+	}()
+	fmt.Printf("%s?%s %s%s%s\n", cAccent, cReset, cBold, question, cReset)
+	if len(options) > 0 {
+		items := append(append([]string{}, options...), "Type something else…")
+		idx := selectList(s.t, "", items, 0)
+		if idx >= 0 && idx < len(options) {
+			return "The user chose: " + options[idx]
+		}
+		if idx < 0 {
+			return "The user dismissed the question without answering."
+		}
+	}
+	ans, ok := promptLine(s.t, "  > ")
+	if !ok || ans == "" {
+		return "The user did not answer."
+	}
+	return "The user answered: " + ans
+}
+
+// ── modes ────────────────────────────────────────────────────────────────────
+
+func nextMode(m string) string {
+	switch m {
+	case "ask":
+		return "edits"
+	case "edits":
+		return "auto"
+	case "auto":
+		return "plan"
+	default:
+		return "ask"
+	}
+}
+
+func modeLabel(m string) string {
+	switch m {
+	case "plan":
+		return cCyan + "⏸ plan mode (read-only)" + cReset
+	case "edits":
+		return cMag + "⏵⏵ accept edits" + cReset
+	case "auto":
+		return cYell + "⏵⏵ auto (no prompts)" + cReset
+	default:
+		return cGray + "ask before edits" + cReset
+	}
+}
+
+// setMode changes the mode for this session only (the default comes from the
+// "mode" setting: /config set mode <m>).
+func (s *codeSession) setMode(m string, announce bool) {
+	s.mode = m
+	if announce {
+		fmt.Printf("  %sMode: %s\n", cReset, modeLabel(m))
+	}
+}
+
+func (s *codeSession) footer() string {
+	pct := 0
+	if lim := s.contextLimit(); lim > 0 {
+		pct = min(100, s.contextUsed()*100/lim)
+	}
+	ctx := fmt.Sprintf("%sctx %d%%%s", cGray, pct, cReset)
+	if pct >= 75 {
+		ctx = fmt.Sprintf("%sctx %d%% (/compact)%s", cYell, pct, cReset)
+	}
+	return modeLabel(s.mode) + cGray + " · " + s.modelLabel() + " · " + cReset + ctx
+}
+
+// ── @file references, !commands, # notes ─────────────────────────────────────
+
+var fileRefRE = regexp.MustCompile(`(^|\s)@([^\s"']+)`)
+
+func (s *codeSession) expandFileRefs(line string) string {
+	var extras []string
+	for _, m := range fileRefRE.FindAllStringSubmatch(line, -1) {
+		p := m[2]
+		full := p
+		if !filepath.IsAbs(p) {
+			full = filepath.Join(s.workdir, p)
+		}
+		fi, err := os.Stat(full)
+		if err != nil {
+			continue
+		}
+		if fi.IsDir() {
+			entries, _ := os.ReadDir(full)
+			var names []string
+			for _, e := range entries {
+				n := e.Name()
+				if e.IsDir() {
+					n += "/"
+				}
+				names = append(names, n)
+			}
+			extras = append(extras, fmt.Sprintf("<directory path=%q>\n%s\n</directory>", p, strings.Join(names, "\n")))
+			continue
+		}
+		data, err := os.ReadFile(full)
+		if err != nil {
+			continue
+		}
+		limit := s.toolResultLimit()
+		if len(data) > limit {
+			data = append(data[:limit], []byte("\n… (truncated; use read_file with offset for the rest)")...)
+		}
+		s.state.MarkRead(full)
+		extras = append(extras, fmt.Sprintf("<file path=%q>\n%s\n</file>", p, string(data)))
+		if s.ui != nil {
+			s.ui.println("  %s⎿  attached %s (%d bytes)%s", cGray, p, len(data), cReset)
+		}
+	}
+	if len(extras) == 0 {
+		return line
+	}
+	return line + "\n\n" + strings.Join(extras, "\n\n")
+}
+
+// runBang runs a shell command typed by the user (!cmd). Its output is shown
+// and added to the context of the next prompt.
+func (s *codeSession) runBang(command string) {
+	if command == "" {
+		return
+	}
+	var c *exec.Cmd
+	if goruntime.GOOS == "windows" {
+		c = exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command",
+			"[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; "+command)
+	} else {
+		c = exec.Command("sh", "-c", command)
+	}
+	c.Dir = s.workdir
+	out, err := c.CombinedOutput()
+	res := strings.TrimRight(string(out), "\r\n")
+	for _, l := range strings.Split(res, "\n") {
+		fmt.Printf("  %s%s%s\n", cGray, strings.TrimRight(l, "\r"), cReset)
+	}
+	if err != nil {
+		fmt.Printf("  %s%v%s\n", cRed, err, cReset)
+	}
+	if len(res) > 8000 {
+		res = res[:8000] + "\n… (truncated)"
+	}
+	s.pendingContext += fmt.Sprintf("<shell-command>\n$ %s\n%s\n</shell-command>", command, res)
+}
+
+// addMemory appends a note to the project's AGENTS.md (# note).
+func (s *codeSession) addMemory(note string) {
+	if note == "" {
+		return
+	}
+	p := filepath.Join(s.workdir, "AGENTS.md")
+	var b strings.Builder
+	if data, err := os.ReadFile(p); err == nil {
+		b.Write(data)
+		if len(data) > 0 && !strings.HasSuffix(string(data), "\n") {
+			b.WriteString("\n")
+		}
+	} else {
+		b.WriteString("# AGENTS.md\n\nInstructions for AI coding agents working in this project.\n\n")
+	}
+	b.WriteString("- " + note + "\n")
+	if err := os.WriteFile(p, []byte(b.String()), 0o644); err != nil {
+		fmt.Printf("  %s✗ %v%s\n", cRed, err, cReset)
+		return
+	}
+	s.instr = loadInstructions(s.workdir)
+	fmt.Printf("  %s⎿  Saved to %s%s\n", cGray, p, cReset)
+}
+
+// ── compaction ───────────────────────────────────────────────────────────────
+
+// compact replaces the conversation with a dense summary to free context.
+func (s *codeSession) compact(focus string) error {
+	if len(s.messages) == 0 {
+		return errors.New("nothing to compact")
+	}
+	var tr strings.Builder
+	if s.summary != "" {
+		tr.WriteString("Earlier summary:\n" + s.summary + "\n\n")
+	}
+	for _, m := range s.messages {
+		fmt.Fprintf(&tr, "### %s\n%s\n\n", m.Role, m.Content)
+	}
+	text := tr.String()
+	maxChars := s.contextLimit() * 2 // leave room for the answer
+	if len(text) > maxChars {
+		text = "…(older part omitted)\n" + text[len(text)-maxChars:]
+	}
+	instr := "Summarize this coding session so the work can continue without the full transcript. " +
+		"Keep: the user's goals and requests, decisions and constraints, files read or changed (with what changed), " +
+		"commands run and their outcome, errors still open, and the next steps. Be dense and factual, use short bullet points. " +
+		"Write in the user's language."
+	if focus != "" {
+		instr += " Focus especially on: " + focus
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stop := s.spin("Compacting conversation")
+	var out strings.Builder
+	var err error
+	if s.cloudProvider != "" {
+		_, err = server.CLICloudTurn(ctx, s.cloudProvider, s.cloudModel, instr, nil,
+			[]map[string]string{{"role": "user", "content": text}}, 1, 0, func(t string) { out.WriteString(t) }, nil)
+	} else {
+		if s.runner == nil {
+			if err := s.loadLocal(); err != nil {
+				stop()
+				return err
+			}
+		}
+		sopts := runtime.StreamOpts{
+			Messages: []map[string]interface{}{{"role": "system", "content": instr}, {"role": "user", "content": text}},
+			Ctx:      ctx,
+		}
+		split := &thinkTagSplitter{content: func(t string) { out.WriteString(t) }, think: func(string) {}}
+		err = s.runner.StreamWithOpts(sopts, split.feed, nil)
+		split.flush()
+	}
+	stop()
+	if err != nil {
+		return err
+	}
+	sum := strings.TrimSpace(regexp.MustCompile(`(?s)<think>.*?</think>`).ReplaceAllString(out.String(), ""))
+	if sum == "" {
+		return errors.New("the model returned an empty summary")
+	}
+	before := s.contextUsed()
+	s.summary = sum
+	s.messages = nil
+	s.saveSession()
+	if s.ui != nil {
+		s.ui.println("  %s⎿  Compacted: ~%s → ~%s tokens%s", cGray, humanCount(before), humanCount(s.contextUsed()), cReset)
+	}
+	return nil
+}
+
+// ── undo ─────────────────────────────────────────────────────────────────────
+
+func (s *codeSession) undoLast() {
+	if len(s.undo) == 0 {
+		fmt.Printf("  %sNothing to undo.%s\n", cGray, cReset)
+		return
+	}
+	cps := s.undo[len(s.undo)-1]
+	s.undo = s.undo[:len(s.undo)-1]
+	var names []string
+	for i := len(cps) - 1; i >= 0; i-- {
+		cp := cps[i]
+		rel, _ := filepath.Rel(s.workdir, cp.path)
+		if cp.existed {
+			if err := os.WriteFile(cp.path, cp.before, 0o644); err != nil {
+				fmt.Printf("  %s✗ %s: %v%s\n", cRed, rel, err, cReset)
+				continue
+			}
+			fmt.Printf("  %s⎿  restored %s%s\n", cGray, rel, cReset)
+		} else {
+			if err := os.Remove(cp.path); err != nil && !os.IsNotExist(err) {
+				fmt.Printf("  %s✗ %s: %v%s\n", cRed, rel, err, cReset)
+				continue
+			}
+			fmt.Printf("  %s⎿  removed %s%s\n", cGray, rel, cReset)
+		}
+		names = append(names, filepath.ToSlash(rel))
+	}
+	s.pendingContext += "[The user undid the file changes of the previous turn: " + strings.Join(names, ", ") + ". These files are back to their earlier content.]"
+}
+
+// ── print mode ───────────────────────────────────────────────────────────────
+
+func (s *codeSession) runPrint() error {
+	prompt := s.opts.prompt
+	if !isTTY(os.Stdin) {
+		// Piped input is appended to the prompt. With a prompt argument, don't
+		// wait on a stdin that is open but never written to (IDE/CI shells).
+		ch := make(chan []byte, 1)
+		go func() {
+			data, _ := io.ReadAll(os.Stdin)
+			ch <- data
+		}()
+		var data []byte
+		if prompt == "" {
+			data = <-ch
+		} else {
+			select {
+			case data = <-ch:
+			case <-time.After(300 * time.Millisecond):
+			}
+		}
+		if in := strings.TrimSpace(string(data)); in != "" {
+			if prompt != "" {
+				prompt += "\n\n" + in
+			} else {
+				prompt = in
+			}
+		}
+	}
+	if strings.TrimSpace(prompt) == "" {
+		return errors.New("no prompt: vortelio code -p \"your request\"")
+	}
+	out := io.Writer(os.Stdout)
+	if s.opts.outputFormat == "json" {
+		out = io.Discard
+	}
+	s.ui = newCodeUI(out, os.Stderr, false, false)
+	s.ui.quietTools = true
+	s.ui.plain = true
+	// Keep stdout for the answer only: progress printed by the runtime (model
+	// loading, engine download) goes to stderr.
+	realStdout := os.Stdout
+	os.Stdout = os.Stderr
+	defer func() { os.Stdout = realStdout }()
+	if err := s.pickInitialModel(); err != nil {
+		return err
+	}
+	if err := s.initSession(); err != nil {
+		return err
+	}
+	for _, w := range s.warns {
+		fmt.Fprintln(os.Stderr, "warning: "+w)
+	}
+	start := time.Now()
+	text, err := s.runTurn(prompt)
+	if s.opts.outputFormat == "json" {
+		res := map[string]interface{}{
+			"type":        "result",
+			"is_error":    err != nil,
+			"result":      text,
+			"session_id":  s.sess.ID,
+			"model":       s.modelRef(),
+			"duration_ms": time.Since(start).Milliseconds(),
+			"actions":     append([]string{}, s.ui.toolLog...),
+		}
+		if err != nil {
+			res["error"] = err.Error()
+		}
+		enc := json.NewEncoder(realStdout)
+		enc.SetIndent("", "  ")
+		enc.Encode(res)
+	} else {
+		fmt.Fprintln(realStdout)
+	}
+	return err
+}
+
+// ── banner ───────────────────────────────────────────────────────────────────
+
+func (s *codeSession) printBanner() {
+	w := min(termWidth()-2, 72)
+	line := strings.Repeat("─", w-2)
+	fmt.Printf("%s╭%s╮%s\n", cAccent, line, cReset)
+	title := fmt.Sprintf("✻ Vortelio Code  v%s", version.Version)
+	fmt.Printf("%s│%s %s%s%s%s%s│%s\n", cAccent, cReset, cBold, title, cReset, strings.Repeat(" ", max(0, w-3-len([]rune(title)))), cAccent, cReset)
+	fmt.Printf("%s╰%s╯%s\n", cAccent, line, cReset)
+	fmt.Printf("  %scwd%s    %s\n", cGray, cReset, s.workdir)
+	where := "local"
+	if s.cloudProvider != "" {
+		where = "cloud"
+	}
+	fmt.Printf("  %smodel%s  %s %s(%s)%s\n", cGray, cReset, s.modelLabel(), cGray, where, cReset)
+	fmt.Printf("  %smode%s   %s\n", cGray, cReset, modeLabel(s.mode))
+	if len(s.instr) > 0 {
+		var names []string
+		for _, f := range s.instr {
+			names = append(names, shortPath(f.Path, s.workdir))
+		}
+		fmt.Printf("  %smemory%s %s\n", cGray, cReset, strings.Join(names, ", "))
+	} else {
+		fmt.Printf("  %smemory%s %snone — run /init to create AGENTS.md%s\n", cGray, cReset, cGray, cReset)
+	}
+	if s.sess != nil && len(s.messages) > 0 {
+		fmt.Printf("  %sresumed%s %s (%d messages)\n", cGray, cReset, oneLine(s.sess.Title, 50), len(s.messages))
+	}
+	for _, w := range s.warns {
+		fmt.Printf("  %s⚠ %s%s\n", cYell, w, cReset)
+	}
+	fmt.Printf("\n  %s/help for commands · ? for shortcuts · esc to interrupt%s\n", cGray, cReset)
+}
+
+func shortPath(p, workdir string) string {
+	if rel, err := filepath.Rel(workdir, p); err == nil && !strings.HasPrefix(rel, "..") {
+		return filepath.ToSlash(rel)
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		if rel, err := filepath.Rel(home, p); err == nil && !strings.HasPrefix(rel, "..") {
+			return "~/" + filepath.ToSlash(rel)
+		}
+	}
+	return p
+}
+
+func isTTY(f *os.File) bool { return term.IsTerminal(int(f.Fd())) }
+
+// ── prompt history (↑/↓ across sessions) ─────────────────────────────────────
+
+func promptHistoryPath() string {
+	return filepath.Join(filepath.Dir(sessionsDir()), "code_history")
+}
+
+func loadPromptHistory() []string {
+	data, err := os.ReadFile(promptHistoryPath())
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, l := range strings.Split(string(data), "\n") {
+		if l == "" {
+			continue
+		}
+		if u, err := strconv.Unquote(l); err == nil {
+			out = append(out, u)
+		}
+	}
+	if len(out) > 500 {
+		out = out[len(out)-500:]
+	}
+	return out
+}
+
+func appendPromptHistory(line string) {
+	if strings.TrimSpace(line) == "" {
+		return
+	}
+	os.MkdirAll(filepath.Dir(promptHistoryPath()), 0o755)
+	f, err := os.OpenFile(promptHistoryPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.WriteString(strconv.Quote(line) + "\n")
 }

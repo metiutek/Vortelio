@@ -2,6 +2,19 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.88] — 2026-09-28
+### Added
+- `vortelio code` rewritten in the style of Claude Code / Codex / OpenCode: permission modes (plan · ask · edits · auto, Shift+Tab), allow/deny rules, colored diffs in approvals, todo list, AGENTS.md/CLAUDE.md project memory with `/init` and `# note`, saved sessions (`/resume`, `-c`, `-r`), `/compact` (automatic when the context fills up), `/undo`, `/diff`, `/context`, `/status`, `/config`, `/permissions`, custom `/commands`, `!shell`, `@file`, Esc to interrupt, multi-line input, and a non-interactive `-p` mode with JSON output.
+- Coding tools follow the usual conventions: numbered paged reads, unique exact-match edits (`replace_all`), read-before-edit, regex grep with include filter, real `**` globs, shell timeout and exit code.
+- Ollama Cloud models are listed live from ollama.com (cheapest first, with prices); updated offline list.
+- Web UI approvals show a colored diff for file edits.
+### Fixed
+- Reasoning of thinking models (Qwen 3.5, Gemma 4, gpt-oss, DeepSeek…) was never shown: llama.cpp and cloud providers send it in a separate field that was dropped. It now streams in the web UI, `vortelio run` and `vortelio code`.
+- Local answers were cut at 512 tokens (reasoning models often returned nothing) and streams longer than 2 minutes were aborted.
+- Plan and ask modes were bypassed: builtin file tools shadowed the approval-gated coding tools.
+- `vortelio code` sent no system prompt to local models, used a 4K context and truncated every tool result to 2,000 characters.
+- `--flash-attn` was passed to llama-server without its value.
+
 ## [0.3.87] — 2026-09-28
 ### Fixed
 - Windows: updating from the web GUI or `vortelio update` did nothing. The updater was killed together with uv's launcher job when Vortelio exited; it now starts outside that job and completes.

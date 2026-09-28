@@ -3,6 +3,7 @@ package cloud
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -34,8 +35,11 @@ var streamingHTTPClient = &http.Client{
 // truncToolResult caps a tool result fed back to a cloud model so big outputs
 // (e.g. list_directory of a large repo) don't bloat the request and trigger
 // provider 500s. The UI still receives the full result via the tool event.
-func truncToolResult(s string) string {
-	const max = 4000
+func truncToolResult(s string, limit int) string {
+	max := 4000
+	if limit > 0 {
+		max = limit
+	}
 	if len(s) <= max {
 		return s
 	}
@@ -61,6 +65,21 @@ type Provider struct {
 	AuthPrefix   string
 	Format       APIFormat
 	KeyHint      string
+
+	ctx context.Context // cancels in-flight requests (see WithContext)
+}
+
+// WithContext returns a copy of p whose requests are cancelled with ctx.
+func (p Provider) WithContext(ctx context.Context) Provider {
+	p.ctx = ctx
+	return p
+}
+
+func (p Provider) context() context.Context {
+	if p.ctx != nil {
+		return p.ctx
+	}
+	return context.Background()
 }
 
 var Providers = []Provider{
@@ -329,6 +348,11 @@ type ToolCallOptions struct {
 	OnEvent func(typ string, data interface{})
 	// MaxRounds overrides the tool-loop cap (0 = default 5); raised for autonomous sessions.
 	MaxRounds int
+	// Ctx cancels the whole tool loop (requests and pending rounds).
+	Ctx context.Context
+	// ResultLimit caps each tool result fed back to the model, in bytes
+	// (0 = default 4000). Coding agents raise it to read whole files.
+	ResultLimit int
 }
 
 // Chat sends messages and streams tokens to onToken. Returns full response text.
@@ -348,6 +372,9 @@ func Chat(p Provider, apiKey string, messages []Message, onToken func(string)) (
 // ChatWithTools is like Chat but supports a tool-calling loop.
 // If opts is nil or opts.Tools is nil, falls back to Chat.
 func ChatWithTools(p Provider, apiKey string, messages []Message, opts *ToolCallOptions, onToken func(string)) (string, error) {
+	if opts != nil && opts.Ctx != nil {
+		p = p.WithContext(opts.Ctx)
+	}
 	if opts == nil || opts.Tools == nil {
 		return Chat(p, apiKey, messages, onToken)
 	}
@@ -409,6 +436,11 @@ func ChatWithToolsFailover(p Provider, keys []string, messages []Message, opts *
 	return "", lastErr
 }
 
+// ChatFailoverCtx is ChatFailover with cancellation.
+func ChatFailoverCtx(ctx context.Context, p Provider, keys []string, messages []Message, onToken func(string)) (string, error) {
+	return ChatFailover(p.WithContext(ctx), keys, messages, onToken)
+}
+
 // ChatFailover is like Chat but tries each key in order on key-related errors.
 func ChatFailover(p Provider, keys []string, messages []Message, onToken func(string)) (string, error) {
 	if len(keys) == 0 {
@@ -442,7 +474,7 @@ func chatOpenAI(p Provider, apiKey string, messages []Message, onToken func(stri
 	}
 	data, _ := json.Marshal(body)
 
-	req, err := http.NewRequest("POST", p.BaseURL, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(p.context(), "POST", p.BaseURL, bytes.NewReader(data))
 	if err != nil {
 		return "", err
 	}
@@ -466,6 +498,7 @@ func chatOpenAI(p Provider, apiKey string, messages []Message, onToken func(stri
 	}
 
 	var sb strings.Builder
+	tw := thinkWrap{onToken: onToken}
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -478,17 +511,17 @@ func chatOpenAI(p Provider, apiKey string, messages []Message, onToken func(stri
 		}
 		var chunk struct {
 			Choices []struct {
-				Delta struct {
-					Content string `json:"content"`
-				} `json:"delta"`
+				Delta reasoningDelta `json:"delta"`
 			} `json:"choices"`
 		}
 		if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
 			continue
 		}
 		if len(chunk.Choices) > 0 {
-			tok := chunk.Choices[0].Delta.Content
-			if tok != "" {
+			d := chunk.Choices[0].Delta
+			tw.reason(d.reasoning())
+			if tok := d.Content; tok != "" {
+				tw.content()
 				sb.WriteString(tok)
 				if onToken != nil {
 					onToken(tok)
@@ -496,7 +529,52 @@ func chatOpenAI(p Provider, apiKey string, messages []Message, onToken func(stri
 			}
 		}
 	}
+	tw.content()
 	return sb.String(), scanner.Err()
+}
+
+// reasoningDelta is the streamed delta of an OpenAI-compatible response.
+// Reasoning models put their chain of thought in a separate field whose name
+// depends on the server: reasoning_content (DeepSeek, llama.cpp, vLLM) or
+// reasoning (Ollama, OpenRouter).
+type reasoningDelta struct {
+	Content          string `json:"content"`
+	ReasoningContent string `json:"reasoning_content"`
+	Reasoning        string `json:"reasoning"`
+}
+
+func (d reasoningDelta) reasoning() string {
+	if d.ReasoningContent != "" {
+		return d.ReasoningContent
+	}
+	return d.Reasoning
+}
+
+// thinkWrap forwards reasoning tokens to onToken wrapped in <think>…</think>,
+// the convention the GUI and CLI already split into a separate thinking view.
+// Reasoning never goes into the returned answer text.
+type thinkWrap struct {
+	onToken func(string)
+	open    bool
+}
+
+func (t *thinkWrap) reason(tok string) {
+	if tok == "" || t.onToken == nil {
+		return
+	}
+	if !t.open {
+		t.open = true
+		t.onToken("<think>")
+	}
+	t.onToken(tok)
+}
+
+// content closes an open reasoning block before answer tokens (or at the end).
+func (t *thinkWrap) content() {
+	if t.open {
+		t.open = false
+		t.onToken("</think>")
+	}
 }
 
 // ── Anthropic ─────────────────────────────────────────────────────────────────
@@ -524,7 +602,7 @@ func chatAnthropic(p Provider, apiKey string, messages []Message, onToken func(s
 	}
 	data, _ := json.Marshal(body)
 
-	req, err := http.NewRequest("POST", p.BaseURL, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(p.context(), "POST", p.BaseURL, bytes.NewReader(data))
 	if err != nil {
 		return "", err
 	}
@@ -587,6 +665,7 @@ func chatOpenAIWithTools(p Provider, apiKey string, messages []Message, opts *To
 	}
 
 	var finalContent strings.Builder
+	tw := thinkWrap{onToken: onToken}
 	maxRounds := 5
 	if opts != nil && opts.MaxRounds > 0 {
 		maxRounds = opts.MaxRounds
@@ -602,7 +681,7 @@ func chatOpenAIWithTools(p Provider, apiKey string, messages []Message, opts *To
 		}
 		data, _ := json.Marshal(body)
 
-		req, err := http.NewRequest("POST", p.BaseURL, bytes.NewReader(data))
+		req, err := http.NewRequestWithContext(p.context(), "POST", p.BaseURL, bytes.NewReader(data))
 		if err != nil {
 			return "", err
 		}
@@ -646,7 +725,7 @@ func chatOpenAIWithTools(p Provider, apiKey string, messages []Message, opts *To
 			var chunk struct {
 				Choices []struct {
 					Delta struct {
-						Content   string `json:"content"`
+						reasoningDelta
 						ToolCalls []struct {
 							Index    int    `json:"index"`
 							ID       string `json:"id"`
@@ -663,7 +742,9 @@ func chatOpenAIWithTools(p Provider, apiKey string, messages []Message, opts *To
 				continue
 			}
 			choice := chunk.Choices[0]
+			tw.reason(choice.Delta.reasoning())
 			if choice.Delta.Content != "" {
+				tw.content()
 				contentBuf.WriteString(choice.Delta.Content)
 				finalContent.WriteString(choice.Delta.Content)
 				if onToken != nil {
@@ -689,6 +770,7 @@ func chatOpenAIWithTools(p Provider, apiKey string, messages []Message, opts *To
 			}
 		}
 		resp.Body.Close()
+		tw.content()
 
 		// No tool calls → final answer.
 		if finishReason != "tool_calls" || len(toolCallMap) == 0 {
@@ -759,7 +841,7 @@ func chatOpenAIWithTools(p Provider, apiKey string, messages []Message, opts *To
 
 			msgs = append(msgs, map[string]string{
 				"role":         "tool",
-				"content":      truncToolResult(result),
+				"content":      truncToolResult(result, opts.ResultLimit),
 				"tool_call_id": id,
 			})
 		}
@@ -778,7 +860,7 @@ func chatOpenAIWithTools(p Provider, apiKey string, messages []Message, opts *To
 		}
 		body := map[string]interface{}{"model": p.DefaultModel, "messages": msgs, "stream": true}
 		data, _ := json.Marshal(body)
-		if req, err := http.NewRequest("POST", p.BaseURL, bytes.NewReader(data)); err == nil {
+		if req, err := http.NewRequestWithContext(p.context(), "POST", p.BaseURL, bytes.NewReader(data)); err == nil {
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set(p.AuthHeader, p.AuthPrefix+apiKey)
 			if p.ID == "openrouter" {
@@ -901,7 +983,7 @@ func chatAnthropicWithTools(p Provider, apiKey string, messages []Message, opts 
 		}
 		data, _ := json.Marshal(body)
 
-		req, err := http.NewRequest("POST", p.BaseURL, bytes.NewReader(data))
+		req, err := http.NewRequestWithContext(p.context(), "POST", p.BaseURL, bytes.NewReader(data))
 		if err != nil {
 			return "", err
 		}
@@ -1043,7 +1125,7 @@ func chatAnthropicWithTools(p Provider, apiKey string, messages []Message, opts 
 			}
 
 			resultBlocks = append(resultBlocks, toolResultBlock{
-				Type: "tool_result", ToolUseID: acc.id, Content: truncToolResult(result),
+				Type: "tool_result", ToolUseID: acc.id, Content: truncToolResult(result, opts.ResultLimit),
 			})
 		}
 		msgs = append(msgs, map[string]interface{}{"role": "user", "content": resultBlocks})
@@ -1132,7 +1214,7 @@ func chatGeminiWithTools(p Provider, apiKey string, messages []Message, opts *To
 		}
 		data, _ := json.Marshal(body)
 
-		req, err := http.NewRequest("POST", url, bytes.NewReader(data))
+		req, err := http.NewRequestWithContext(p.context(), "POST", url, bytes.NewReader(data))
 		if err != nil {
 			return "", err
 		}
@@ -1238,7 +1320,7 @@ func chatGeminiWithTools(p Provider, apiKey string, messages []Message, opts *To
 				})
 			}
 
-			result = truncToolResult(result)
+			result = truncToolResult(result, opts.ResultLimit)
 			var responseObj interface{}
 			if json.Unmarshal([]byte(result), &responseObj) != nil {
 				responseObj = map[string]string{"output": result}
@@ -1296,7 +1378,7 @@ func chatGemini(p Provider, apiKey string, messages []Message, onToken func(stri
 	data, _ := json.Marshal(body)
 
 	url := p.BaseURL + "?key=" + apiKey
-	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(p.context(), "POST", url, bytes.NewReader(data))
 	if err != nil {
 		return "", err
 	}

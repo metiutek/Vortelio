@@ -137,7 +137,7 @@ type AgenticConfig struct {
 	Auto       bool     `json:"auto"`        // smart mode: never hard-error on unsupported tools; nudge the model to use tools when helpful
 	Autonomous bool     `json:"autonomous"`  // goal-driven autonomous loop: many tool rounds until the objective is complete
 	Skills     []string `json:"skills"`      // enabled skill IDs
-	Mode       string   `json:"mode"`        // coding mode: "plan" | "ask" | "auto"
+	Mode       string   `json:"mode"`        // coding mode: "plan" | "ask" | "edits" | "auto"
 	WorkingDir string   `json:"working_dir"` // root dir for coding tools
 	SessionID  string   `json:"session_id"`  // correlates approval prompts
 	// ApproveFunc, when set (CLI), is called synchronously to approve risky tools
@@ -145,6 +145,14 @@ type AgenticConfig struct {
 	ApproveFunc func(tool, summary, args string) bool `json:"-"`
 	// AskFunc, when set (CLI), answers ask_user synchronously in the terminal.
 	AskFunc func(question string, options []string) string `json:"-"`
+	// Policy applies allow/deny rules before the mode (CLI permissions).
+	Policy PolicyFunc `json:"-"`
+	// OnFileChange is called before a tool modifies a file (CLI undo checkpoints).
+	OnFileChange func(path string, before []byte, existed bool) `json:"-"`
+	// State keeps read-before-edit tracking and todos across turns (CLI session).
+	State *CodingState `json:"-"`
+	// Ctx cancels running tools (e.g. a shell command) when the turn is aborted.
+	Ctx context.Context `json:"-"`
 }
 
 type ChatMessage struct {

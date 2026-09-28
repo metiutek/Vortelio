@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/vortelio/vortelio/internal/cloud"
-	rt "github.com/vortelio/vortelio/internal/runtime"
 )
 
 // ── BYOK (bring your own key) cloud models ────────────────────────────────────
@@ -39,7 +38,7 @@ func CloudModelsForCLI() []CLICloudModel {
 		if cloud.LoadKey(p.ID) == "" {
 			continue
 		}
-		choices := cloud.ModelChoices[p.ID]
+		choices := cloud.Choices(p.ID)
 		if len(choices) == 0 {
 			choices = [][2]string{{p.DefaultModel, p.DefaultModel}}
 		}
@@ -48,42 +47,6 @@ func CloudModelsForCLI() []CLICloudModel {
 		}
 	}
 	return out
-}
-
-// RunCLICloudTurn streams one cloud chat turn for the CLI, using the same agentic
-// harness (tools) as the GUI. Returns the full assistant text.
-func RunCLICloudTurn(providerID, model, workdir, mode string, autonomous, mcpOn bool, skills []string, history []map[string]string, onToken func(string), emit rt.ToolEventEmitter, approve func(tool, summary, args string) bool, ask func(question string, options []string) string) (string, error) {
-	p, ok := cloud.FindProvider(providerID)
-	if !ok {
-		return "", fmt.Errorf("provider cloud sconosciuto: %s", providerID)
-	}
-	keys := cloud.LoadKeys(providerID)
-	if len(keys) == 0 {
-		return "", fmt.Errorf("nessuna API key per %s", p.Name)
-	}
-	if model != "" {
-		p.DefaultModel = model
-		if p.Format == cloud.FormatGemini {
-			p.BaseURL = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent"
-		}
-	}
-	prov, sys := BuildCLIHarness(workdir, mode, autonomous, mcpOn, skills, emit, approve, ask)
-	msgs := []cloud.Message{}
-	if sys != "" {
-		msgs = append(msgs, cloud.Message{Role: "system", Content: sys})
-	}
-	for _, m := range history {
-		msgs = append(msgs, cloud.Message{Role: m["role"], Content: m["content"]})
-	}
-	toolOpts := &cloud.ToolCallOptions{Tools: prov.Tools(), ExecTool: prov.Execute, OnEvent: emit}
-	if autonomous {
-		toolOpts.MaxRounds = 40
-	} else {
-		// Interactive ask/plan turns still need room to read several files before
-		// answering; the default of 5 was too low (model ran out mid-exploration).
-		toolOpts.MaxRounds = 16
-	}
-	return cloud.ChatWithToolsFailover(p, keys, msgs, toolOpts, onToken)
 }
 
 // GET /api/media/providers — media (image/audio/video/3d) cloud services + key state.
@@ -174,7 +137,7 @@ func handleCloudProviders(w http.ResponseWriter, r *http.Request) {
 	out := make([]providerOut, 0, len(cloud.Providers))
 	for _, p := range cloud.Providers {
 		models := []modelOut{}
-		if choices, ok := cloud.ModelChoices[p.ID]; ok {
+		if choices := cloud.Choices(p.ID); len(choices) > 0 {
 			for _, c := range choices {
 				models = append(models, modelOut{ID: c[0], Label: c[1]})
 			}

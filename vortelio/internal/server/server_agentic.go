@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -8,12 +9,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/vortelio/vortelio/internal/cloud"
 	"github.com/vortelio/vortelio/internal/mcp"
 	rt "github.com/vortelio/vortelio/internal/runtime"
 )
@@ -170,23 +171,6 @@ func autonomousSystemPrompt(existing string) string {
 }
 
 // ── Agentic provider builder ───────────────────────────────────────────────────
-
-// buildAgenticProvider assembles a composite tool provider from the request's
-// AgenticConfig. emit is the per-request tool event emitter (used for approvals).
-// BuildCodingHarness exposes the exact same agentic tool harness the Developer
-// GUI uses (builtins + coding tools + web + self skills), for the Vortelio CLI.
-func BuildCodingHarness(workingDir, mode string, autonomous bool, emit rt.ToolEventEmitter) rt.ToolProvider {
-	cfg := &AgenticConfig{
-		Auto:       true,
-		Autonomous: autonomous,
-		WebSearch:  true,
-		Builtins:   true,
-		Coding:     true,
-		Mode:       mode,
-		WorkingDir: workingDir,
-	}
-	return buildAgenticProvider(cfg, emit)
-}
 
 // CodingSystemPrompt returns the system prompt for the CLI coding agent, matching
 // the GUI behaviour (autonomous goal-seeking when requested).
@@ -410,39 +394,92 @@ func ListSkillInfos() []SkillInfo {
 	return out
 }
 
-// BuildCLIHarness builds the full agentic harness for the CLI with optional MCP
-// and skills, and returns the matching system prompt (skills applied). approve is
-// the synchronous approval callback used for "ask" mode in the terminal.
-func BuildCLIHarness(workingDir, mode string, autonomous, mcpOn bool, skills []string, emit rt.ToolEventEmitter, approve func(tool, summary, args string) bool, ask func(question string, options []string) string) (rt.ToolProvider, string) {
-	cfg := &AgenticConfig{
-		Auto:        true,
-		Autonomous:  autonomous,
-		WebSearch:   true,
-		Builtins:    true,
-		Coding:      true,
-		Media:       true,
-		MCP:         mcpOn,
-		Mode:        mode,
-		WorkingDir:  workingDir,
-		Skills:      skills,
-		ApproveFunc: approve,
-		AskFunc:     ask,
-	}
-	sys := CodingSystemPrompt(autonomous)
-	if len(skills) > 0 {
-		sys = applySkills(sys, skills)
-	}
-	if ws := workspaceContext(cfg); ws != "" {
-		sys = ws + "\n\n" + sys
-	}
-	return buildAgenticProvider(cfg, emit), sys
+// CLIHarness configures the tool set of the `vortelio code` terminal agent.
+type CLIHarness struct {
+	WorkDir      string
+	Mode         string // plan | ask | edits | auto
+	Autonomous   bool
+	MCP          bool
+	Media        bool
+	Emit         rt.ToolEventEmitter
+	Approve      func(tool, summary, args string) bool
+	Ask          func(question string, options []string) string
+	Policy       PolicyFunc
+	OnFileChange func(path string, before []byte, existed bool)
+	State        *CodingState
+	Ctx          context.Context
 }
 
+// NewCLIToolProvider builds the same agentic harness the Developer GUI uses
+// (coding tools, web, media, MCP, skills authoring, ask_user) for the CLI.
+func NewCLIToolProvider(h CLIHarness) rt.ToolProvider {
+	return buildAgenticProvider(&AgenticConfig{
+		Auto:         true,
+		Autonomous:   h.Autonomous,
+		WebSearch:    true,
+		Builtins:     true,
+		Coding:       true,
+		Media:        h.Media,
+		MCP:          h.MCP,
+		Mode:         h.Mode,
+		WorkingDir:   h.WorkDir,
+		ApproveFunc:  h.Approve,
+		AskFunc:      h.Ask,
+		Policy:       h.Policy,
+		OnFileChange: h.OnFileChange,
+		State:        h.State,
+		Ctx:          h.Ctx,
+	}, h.Emit)
+}
+
+// ApplySkills appends the instructions of the enabled skills to a system prompt.
+func ApplySkills(system string, ids []string) string { return applySkills(system, ids) }
+
+// CLICloudTurn runs one turn of the CLI agent on a cloud model. prov nil = no tools.
+func CLICloudTurn(ctx context.Context, providerID, model, system string, prov rt.ToolProvider, history []map[string]string, maxRounds, resultLimit int, onToken func(string), emit rt.ToolEventEmitter) (string, error) {
+	p, ok := cloud.FindProvider(providerID)
+	if !ok {
+		return "", fmt.Errorf("unknown cloud provider: %s", providerID)
+	}
+	keys := cloud.LoadKeys(providerID)
+	if len(keys) == 0 {
+		return "", fmt.Errorf("no API key saved for %s (add one with: vortelio cloud)", p.Name)
+	}
+	if model != "" {
+		p.DefaultModel = model
+		if p.Format == cloud.FormatGemini {
+			p.BaseURL = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent"
+		}
+	}
+	msgs := []cloud.Message{}
+	if system != "" {
+		msgs = append(msgs, cloud.Message{Role: "system", Content: system})
+	}
+	for _, m := range history {
+		msgs = append(msgs, cloud.Message{Role: m["role"], Content: m["content"]})
+	}
+	var tools interface{}
+	var exec func(string, string) (string, error)
+	if prov != nil {
+		tools, exec = prov.Tools(), prov.Execute
+	}
+	opts := &cloud.ToolCallOptions{Tools: tools, ExecTool: exec, OnEvent: emit, MaxRounds: maxRounds, Ctx: ctx, ResultLimit: resultLimit}
+	if prov == nil {
+		return cloud.ChatFailoverCtx(ctx, p, keys, msgs, onToken)
+	}
+	return cloud.ChatWithToolsFailover(p, keys, msgs, opts, onToken)
+}
+
+// buildAgenticProvider assembles a composite tool provider from the request's
+// AgenticConfig. emit is the per-request tool event emitter (used for approvals).
 func buildAgenticProvider(cfg *AgenticConfig, emit rt.ToolEventEmitter) rt.ToolProvider {
 	var providers []rt.ToolProvider
 
 	if cfg.WebSearch || cfg.Builtins {
-		providers = append(providers, &filteredBuiltins{web: cfg.WebSearch, rest: cfg.Builtins})
+		// With coding tools on, the builtin read/write/list duplicates must go:
+		// they were listed first, so they shadowed the workspace-scoped, approval-
+		// gated coding tools (plan/ask mode silently bypassed).
+		providers = append(providers, &filteredBuiltins{web: cfg.WebSearch, rest: cfg.Builtins, noFiles: cfg.Coding})
 	}
 	if cfg.MCP {
 		providers = append(providers, mcp.Default().Provider())
@@ -470,6 +507,7 @@ func buildAgenticProvider(cfg *AgenticConfig, emit rt.ToolEventEmitter) rt.ToolP
 		inner:   rt.NewCompositeProvider(providers...),
 		mode:    mode,
 		approve: cfg.ApproveFunc,
+		policy:  cfg.Policy,
 		emit:    emit,
 	}
 }
@@ -493,6 +531,7 @@ type gatedProvider struct {
 	inner   rt.ToolProvider
 	mode    string
 	approve func(tool, summary, args string) bool
+	policy  PolicyFunc
 	emit    rt.ToolEventEmitter
 	mu      sync.Mutex
 	counter int
@@ -501,7 +540,14 @@ type gatedProvider struct {
 func (g *gatedProvider) Tools() []rt.ToolDef { return g.inner.Tools() }
 
 func (g *gatedProvider) Execute(name, args string) (string, error) {
-	if gatedRiskyTools[name] {
+	decision := ""
+	if g.policy != nil && gatedRiskyTools[name] {
+		decision = g.policy(name, args)
+		if decision == PolicyDeny {
+			return "", fmt.Errorf("denied by a permission rule for %s", name)
+		}
+	}
+	if gatedRiskyTools[name] && decision != PolicyAllow {
 		switch g.mode {
 		case "plan":
 			return "", fmt.Errorf("blocked: in Plan mode the agent cannot run code or generate/modify files. Switch to Ask or Auto to proceed")
@@ -704,8 +750,9 @@ func (s *selfProvider) Execute(name, args string) (string, error) {
 
 // filteredBuiltins exposes the builtin tools, optionally limited to web_search.
 type filteredBuiltins struct {
-	web  bool
-	rest bool
+	web     bool
+	rest    bool
+	noFiles bool // hide read_file/write_file/list_directory (coding tools provide them)
 }
 
 func (f *filteredBuiltins) Tools() []rt.ToolDef {
@@ -718,6 +765,9 @@ func (f *filteredBuiltins) Tools() []rt.ToolDef {
 			}
 			continue
 		}
+		if f.noFiles && (name == "read_file" || name == "write_file" || name == "list_directory") {
+			continue
+		}
 		if f.rest {
 			out = append(out, t)
 		}
@@ -727,435 +777,4 @@ func (f *filteredBuiltins) Tools() []rt.ToolDef {
 
 func (f *filteredBuiltins) Execute(name, args string) (string, error) {
 	return rt.ExecuteTool(name, args)
-}
-
-// ── Coding tool provider ───────────────────────────────────────────────────────
-
-type codingProvider struct {
-	mode    string // "plan" | "ask" | "auto"
-	root    string
-	emit    rt.ToolEventEmitter
-	approve func(tool, summary, args string) bool // synchronous approval (CLI); nil = use HTTP flow
-	counter int
-	mu      sync.Mutex
-}
-
-func newCodingProvider(cfg *AgenticConfig, emit rt.ToolEventEmitter) *codingProvider {
-	mode := cfg.Mode
-	if mode == "" {
-		mode = "ask"
-	}
-	root := cfg.WorkingDir
-	if root != "" {
-		if abs, err := filepath.Abs(root); err == nil {
-			root = abs
-		}
-	}
-	return &codingProvider{mode: mode, root: root, emit: emit, approve: cfg.ApproveFunc}
-}
-
-func (c *codingProvider) Tools() []rt.ToolDef {
-	defs := []rt.ToolDef{
-		toolDef("read_file", "Read a UTF-8 text file from the workspace. Use line_start/line_end (1-based, inclusive) to read only part of a large file.",
-			`{"type":"object","properties":{"path":{"type":"string","description":"File path, relative to the workspace root or absolute."},"line_start":{"type":"integer","description":"First line (1-based, inclusive). Optional."},"line_end":{"type":"integer","description":"Last line (1-based, inclusive). Optional."}},"required":["path"]}`),
-		toolDef("list_directory", "List files and folders at a path in the workspace.",
-			`{"type":"object","properties":{"path":{"type":"string","description":"Directory path. Defaults to workspace root."}},"required":[]}`),
-		toolDef("glob_search", "Find files matching a glob pattern (e.g. **/*.go).",
-			`{"type":"object","properties":{"pattern":{"type":"string","description":"Glob pattern relative to workspace root."}},"required":["pattern"]}`),
-		toolDef("grep_search", "Search file contents for a substring and return matching lines.",
-			`{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string","description":"Optional sub-path to search. Defaults to workspace root."}},"required":["query"]}`),
-		toolDef("write_file", "Create or overwrite a file. Set append=true to add to the end instead — use it to build large files (e.g. a big dataset) in several chunks. (requires approval)",
-			`{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"},"append":{"type":"boolean","description":"Append to the end instead of overwriting. Default false."}},"required":["path","content"]}`),
-		toolDef("edit_file", "Replace the first occurrence of old_text with new_text in a file. (requires approval)",
-			`{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"]}`),
-		toolDef("run_shell", "Run a shell command in the workspace and return its output. (requires approval)",
-			`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}`),
-	}
-	return defs
-}
-
-func toolDef(name, desc, schema string) rt.ToolDef {
-	return rt.ToolDef{Type: "function", Function: rt.ToolFuncDef{
-		Name: name, Description: desc, Parameters: json.RawMessage(schema),
-	}}
-}
-
-func isRisky(name string) bool {
-	switch name {
-	case "write_file", "edit_file", "run_shell":
-		return true
-	}
-	return false
-}
-
-func (c *codingProvider) Execute(name, argsJSON string) (string, error) {
-	if isRisky(name) {
-		switch c.mode {
-		case "plan":
-			return "", fmt.Errorf("blocked: in Plan mode the agent cannot modify files or run commands. Switch to Ask or Auto mode to apply changes")
-		case "auto":
-			// proceed without prompting
-		default: // "ask"
-			summary := riskSummary(name, argsJSON)
-			if !c.requestApproval(name, summary, argsJSON) {
-				return "", fmt.Errorf("denied by user")
-			}
-		}
-	}
-
-	switch name {
-	case "read_file":
-		return c.readFile(argsJSON)
-	case "list_directory":
-		return c.listDir(argsJSON)
-	case "glob_search":
-		return c.glob(argsJSON)
-	case "grep_search":
-		return c.grep(argsJSON)
-	case "write_file":
-		return c.writeFile(argsJSON)
-	case "edit_file":
-		return c.editFile(argsJSON)
-	case "run_shell":
-		return c.runShell(argsJSON)
-	default:
-		return "", fmt.Errorf("unknown coding tool: %s", name)
-	}
-}
-
-func riskSummary(name, argsJSON string) string {
-	var m map[string]interface{}
-	json.Unmarshal([]byte(argsJSON), &m)
-	switch name {
-	case "run_shell":
-		return fmt.Sprintf("Run command: %v", m["command"])
-	case "write_file":
-		return fmt.Sprintf("Overwrite file: %v", m["path"])
-	case "edit_file":
-		return fmt.Sprintf("Edit file: %v", m["path"])
-	}
-	return name
-}
-
-// requestApproval emits an approval_request event and blocks until resolved.
-func (c *codingProvider) requestApproval(tool, summary, argsJSON string) bool {
-	// CLI path: a synchronous approval callback (terminal y/n) instead of HTTP.
-	if c.approve != nil {
-		return c.approve(tool, summary, argsJSON)
-	}
-	c.mu.Lock()
-	c.counter++
-	id := fmt.Sprintf("appr_%d_%d", time.Now().UnixNano(), c.counter)
-	c.mu.Unlock()
-
-	ch := registerApproval(id)
-	if c.emit != nil {
-		c.emit("approval_request", map[string]interface{}{
-			"id": id, "tool": tool, "summary": summary, "arguments": json.RawMessage(argsJSON),
-		})
-	}
-	select {
-	case ok := <-ch:
-		return ok
-	case <-time.After(5 * time.Minute):
-		resolveApproval(id, false)
-		return false
-	}
-}
-
-// resolvePath maps a tool-supplied path into the workspace, enforcing containment
-// when a root is configured.
-func (c *codingProvider) resolvePath(p string) (string, error) {
-	if p == "" {
-		if c.root != "" {
-			return c.root, nil
-		}
-		return ".", nil
-	}
-	var full string
-	if filepath.IsAbs(p) {
-		full = filepath.Clean(p)
-	} else {
-		base := c.root
-		if base == "" {
-			base = "."
-		}
-		full = filepath.Clean(filepath.Join(base, p))
-	}
-	if c.root != "" {
-		rel, err := filepath.Rel(c.root, full)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return "", fmt.Errorf("path %q is outside the workspace root", p)
-		}
-	}
-	return full, nil
-}
-
-func (c *codingProvider) readFile(argsJSON string) (string, error) {
-	var a struct {
-		Path      string `json:"path"`
-		LineStart *int   `json:"line_start"`
-		LineEnd   *int   `json:"line_end"`
-	}
-	json.Unmarshal([]byte(argsJSON), &a)
-	full, err := c.resolvePath(a.Path)
-	if err != nil {
-		return "", err
-	}
-	data, err := os.ReadFile(full)
-	if err != nil {
-		return "", err
-	}
-	if len(data) > 200*1024 {
-		data = data[:200*1024]
-	}
-	// Honor an optional 1-based inclusive line range so the model can navigate
-	// large files instead of re-reading the head.
-	if a.LineStart != nil || a.LineEnd != nil {
-		lines := strings.Split(string(data), "\n")
-		start, end := 1, len(lines)
-		if a.LineStart != nil {
-			start = *a.LineStart
-		}
-		if a.LineEnd != nil {
-			end = *a.LineEnd
-		}
-		if start < 1 {
-			start = 1
-		}
-		if end > len(lines) {
-			end = len(lines)
-		}
-		if start <= end {
-			return strings.Join(lines[start-1:end], "\n"), nil
-		}
-	}
-	return string(data), nil
-}
-
-func (c *codingProvider) listDir(argsJSON string) (string, error) {
-	var a struct {
-		Path string `json:"path"`
-	}
-	json.Unmarshal([]byte(argsJSON), &a)
-	full, err := c.resolvePath(a.Path)
-	if err != nil {
-		return "", err
-	}
-	entries, err := os.ReadDir(full)
-	if err != nil {
-		return "", err
-	}
-	var items []string
-	for _, e := range entries {
-		name := e.Name()
-		if e.IsDir() {
-			name += "/"
-		}
-		items = append(items, name)
-	}
-	sort.Strings(items)
-	b, _ := json.Marshal(map[string]interface{}{"path": full, "entries": items})
-	return string(b), nil
-}
-
-func (c *codingProvider) glob(argsJSON string) (string, error) {
-	var a struct {
-		Pattern string `json:"pattern"`
-	}
-	json.Unmarshal([]byte(argsJSON), &a)
-	if a.Pattern == "" {
-		return "", fmt.Errorf("pattern is required")
-	}
-	base := c.root
-	if base == "" {
-		base = "."
-	}
-	var matches []string
-	filepath.WalkDir(base, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			if isNoiseDir(d.Name()) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if isBinaryName(path) {
-			return nil
-		}
-		rel, _ := filepath.Rel(base, path)
-		rel = filepath.ToSlash(rel)
-		if ok, _ := filepath.Match(a.Pattern, filepath.Base(path)); ok {
-			matches = append(matches, rel)
-		} else if matchGlobStar(a.Pattern, rel) {
-			matches = append(matches, rel)
-		}
-		if len(matches) >= 500 {
-			return filepath.SkipAll
-		}
-		return nil
-	})
-	b, _ := json.Marshal(map[string]interface{}{"matches": matches})
-	return string(b), nil
-}
-
-// matchGlobStar handles simple ** patterns against a slash path.
-func matchGlobStar(pattern, path string) bool {
-	if !strings.Contains(pattern, "**") {
-		ok, _ := filepath.Match(pattern, path)
-		return ok
-	}
-	suffix := pattern[strings.LastIndex(pattern, "**")+2:]
-	suffix = strings.TrimPrefix(suffix, "/")
-	if suffix == "" {
-		return true
-	}
-	ok, _ := filepath.Match(suffix, filepath.Base(path))
-	return ok
-}
-
-func (c *codingProvider) grep(argsJSON string) (string, error) {
-	var a struct {
-		Query string `json:"query"`
-		Path  string `json:"path"`
-	}
-	json.Unmarshal([]byte(argsJSON), &a)
-	if a.Query == "" {
-		return "", fmt.Errorf("query is required")
-	}
-	base, err := c.resolvePath(a.Path)
-	if err != nil {
-		return "", err
-	}
-	var hits []string
-	filepath.WalkDir(base, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			if isNoiseDir(d.Name()) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if isBinaryName(path) {
-			return nil
-		}
-		info, _ := d.Info()
-		if info != nil && info.Size() > 2*1024*1024 {
-			return nil
-		}
-		data, e := os.ReadFile(path)
-		if e != nil {
-			return nil
-		}
-		if strings.IndexByte(string(data), 0) >= 0 {
-			return nil // binary file (null byte) — skip garbage matches
-		}
-		for i, line := range strings.Split(string(data), "\n") {
-			if strings.Contains(line, a.Query) {
-				rel, _ := filepath.Rel(base, path)
-				hits = append(hits, fmt.Sprintf("%s:%d: %s", filepath.ToSlash(rel), i+1, strings.TrimSpace(line)))
-				if len(hits) >= 200 {
-					return filepath.SkipAll
-				}
-			}
-		}
-		return nil
-	})
-	b, _ := json.Marshal(map[string]interface{}{"matches": hits})
-	return string(b), nil
-}
-
-func (c *codingProvider) writeFile(argsJSON string) (string, error) {
-	var a struct {
-		Path    string `json:"path"`
-		Content string `json:"content"`
-		Append  bool   `json:"append"`
-	}
-	json.Unmarshal([]byte(argsJSON), &a)
-	full, err := c.resolvePath(a.Path)
-	if err != nil {
-		return "", err
-	}
-	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
-		return "", err
-	}
-	if a.Append {
-		f, err := os.OpenFile(full, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return "", err
-		}
-		if _, err := f.WriteString(a.Content); err != nil {
-			f.Close()
-			return "", err
-		}
-		f.Close()
-	} else if err := os.WriteFile(full, []byte(a.Content), 0644); err != nil {
-		return "", err
-	}
-	total := int64(0)
-	if fi, err := os.Stat(full); err == nil {
-		total = fi.Size()
-	}
-	verb := "wrote"
-	if a.Append {
-		verb = "appended"
-	}
-	return fmt.Sprintf("%s %d bytes to %s (total %d bytes)", verb, len(a.Content), full, total), nil
-}
-
-func (c *codingProvider) editFile(argsJSON string) (string, error) {
-	var a struct {
-		Path    string `json:"path"`
-		OldText string `json:"old_text"`
-		NewText string `json:"new_text"`
-	}
-	json.Unmarshal([]byte(argsJSON), &a)
-	full, err := c.resolvePath(a.Path)
-	if err != nil {
-		return "", err
-	}
-	data, err := os.ReadFile(full)
-	if err != nil {
-		return "", err
-	}
-	if !strings.Contains(string(data), a.OldText) {
-		return "", fmt.Errorf("old_text not found in %s", a.Path)
-	}
-	updated := strings.Replace(string(data), a.OldText, a.NewText, 1)
-	if err := os.WriteFile(full, []byte(updated), 0644); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("edited %s", full), nil
-}
-
-func (c *codingProvider) runShell(argsJSON string) (string, error) {
-	var a struct {
-		Command string `json:"command"`
-	}
-	json.Unmarshal([]byte(argsJSON), &a)
-	if strings.TrimSpace(a.Command) == "" {
-		return "", fmt.Errorf("command is required")
-	}
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", a.Command)
-	} else {
-		cmd = exec.Command("sh", "-c", a.Command)
-	}
-	if c.root != "" {
-		cmd.Dir = c.root
-	}
-	out, err := cmd.CombinedOutput()
-	res := string(out)
-	if len(res) > 100*1024 {
-		res = res[:100*1024] + "\n...[truncated]"
-	}
-	if err != nil {
-		return res, fmt.Errorf("command exited with error: %v", err)
-	}
-	return res, nil
 }

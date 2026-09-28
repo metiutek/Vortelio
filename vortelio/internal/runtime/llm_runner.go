@@ -3,6 +3,7 @@ package runtime
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -217,7 +218,7 @@ func (r *LLMRunner) ensureServer() error {
 		}
 		// Flash attention
 		if mp, ok := r.model.ModelParameters["flash_attn"]; ok && (mp == "true" || mp == "1") {
-			args = append(args, "--flash-attn")
+			args = append(args, "--flash-attn", "on")
 		}
 		// mmap
 		if mp, ok := r.model.ModelParameters["use_mmap"]; ok && (mp == "false" || mp == "0") {
@@ -360,14 +361,13 @@ func (r *LLMRunner) chatAPI(history []histEntry, userMsg string, opts *RunOption
 	payload := map[string]interface{}{
 		"model":          "local",
 		"messages":       messages,
-		"max_tokens":     512,
 		"temperature":    0.7,
 		"repeat_penalty": 1.1,
 		"stream":         true,
 	}
 	body, _ := json.Marshal(payload)
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Minute}
 	resp, err := client.Post(r.apiURL+"/v1/chat/completions", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("server connection failed: %w", err)
@@ -381,6 +381,12 @@ func (r *LLMRunner) chatAPI(history []histEntry, userMsg string, opts *RunOption
 
 	// Parse SSE stream: lines like "data: {...}" or "data: [DONE]"
 	var full strings.Builder
+	thinking := false
+	defer func() {
+		if thinking {
+			fmt.Print("\033[0m")
+		}
+	}()
 	sc := bufio.NewScanner(resp.Body)
 	sc.Buffer(make([]byte, 64*1024), 64*1024)
 
@@ -397,7 +403,8 @@ func (r *LLMRunner) chatAPI(history []histEntry, userMsg string, opts *RunOption
 		var chunk struct {
 			Choices []struct {
 				Delta struct {
-					Content string `json:"content"`
+					Content          string `json:"content"`
+					ReasoningContent string `json:"reasoning_content"`
 				} `json:"delta"`
 				FinishReason *string `json:"finish_reason"`
 			} `json:"choices"`
@@ -408,8 +415,20 @@ func (r *LLMRunner) chatAPI(history []histEntry, userMsg string, opts *RunOption
 		if len(chunk.Choices) == 0 {
 			continue
 		}
+		// Reasoning models: show the chain of thought dimmed, then the answer.
+		if rc := chunk.Choices[0].Delta.ReasoningContent; rc != "" {
+			if !thinking {
+				thinking = true
+				fmt.Print("\033[2m💭 ")
+			}
+			fmt.Print(rc)
+		}
 		token := chunk.Choices[0].Delta.Content
 		if token != "" {
+			if thinking {
+				thinking = false
+				fmt.Print("\033[0m\n\n")
+			}
 			fmt.Print(token)
 			full.WriteString(token)
 		}
@@ -689,7 +708,6 @@ func (r *LLMRunner) StreamToWriterWithTools(opts *RunOptions, emit func(string),
 		payload := map[string]interface{}{
 			"model":          "local",
 			"messages":       messages,
-			"max_tokens":     512,
 			"temperature":    0.7,
 			"repeat_penalty": 1.1,
 			"stream":         true,
@@ -702,7 +720,7 @@ func (r *LLMRunner) StreamToWriterWithTools(opts *RunOptions, emit func(string),
 		}
 
 		body, _ := json.Marshal(payload)
-		client := &http.Client{Timeout: 120 * time.Second}
+		client := &http.Client{Timeout: 30 * time.Minute} // covers the whole stream: long CPU/reasoning answers exceed minutes
 		resp, err := client.Post(r.apiURL+"/v1/chat/completions", "application/json", bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("server connection failed: %w", err)
@@ -728,8 +746,13 @@ func (r *LLMRunner) StreamToWriterWithTools(opts *RunOptions, emit func(string),
 			var chunk struct {
 				Choices []struct {
 					Delta struct {
-						Content   string `json:"content"`
-						ToolCalls []struct {
+						Content string `json:"content"`
+						// Reasoning models: llama-server (--reasoning-format auto,
+						// the default) streams the chain of thought here, not in
+						// content. "reasoning" is the Ollama/OpenRouter spelling.
+						ReasoningContent string `json:"reasoning_content"`
+						Reasoning        string `json:"reasoning"`
+						ToolCalls        []struct {
 							Index    int    `json:"index"`
 							ID       string `json:"id"`
 							Type     string `json:"type"`
@@ -1006,6 +1029,11 @@ type StreamOpts struct {
 	Options       LLMOptions
 	Format        string // "json" or raw JSON schema string
 	MaxToolRounds int    // override the tool-loop round cap (0 = default); raised for autonomous goal sessions
+	// Ctx aborts the generation and the tool loop (nil = never).
+	Ctx context.Context
+	// ToolResultLimit caps each tool result fed back to the model, in bytes
+	// (0 = 2000). Coding agents raise it so whole files fit.
+	ToolResultLimit int
 }
 
 // applyModelfileTemplate renders an Ollama-style TEMPLATE with the given StreamOpts.
@@ -1065,7 +1093,9 @@ func applyModelfileTemplate(tmplSrc string, sopts StreamOpts) (string, error) {
 
 // streamWithRawPrompt sends a pre-formatted raw string to llama-server's /completion endpoint.
 func (r *LLMRunner) streamWithRawPrompt(prompt string, sopts StreamOpts, emit func(string)) error {
-	maxTok := 512
+	// -1 = until end of turn / context full (Ollama's default). A fixed cap cut
+	// reasoning models off before they reached the answer.
+	maxTok := -1
 	if sopts.Options.MaxTokens > 0 {
 		maxTok = sopts.Options.MaxTokens
 	}
@@ -1097,7 +1127,7 @@ func (r *LLMRunner) streamWithRawPrompt(prompt string, sopts StreamOpts, emit fu
 	}
 
 	body, _ := json.Marshal(payload)
-	client := &http.Client{Timeout: 120 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Minute} // covers the whole stream: long CPU/reasoning answers exceed minutes
 	resp, err := client.Post(r.apiURL+"/completion", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("llama-server /completion failed: %w", err)
@@ -1276,7 +1306,7 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 	if sopts.Options.Temperature > 0 {
 		temp = sopts.Options.Temperature
 	}
-	maxTok := 512
+	maxTok := 0 // 0 = no cap (see streamWithRawPrompt)
 	if sopts.Options.MaxTokens > 0 {
 		maxTok = sopts.Options.MaxTokens
 	}
@@ -1304,10 +1334,12 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 		payload := map[string]interface{}{
 			"model":          "local",
 			"messages":       messages,
-			"max_tokens":     maxTok,
 			"temperature":    temp,
 			"repeat_penalty": repPen,
 			"stream":         true,
+		}
+		if maxTok > 0 {
+			payload["max_tokens"] = maxTok
 		}
 		if sopts.Options.TopP > 0 {
 			payload["top_p"] = sopts.Options.TopP
@@ -1374,10 +1406,27 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 		}
 
 		body, _ := json.Marshal(payload)
-		client := &http.Client{Timeout: 120 * time.Second}
-		resp, err := client.Post(r.apiURL+"/v1/chat/completions", "application/json", bytes.NewReader(body))
+		client := &http.Client{Timeout: 30 * time.Minute} // covers the whole stream: long CPU/reasoning answers exceed minutes
+		ctx := sopts.Ctx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.apiURL+"/v1/chat/completions", bytes.NewReader(body))
 		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			return fmt.Errorf("connection to llama-server failed: %w", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+			resp.Body.Close()
+			return fmt.Errorf("llama-server error %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
 		}
 
 		var toolCalls []ToolCall
@@ -1399,8 +1448,13 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 			var chunk struct {
 				Choices []struct {
 					Delta struct {
-						Content   string `json:"content"`
-						ToolCalls []struct {
+						Content string `json:"content"`
+						// Reasoning models: llama-server (--reasoning-format auto,
+						// the default) streams the chain of thought here, not in
+						// content. "reasoning" is the Ollama/OpenRouter spelling.
+						ReasoningContent string `json:"reasoning_content"`
+						Reasoning        string `json:"reasoning"`
+						ToolCalls        []struct {
 							Index    int    `json:"index"`
 							ID       string `json:"id"`
 							Type     string `json:"type"`
@@ -1420,6 +1474,9 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 				continue
 			}
 			choice := chunk.Choices[0]
+			if rc := choice.Delta.ReasoningContent + choice.Delta.Reasoning; rc != "" && sopts.ThinkEmit != nil {
+				sopts.ThinkEmit(rc)
+			}
 			if choice.Delta.Content != "" {
 				effectiveEmit(choice.Delta.Content)
 				contentBuf.WriteString(choice.Delta.Content)
@@ -1452,6 +1509,9 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 		resp.Body.Close()
 		if splitter != nil {
 			splitter.flush()
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 
 		for i := 0; i < len(toolCallMap); i++ {
@@ -1496,6 +1556,9 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 					"id": tc.ID, "name": tc.Function.Name, "arguments": tc.Function.Arguments,
 				})
 			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			tp := sopts.ToolProvider
 			if tp == nil {
 				tp = builtinProvider{}
@@ -1513,7 +1576,7 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 				})
 			}
 			messages = append(messages, map[string]string{
-				"role": "tool", "content": TruncateForContext(resultStr, 2000), "tool_call_id": tc.ID,
+				"role": "tool", "content": TruncateForContext(resultStr, sopts.ToolResultLimit), "tool_call_id": tc.ID,
 			})
 		}
 	}

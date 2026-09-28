@@ -4139,12 +4139,16 @@ function updateModelDDForDomain() {
   }
   const _dd = document.getElementById('model-dd');
   if (!_dd || !_dd.classList.contains('open')) buildModelDD(models);
-  if (!models.find(m => m.v === selectedModel)) {
+  // An automatic pick made before the local models were listed (cloud providers
+  // can load first) is revisited: local models are the default.
+  const autoCloud = _modelAutoPicked && mine.length && !mine.some(m => `${m.type}/${m.name}:${m.tag}` === selectedModel);
+  if (!models.find(m => m.v === selectedModel) || autoCloud) {
     const first = models[0];
-    if (first) selectModel(first.v, first.l);
+    if (first) { selectModel(first.v, first.l); _modelAutoPicked = !mine.length; }
     else { selectedModel = ''; selectedModelIsCloud = false; document.getElementById('model-lbl').textContent = 'No model'; }
   }
 }
+var _modelAutoPicked = false;
 
 // ── Type & Model ──────────────────────────────────
 function setType(d, icon, label, el) {
@@ -4430,6 +4434,7 @@ function addCustomCloudModel(providerId) {
 }
 
 function selectModel(v, l) {
+  _modelAutoPicked = false; // a user choice (auto picks set it again after this call)
   selectedModel = v;
   selectedCustomBaseURL = ''; selectedCustomKey = '';
   if (v.startsWith('customep:')) {
@@ -4581,14 +4586,28 @@ function cloudToolEl(label) {
   return el;
 }
 
+// Body of an approval card: a colored unified diff for file edits, otherwise
+// the summary plus the raw arguments.
+function approvalBody(ap) {
+  if (ap.diff) {
+    const lines = String(ap.diff).split('\n').filter(l => !l.startsWith('--- ') && !l.startsWith('+++ '));
+    const html = lines.map(l => {
+      const c = l.startsWith('+') ? 'color:#16a34a' : l.startsWith('-') ? 'color:#dc2626' : l.startsWith('@@') ? 'color:var(--text3)' : '';
+      return '<span style="' + c + '">' + esc(l) + '</span>';
+    }).join('\n');
+    return esc(ap.summary || '') + '\n\n' + html;
+  }
+  let args = ''; try { args = JSON.stringify(ap.arguments, null, 2); } catch {}
+  return esc(ap.summary || '') + (args && args !== '{}' ? '\n\n' + esc(args) : '');
+}
+
 // Approval card for risky coding tools requested by a cloud model.
 function cloudApprovalEl(ap) {
   const card = document.createElement('div');
   card.className = 'approval-card';
   card.id = 'appr-' + ap.id;
-  let args = ''; try { args = JSON.stringify(ap.arguments, null, 2); } catch {}
   card.innerHTML = '<div class="ap-title">⚠️ Approval needed — <span style="font-family:var(--mono)">' + esc(ap.tool) + '</span></div>' +
-    '<div class="ap-summary">' + esc(ap.summary || '') + (args && args !== '{}' ? '\n\n' + esc(args) : '') + '</div>' +
+    '<div class="ap-summary">' + approvalBody(ap) + '</div>' +
     '<div class="ap-actions">' +
     '<button class="btn primary" onclick="resolveApproval(\'' + esc(ap.id) + '\',true,this)">✓ Approve</button>' +
     '<button class="btn danger" onclick="resolveApproval(\'' + esc(ap.id) + '\',false,this)">✗ Deny</button></div>';
@@ -5828,7 +5847,11 @@ async function doChat(text, files, signal) {
         tblock = document.createElement('div');
         tblock.className = 'thinking-block';
         tblock.innerHTML = '<div class="thinking-label">' + esc(t('reasoning')) + '</div><div class="thinking-text"></div>';
-        content.insertBefore(tblock, textNode.parentNode || content.firstChild);
+        // Reasoning goes above the answer. The reference node must be a direct
+        // child of content, or insertBefore throws (and the whole reply failed).
+        let ref = textNode;
+        while (ref && ref.parentNode !== content) ref = ref.parentNode;
+        content.insertBefore(tblock, ref || content.firstChild);
       }
       const tb = tblock.querySelector('.thinking-text');
       if (tb) tb.appendChild(document.createTextNode(tok));
@@ -5893,10 +5916,9 @@ async function doChat(text, files, signal) {
       const card = document.createElement('div');
       card.className = 'approval-card';
       card.id = 'appr-' + ap.id;
-      let args = ''; try { args = JSON.stringify(ap.arguments, null, 2); } catch {}
       card.innerHTML = `
         <div class="ap-title">⚠️ Approval required — <span style="font-family:var(--mono)">${esc(ap.tool)}</span></div>
-        <div class="ap-summary">${esc(ap.summary || '')}${args && args !== '{}' ? '\n\n' + esc(args) : ''}</div>
+        <div class="ap-summary">${approvalBody(ap)}</div>
         <div class="ap-actions">
           <button class="btn primary" onclick="resolveApproval('${esc(ap.id)}',true,this)">✓ Approve</button>
           <button class="btn danger" onclick="resolveApproval('${esc(ap.id)}',false,this)">✗ Deny</button>
@@ -6017,7 +6039,11 @@ async function doChat(text, files, signal) {
     if (loadTimer) { clearInterval(loadTimer); loadTimer = null; }
     if (content.querySelector('.dot-pulse')) pulse.remove();
     if (e && e.name === 'AbortError') { content.innerHTML += '<span style="color:var(--text3)">[cancelled]</span>'; return; }
-    content.innerHTML += '<span style="color:#e04040">⚠️ Couldn\'t reach the local server. It may still be starting — try again in a moment.</span>';
+    console.error('chat stream failed:', e);
+    const netErr = e instanceof TypeError && /fetch|network/i.test(String(e.message || ''));
+    content.innerHTML += netErr
+      ? '<span style="color:#e04040">⚠️ Couldn\'t reach the local server. It may still be starting — try again in a moment.</span>'
+      : '<span style="color:#e04040">⚠️ Something went wrong while showing the reply: ' + esc(String((e && e.message) || e)) + '</span>';
   }
 }
 

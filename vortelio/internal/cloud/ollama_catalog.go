@@ -64,7 +64,19 @@ func Choices(providerID string) [][2]string {
 			return live
 		}
 	}
-	return ModelChoices[providerID]
+	if c, ok := ModelChoices[providerID]; ok {
+		return c
+	}
+	// Custom endpoint: whatever it serves, else the model it was saved with.
+	if p, ok := FindProvider(providerID); ok && p.Custom {
+		if live, err := ListModels(providerID); err == nil && len(live) > 0 {
+			return live
+		}
+		if p.DefaultModel != "" {
+			return [][2]string{{p.DefaultModel, p.DefaultModel}}
+		}
+	}
+	return nil
 }
 
 func ollamaCloudChoices() [][2]string {

@@ -376,12 +376,12 @@ func (s *codeSession) pickModel() string {
 		refs = append(refs, ref)
 		items = append(items, "☁  "+c.Label+cGray+" · "+c.ProviderName+cReset)
 	}
-	// Custom models the user added earlier — only for providers that still have
-	// a key, so an unconfigured provider never shows up.
+	// Custom models the user added earlier — only for providers that are still
+	// configured, so an unconfigured provider never shows up.
 	if g, err := readSettings(globalSettingsPath()); err == nil {
 		for _, ref := range g.CustomModels {
 			prov, model, ok := parseCloudRef(ref)
-			if !ok || cloud.LoadKey(prov) == "" || containsStr(refs, "cloud/"+prov+"/"+model) {
+			if !ok || !cloud.Configured(prov) || containsStr(refs, "cloud/"+prov+"/"+model) {
 				continue
 			}
 			full := "cloud/" + prov + "/" + model
@@ -393,44 +393,168 @@ func (s *codeSession) pickModel() string {
 			items = append(items, "☁  "+model+cGray+" · "+p.Name+" · custom"+cReset)
 		}
 	}
-	const customEntry = "\x00custom"
-	refs = append(refs, customEntry)
-	items = append(items, cGray+"＋ Custom model…"+cReset)
+	const browseEntry, addEntry = "\x00browse", "\x00add"
+	refs = append(refs, browseEntry, addEntry)
+	items = append(items,
+		cGray+"＋ Browse all models of a provider…"+cReset,
+		cGray+"＋ Add provider / API key (OpenAI, Anthropic, OpenRouter, custom /v1…)"+cReset)
 	idx := selectList(s.t, "Select a model", items, start)
 	if idx < 0 {
 		return ""
 	}
-	if refs[idx] != customEntry {
-		return refs[idx]
+	switch refs[idx] {
+	case browseEntry:
+		return s.pickCustomModel()
+	case addEntry:
+		id := s.addProvider()
+		if id == "" {
+			return ""
+		}
+		return s.browseModels(id)
 	}
-	return s.pickCustomModel()
+	return refs[idx]
 }
 
-// pickCustomModel asks for a provider (among those with a key) and then a model
-// id, e.g. OpenAI → gpt-5-mini. The result is remembered by cmdModel.
+// pickCustomModel asks for a configured provider and then one of its models.
+// The result is remembered by cmdModel.
 func (s *codeSession) pickCustomModel() string {
 	var provs []cloud.Provider
 	var items []string
-	for _, p := range cloud.Providers {
-		if cloud.LoadKey(p.ID) != "" {
+	for _, p := range cloud.AllProviders() {
+		if cloud.Configured(p.ID) {
 			provs = append(provs, p)
 			items = append(items, p.Name)
 		}
 	}
 	if len(provs) == 0 {
-		fmt.Printf("  %sNo cloud API keys. Add one in the web UI (Settings → Add cloud model) or with: vortelio cloud%s\n", cGray, cReset)
-		return ""
+		fmt.Printf("  %sNo cloud provider configured yet.%s\n", cGray, cReset)
+		id := s.addProvider()
+		if id == "" {
+			return ""
+		}
+		return s.browseModels(id)
 	}
 	i := selectList(s.t, "Provider", items, 0)
 	if i < 0 {
 		return ""
 	}
-	in, ok := promptLine(s.t, "  "+provs[i].Name+" model id: ")
-	in = strings.TrimSpace(in)
+	return s.browseModels(provs[i].ID)
+}
+
+// browseModels lists the provider's models (live from its /models endpoint,
+// falling back to the curated list) with type-to-filter, plus a manual entry.
+func (s *codeSession) browseModels(provID string) string {
+	p, ok := cloud.FindProvider(provID)
+	if !ok {
+		return ""
+	}
+	fmt.Printf("  %sLoading %s models…%s\n", cGray, p.Name, cReset)
+	models, err := cloud.ListModels(provID)
+	if err != nil || len(models) == 0 {
+		if err != nil {
+			fmt.Printf("  %s(live list unavailable: %v)%s\n", cGray, err, cReset)
+		}
+		models = cloud.Choices(provID)
+	}
+	const manual = "✎ Type a model id…"
+	items := []string{manual}
+	for _, m := range models {
+		label := m[0]
+		if m[1] != "" && m[1] != m[0] {
+			label += cGray + " · " + m[1] + cReset
+		}
+		items = append(items, label)
+	}
+	idx := searchList(s.t, p.Name+" models", items, 0)
+	if idx < 0 {
+		return ""
+	}
+	if idx > 0 {
+		return "cloud/" + provID + "/" + models[idx-1][0]
+	}
+	in, ok := promptLine(s.t, "  "+p.Name+" model id: ")
 	if !ok || in == "" {
 		return ""
 	}
-	return "cloud/" + provs[i].ID + "/" + in
+	return "cloud/" + provID + "/" + in
+}
+
+// addProvider configures a provider from inside the TUI: a built-in one (asks
+// for its API key) or a custom OpenAI-/Anthropic-compatible endpoint. Returns
+// the provider id, or "" if cancelled.
+func (s *codeSession) addProvider() string {
+	builtins := cloud.Providers
+	var items []string
+	for _, p := range builtins {
+		mark := ""
+		if cloud.Configured(p.ID) {
+			mark = cGreen + " ✓" + cReset
+		}
+		items = append(items, p.Name+mark)
+	}
+	for _, c := range cloud.LoadCustomProviders() {
+		items = append(items, c.Name+cGray+" · "+c.BaseURL+cReset+cGreen+" ✓"+cReset)
+	}
+	nb, nc := len(builtins), len(cloud.LoadCustomProviders())
+	items = append(items,
+		cAccent+"＋ Custom OpenAI-compatible endpoint (/v1/chat/completions)"+cReset,
+		cAccent+"＋ Custom Anthropic-compatible endpoint (/v1/messages)"+cReset)
+	i := searchList(s.t, "Add provider / API key", items, 0)
+	switch {
+	case i < 0:
+		return ""
+	case i < nb:
+		p := builtins[i]
+		if p.KeyHint != "" {
+			fmt.Printf("  %sGet a key at %s%s\n", cGray, p.KeyHint, cReset)
+		}
+		key, ok := promptSecret(s.t, "  "+p.Name+" API key: ")
+		if !ok || key == "" {
+			return ""
+		}
+		if err := cloud.SaveKey(p.ID, key); err != nil {
+			fmt.Printf("  %s✗ %v%s\n", cRed, err, cReset)
+			return ""
+		}
+		fmt.Printf("  %s✓ Key saved for %s.%s\n", cGreen, p.Name, cReset)
+		return p.ID
+	case i < nb+nc:
+		c := cloud.LoadCustomProviders()[i-nb]
+		key, ok := promptSecret(s.t, "  "+c.Name+" API key (enter = keep current): ")
+		if !ok {
+			return ""
+		}
+		if key != "" {
+			_ = cloud.SaveKey(c.ID, key)
+		}
+		return c.ID
+	}
+	format := cloud.FormatOpenAI
+	if i == nb+nc+1 {
+		format = cloud.FormatAnthropic
+	}
+	base, ok := promptLine(s.t, "  Base URL (e.g. http://localhost:1234/v1): ")
+	if !ok || base == "" {
+		return ""
+	}
+	name, ok := promptLine(s.t, "  Name (enter = host): ")
+	if !ok {
+		return ""
+	}
+	key, ok := promptSecret(s.t, "  API key (enter = none): ")
+	if !ok {
+		return ""
+	}
+	p, err := cloud.SaveCustomProvider(cloud.CustomProvider{Name: name, BaseURL: base, Format: format, NoKey: key == ""})
+	if err != nil {
+		fmt.Printf("  %s✗ %v%s\n", cRed, err, cReset)
+		return ""
+	}
+	if key != "" {
+		_ = cloud.SaveKey(p.ID, key)
+	}
+	fmt.Printf("  %s✓ Added %s (%s).%s\n", cGreen, p.Name, p.BaseURL, cReset)
+	return p.ID
 }
 
 // ── /permissions ─────────────────────────────────────────────────────────────

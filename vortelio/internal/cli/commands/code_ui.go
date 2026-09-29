@@ -838,3 +838,156 @@ func stdoutIsColor() bool {
 	}
 	return isTTY(os.Stdout)
 }
+
+// promptSecret is promptLine that echoes • instead of the typed characters.
+func promptSecret(t *terminal, prompt string) (string, bool) {
+	fmt.Print(prompt)
+	var buf []rune
+	for {
+		k := t.ReadKey()
+		switch k.kind {
+		case kEOF, kEsc, kCtrlC:
+			fmt.Print("\n")
+			return "", false
+		case kEnter:
+			fmt.Print("\n")
+			return strings.TrimSpace(string(buf)), true
+		case kBackspace:
+			if len(buf) > 0 {
+				buf = buf[:len(buf)-1]
+				if t.tty {
+					fmt.Print("\b \b")
+				}
+			}
+		case kPaste:
+			s := strings.ReplaceAll(strings.ReplaceAll(k.text, "\r", ""), "\n", "")
+			buf = append(buf, []rune(s)...)
+			if t.tty {
+				fmt.Print(strings.Repeat("•", len([]rune(s))))
+			}
+		case kRune:
+			if k.r != 0 {
+				buf = append(buf, k.r)
+				if t.tty {
+					fmt.Print("•")
+				}
+			}
+		}
+	}
+}
+
+// searchList is selectList with type-to-filter, for long lists (e.g. the 300+
+// models OpenRouter serves). Returns the index into items, or -1.
+func searchList(t *terminal, title string, items []string, start int) int {
+	if len(items) == 0 {
+		return -1
+	}
+	plain := make([]string, len(items))
+	for i, it := range items {
+		plain[i] = strings.ToLower(stripANSI(it))
+	}
+	var query []rune
+	var view []int // indexes into items matching query
+	filter := func() {
+		view = view[:0]
+		q := strings.ToLower(string(query))
+		for i := range items {
+			if q == "" || strings.Contains(plain[i], q) {
+				view = append(view, i)
+			}
+		}
+	}
+	filter()
+	idx := 0
+	for vi, i := range view {
+		if i == start {
+			idx = vi
+		}
+	}
+	prev := 0
+	draw := func() {
+		maxRows := termHeight() - 6
+		if maxRows < 3 {
+			maxRows = 3
+		}
+		s, e := windowBounds(idx, len(view), maxRows)
+		lines := []string{cBold + title + cReset + cGray + "  filter: " + cReset + string(query) + cGray + "▏" + cReset}
+		if s > 0 {
+			lines = append(lines, cGray+"   ↑ "+strconv.Itoa(s)+" more"+cReset)
+		}
+		for vi := s; vi < e; vi++ {
+			if vi == idx {
+				lines = append(lines, cAccent+" ❯ "+items[view[vi]]+cReset)
+			} else {
+				lines = append(lines, "   "+items[view[vi]])
+			}
+		}
+		if len(view) == 0 {
+			lines = append(lines, cGray+"   (no match)"+cReset)
+		}
+		if e < len(view) {
+			lines = append(lines, cGray+"   ↓ "+strconv.Itoa(len(view)-e)+" more"+cReset)
+		}
+		lines = append(lines, cGray+"   type to filter · ↑↓ select · enter confirm · esc cancel"+cReset)
+		if t.tty {
+			if prev > 0 {
+				fmt.Printf("\033[%dA", prev-1)
+			}
+			fmt.Print("\r\033[J")
+		}
+		fmt.Print(strings.Join(lines, "\n"))
+		prev = len(lines)
+	}
+	if t.tty {
+		fmt.Print("\033[?25l")
+		defer fmt.Print("\033[?25h")
+	}
+	draw()
+	for {
+		k := t.ReadKey()
+		switch k.kind {
+		case kEOF, kEsc, kCtrlC:
+			fmt.Print("\n")
+			return -1
+		case kEnter:
+			fmt.Print("\n")
+			if len(view) == 0 {
+				return -1
+			}
+			return view[idx]
+		case kUp:
+			if idx > 0 {
+				idx--
+			} else if len(view) > 0 {
+				idx = len(view) - 1
+			}
+		case kDown, kTab:
+			if idx < len(view)-1 {
+				idx++
+			} else {
+				idx = 0
+			}
+		case kBackspace:
+			if len(query) > 0 {
+				query = query[:len(query)-1]
+				filter()
+				idx = 0
+			}
+		case kPaste:
+			query = append(query, []rune(strings.TrimSpace(k.text))...)
+			filter()
+			idx = 0
+		case kRune:
+			if k.r != 0 {
+				query = append(query, k.r)
+				filter()
+				idx = 0
+			}
+		}
+		draw()
+	}
+}
+
+var ansiRE = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
+
+func stripANSI(s string) string { return ansiRE.ReplaceAllString(s, "") }

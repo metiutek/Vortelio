@@ -382,9 +382,9 @@ func parseCloudRef(ref string) (string, string, bool) {
 
 func (s *codeSession) setModelRef(ref string) error {
 	if prov, model, ok := parseCloudRef(ref); ok {
-		if cloud.LoadKey(prov) == "" {
+		if !cloud.Configured(prov) {
 			p, _ := cloud.FindProvider(prov)
-			return fmt.Errorf("no API key for %s — add one in the web UI (Settings → Add cloud model) or with: vortelio cloud", p.Name)
+			return fmt.Errorf("no API key for %s — add one with /model → Add provider / API key", p.Name)
 		}
 		s.cloudProvider, s.cloudModel = prov, model
 		s.local, s.runner = nil, nil
@@ -458,8 +458,8 @@ func (s *codeSession) pickInitialModel() error {
 		return nil
 	}
 	// Only keys for providers without a free plan: use that provider's default.
-	for _, p := range cloud.Providers {
-		if cloud.LoadKey(p.ID) != "" {
+	for _, p := range cloud.AllProviders() {
+		if cloud.Configured(p.ID) && p.DefaultModel != "" {
 			s.cloudProvider, s.cloudModel = p.ID, p.DefaultModel
 			return nil
 		}

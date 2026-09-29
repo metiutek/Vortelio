@@ -281,6 +281,8 @@ func NewMux() *http.ServeMux {
 	// ── BYOK cloud models (bring your own provider API key) ────────────────────
 	mux.HandleFunc("/api/cloud/providers", ca(handleCloudProviders))
 	mux.HandleFunc("/api/cloud/key", ca(handleCloudKey))
+	mux.HandleFunc("/api/cloud/custom", ca(handleCloudCustom))
+	mux.HandleFunc("/api/cloud/models", ca(handleCloudModels))
 	mux.HandleFunc("/api/cloud/chat", ca(handleCloudChat))
 
 	// ── MCP (Model Context Protocol) servers ──────────────────────────────────

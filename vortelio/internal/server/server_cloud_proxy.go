@@ -26,7 +26,7 @@ func proxyCloudChatCompletion(w http.ResponseWriter, modelID string, rawBody []b
 	if !ok {
 		return false // unknown provider — let the caller 404
 	}
-	keys := cloud.LoadKeys(provID)
+	keys := cloud.KeysFor(provID)
 	if len(keys) == 0 {
 		jsonError(w, 402, "no API key configured for cloud provider "+provID+" — add one in Vortelio (Cloud Models)")
 		return true
@@ -47,9 +47,11 @@ func proxyCloudChatCompletion(w http.ResponseWriter, modelID string, rawBody []b
 		return true
 	}
 	preq.Header.Set("Content-Type", "application/json")
-	preq.Header.Set("Authorization", "Bearer "+keys[0])
+	if keys[0] != "" {
+		preq.Header.Set("Authorization", "Bearer "+keys[0])
+	}
 	// Anthropic's OpenAI-compatible endpoint still wants an API version header.
-	if p.ID == "anthropic" {
+	if p.Format == cloud.FormatAnthropic {
 		preq.Header.Set("anthropic-version", "2023-06-01")
 	}
 

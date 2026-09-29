@@ -2712,6 +2712,11 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
       <label style="font-size:12px;font-weight:500;display:block;margin-bottom:4px">Indirizzo server (OpenAI/Ollama compatibile)</label>
       <input id="ac-baseurl" class="tool-input" placeholder="es. http://192.168.1.50:11434  oppure  https://host-vast:porta/v1" style="width:100%;margin-bottom:4px">
       <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Accetta IP:porta, .../v1 o l'URL completo. Per Ollama remoto basta http://IP:11434</div>
+      <label style="font-size:12px;font-weight:500;display:block;margin-bottom:4px">Formato API</label>
+      <select id="ac-format" class="tool-input" style="width:100%;margin-bottom:12px">
+        <option value="openai">OpenAI-compatibile (/v1/chat/completions) — LM Studio, vLLM, LiteLLM, Ollama…</option>
+        <option value="anthropic">Anthropic-compatibile (/v1/messages)</option>
+      </select>
     </div>
 
     <label style="font-size:12px;font-weight:500;display:block;margin-bottom:4px">Tipo</label>
@@ -4322,7 +4327,7 @@ function acTypeChanged() {
   const sel = document.getElementById('ac-provider');
   if (type === 'llm') {
     sel.innerHTML = _cloudProviders.map(p => `<option value="${esc(p.id)}">${esc(p.name)}${p.has_key ? ' ✓' : ''}</option>`).join('')
-      + `<option value="__custom__">🖥 Server personalizzato (vast.ai / casa / Ollama)</option>`;
+      + `<option value="__custom__">🖥 Endpoint personalizzato (OpenAI / Anthropic compatibile)</option>`;
   } else {
     const list = (_mediaProviders || []).filter(p => p.type === type);
     sel.innerHTML = list.length
@@ -4368,12 +4373,30 @@ function acProviderChanged() {
   document.getElementById('ac-model').innerHTML = opts;
   document.getElementById('ac-model-custom').placeholder = 'ID modello (es. gpt-4.1, claude-opus-4)';
   acModelChanged();
+  if (p && p.has_key) acLoadLiveModels(pid);
   const cnt = (p && p.key_count) || 0;
-  document.getElementById('ac-key-note').textContent = cnt > 0 ? ('— ' + cnt + ' salvata' + (cnt > 1 ? 'e' : '') + ' (reinserisci tutte per cambiarle, o lascia vuoto per tenerle)') : '— richiesta';
+  document.getElementById('ac-key-note').textContent = cnt > 0 ? ('— ' + cnt + ' salvata' + (cnt > 1 ? 'e' : '') + ' (reinserisci tutte per cambiarle, o lascia vuoto per tenerle)')
+    : (p && p.custom) ? '— opzionale (solo se il server la richiede)' : '— richiesta';
   const multi = document.getElementById('ac-key-multi');
   if (multi) multi.style.display = '';
   const link = document.getElementById('ac-key-link');
   if (p && p.key_hint) { link.href = p.key_hint; link.style.display = 'inline'; } else link.style.display = 'none';
+}
+// Replace the curated picks with everything the provider actually serves
+// (GET /api/cloud/models → provider's /v1/models), keeping the "other…" entry.
+async function acLoadLiveModels(pid) {
+  try {
+    const r = await fetch('/api/cloud/models?provider=' + encodeURIComponent(pid));
+    if (!r.ok) return;
+    const d = await r.json();
+    const sel = document.getElementById('ac-model');
+    if (!d.models || !d.models.length || document.getElementById('ac-provider').value !== pid) return;
+    const prev = sel.value;
+    sel.innerHTML = d.models.map(m => `<option value="${esc(m.id)}">${esc(m.label && m.label !== m.id ? m.label + ' — ' + m.id : m.id)}</option>`).join('')
+      + `<option value="__custom__">✏️ Altro… (scrivi l'ID)</option>`;
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+    acModelChanged();
+  } catch {}
 }
 function acModelChanged() {
   const custom = document.getElementById('ac-model').value === '__custom__';
@@ -4407,17 +4430,24 @@ async function saveAddCloudModel() {
 
   // Custom / self-hosted server (vast.ai, home server, remote Ollama).
   if (pid === '__custom__') {
-    const name = (document.getElementById('ac-name').value.trim()) || 'Server';
+    const name = document.getElementById('ac-name').value.trim();
     const baseURL = document.getElementById('ac-baseurl').value.trim();
+    const format = document.getElementById('ac-format').value;
     const key = document.getElementById('ac-key').value.split('\n')[0].trim();
     if (!baseURL) { toast('Inserisci l\'indirizzo del server', 'err'); return; }
     if (!modelId) { toast('Scrivi l\'ID del modello (es. llama3.1:8b)', 'err'); return; }
-    const id = 'ep' + Date.now();
-    saveCustomEndpoint({ id, name, baseURL, key, model: modelId, label: modelId + ' · ' + name });
-    updateModelDDForDomain();
-    selectModel('customep:' + id, modelId + ' · ' + name);
-    closeAddCloudModel();
-    toast('🖥 Server aggiunto: ' + name, 'ok');
+    try {
+      const r = await fetch('/api/cloud/custom', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, base_url: baseURL, format, key, default_model: modelId }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Errore salvataggio endpoint');
+      saveCustomCloudModel(d.id, modelId, modelId);
+      await loadCloudProviders();
+      updateModelDDForDomain();
+      selectModel('cloud:' + d.id + ':' + modelId, modelId);
+      closeAddCloudModel();
+      toast('🖥 Endpoint aggiunto: ' + d.name + ' — disponibile anche in vortelio code e su /v1', 'ok');
+    } catch (e) { toast('❌ ' + e.message, 'err'); }
     return;
   }
 
@@ -6622,12 +6652,15 @@ function buildCloudModelsHtml() {
   for (const p of (_cloudProviders || [])) {
     if (!p.has_key) continue;
     const kc = p.key_count || 1;
+    const sub = p.custom
+      ? `${esc(p.format === 'anthropic' ? 'Anthropic' : 'OpenAI')}-compatibile · ${esc(p.base_url || '')}`
+      : `${kc} chiav${kc>1?'i':'e'} configurat${kc>1?'e':'a'} · ${(p.models||[]).length} modelli + custom`;
     rows.push(`<div class="mtrow">
-      <span class="type-pill tp-llm">☁️</span>
+      <span class="type-pill tp-llm">${p.custom ? '🖥' : '☁️'}</span>
       <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px">${esc(p.name)}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:1px">${kc} chiav${kc>1?'i':'e'} configurat${kc>1?'e':'a'} · ${(p.models||[]).length} modelli + custom</div></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:1px">${sub}</div></div>
       <button class="btn" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="editCloudProvider('${esc(p.id)}')">${esc(t('editBtn'))}</button>
-      <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="removeCloudKey('${esc(p.id)}')">${esc(t('remove'))}</button>
+      <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="${p.custom ? 'removeCustomProvider' : 'removeCloudKey'}('${esc(p.id)}')">${esc(t('remove'))}</button>
     </div>`);
   }
   for (const ep of getCustomEndpoints()) {
@@ -6660,6 +6693,11 @@ async function removeCloudKey(providerId) {
   if (!confirm('Rimuovere la API key di ' + providerId + '?')) return;
   try { await fetch('/api/cloud/key', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({provider: providerId}) }); } catch {}
   await loadCloudProviders(); updateModelDDForDomain(); loadModels(); toast('Chiave rimossa');
+}
+async function removeCustomProvider(id) {
+  if (!confirm('Rimuovere l\'endpoint ' + id + '?')) return;
+  try { await fetch('/api/cloud/custom', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}) }); } catch {}
+  await loadCloudProviders(); updateModelDDForDomain(); loadModels(); toast('Endpoint rimosso');
 }
 function removeCustomEndpoint(id) {
   const list = getCustomEndpoints().filter(e => e.id !== id);

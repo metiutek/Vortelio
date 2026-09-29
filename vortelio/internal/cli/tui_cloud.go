@@ -12,31 +12,89 @@ import (
 )
 
 func handleModelloCloud() error {
-	// Build provider labels
-	labels := make([]string, len(cloud.Providers)+1)
-	for i, p := range cloud.Providers {
-		labels[i] = p.Name
+	// Built-in providers, the user's custom endpoints, then "add custom".
+	provs := cloud.AllProviders()
+	labels := make([]string, 0, len(provs)+3)
+	for _, p := range provs {
+		l := p.Name
+		if cloud.Configured(p.ID) {
+			l += "  ✓"
+		}
+		labels = append(labels, l)
 	}
-	labels[len(cloud.Providers)] = "← Back"
+	labels = append(labels,
+		"+ Custom OpenAI-compatible endpoint (/v1)",
+		"+ Custom Anthropic-compatible endpoint",
+		"← Back")
 
 	sel := selectMenu("Cloud Models", labels)
-	if sel < 0 || sel == len(cloud.Providers) {
+	if sel < 0 || sel == len(provs)+2 {
 		return nil
 	}
+	if sel >= len(provs) {
+		format := cloud.FormatOpenAI
+		if sel == len(provs)+1 {
+			format = cloud.FormatAnthropic
+		}
+		p, ok := addCustomEndpoint(format)
+		if !ok {
+			return nil
+		}
+		return runCloudChat(p)
+	}
+	return runCloudChat(provs[sel])
+}
 
-	p := cloud.Providers[sel]
-	return runCloudChat(p)
+// addCustomEndpoint asks for an OpenAI/Anthropic-compatible server and saves it.
+func addCustomEndpoint(format cloud.APIFormat) (cloud.Provider, bool) {
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("\n  Custom %s-compatible endpoint\n\n", format)
+	fmt.Print("  Base URL (e.g. http://localhost:1234/v1): ")
+	base := strings.TrimSpace(readLine())
+	if base == "" {
+		waitKey("  ❌  No URL entered. Operation cancelled.")
+		return cloud.Provider{}, false
+	}
+	fmt.Print("  Name (enter = host): ")
+	name := strings.TrimSpace(readLine())
+	fmt.Print("  Default model id (optional): ")
+	model := strings.TrimSpace(readLine())
+	fmt.Print("  API key (enter = none): ")
+	key := strings.TrimSpace(readLine())
+	p, err := cloud.SaveCustomProvider(cloud.CustomProvider{Name: name, BaseURL: base, Format: format, DefaultModel: model, NoKey: key == ""})
+	if err != nil {
+		waitKey("  ❌  " + err.Error())
+		return cloud.Provider{}, false
+	}
+	if key != "" {
+		_ = cloud.SaveKey(p.ID, key)
+	}
+	return p, true
 }
 
 func runCloudChat(p cloud.Provider) error {
 	// Ensure terminal is in normal (non-raw) mode for text input
 	fmt.Print("\033[H\033[2J")
 	fmt.Printf("\n  %s\n", p.Name)
-	fmt.Printf("  Model: %s\n\n", p.DefaultModel)
+	if p.DefaultModel != "" {
+		fmt.Printf("  Model: %s  [enter = keep, or type another model id]: ", p.DefaultModel)
+	} else {
+		fmt.Print("  Model id: ")
+	}
+	if m := strings.TrimSpace(readLine()); m != "" {
+		p = cloud.ForModel(p, m)
+	}
+	if p.DefaultModel == "" {
+		waitKey("  ❌  No model selected. Operation cancelled.")
+		return nil
+	}
+	fmt.Println()
 
 	// Load or ask for API key
 	apiKey := cloud.LoadKey(p.ID)
-	if apiKey == "" {
+	if p.NoKey && apiKey == "" {
+		// keyless custom endpoint
+	} else if apiKey == "" {
 		fmt.Printf("  No API key found for %s.\n", p.Name)
 		fmt.Printf("  Get your key at: %s\n\n", p.KeyHint)
 		fmt.Print("  Paste your API key: ")
@@ -69,7 +127,7 @@ func runCloudChat(p cloud.Provider) error {
 
 	// Chat loop. Use all stored keys for failover (the active key is saved above
 	// so it's first); fall back to the just-entered one if nothing is stored.
-	keys := cloud.LoadKeys(p.ID)
+	keys := cloud.KeysFor(p.ID)
 	if len(keys) == 0 {
 		keys = []string{apiKey}
 	}

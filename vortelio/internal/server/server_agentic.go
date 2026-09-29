@@ -441,16 +441,11 @@ func CLICloudTurn(ctx context.Context, providerID, model, system string, prov rt
 	if !ok {
 		return "", fmt.Errorf("unknown cloud provider: %s", providerID)
 	}
-	keys := cloud.LoadKeys(providerID)
+	keys := cloud.KeysFor(providerID)
 	if len(keys) == 0 {
-		return "", fmt.Errorf("no API key saved for %s (add one with: vortelio cloud)", p.Name)
+		return "", fmt.Errorf("no API key saved for %s (add one with /model → Add provider, or: vortelio cloud)", p.Name)
 	}
-	if model != "" {
-		p.DefaultModel = model
-		if p.Format == cloud.FormatGemini {
-			p.BaseURL = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent"
-		}
-	}
+	p = cloud.ForModel(p, model)
 	msgs := []cloud.Message{}
 	if system != "" {
 		msgs = append(msgs, cloud.Message{Role: "system", Content: system})

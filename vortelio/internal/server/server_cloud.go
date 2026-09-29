@@ -36,11 +36,25 @@ type CLICloudModel struct {
 // custom ones.
 func CloudModelsForCLI() []CLICloudModel {
 	var out []CLICloudModel
-	for _, p := range cloud.Providers {
-		if cloud.LoadKey(p.ID) == "" {
+	for _, p := range cloud.AllProviders() {
+		if !cloud.Configured(p.ID) {
 			continue
 		}
-		for _, c := range cloud.FeaturedChoices(p.ID) {
+		choices := cloud.FeaturedChoices(p.ID)
+		if len(choices) == 0 {
+			// No free plan (OpenAI, Anthropic, …) or a custom endpoint: the
+			// user pays / self-hosts, so list the regular catalog.
+			choices = cloud.Choices(p.ID)
+		}
+		if len(choices) > 12 && p.Custom && p.DefaultModel != "" {
+			// Big gateway (LiteLLM, another Vortelio…): keep the picker short;
+			// the rest is one "Browse all models" away.
+			choices = [][2]string{{p.DefaultModel, p.DefaultModel}}
+		}
+		if len(choices) == 0 && p.DefaultModel != "" {
+			choices = [][2]string{{p.DefaultModel, p.DefaultModel}}
+		}
+		for _, c := range choices {
 			out = append(out, CLICloudModel{Provider: p.ID, ProviderName: p.Name, Model: c[0], Label: c[1]})
 		}
 	}
@@ -131,27 +145,39 @@ func handleCloudProviders(w http.ResponseWriter, r *http.Request) {
 		KeyCount int        `json:"key_count"`
 		MaxKeys  int        `json:"max_keys"`
 		Models   []modelOut `json:"models"`
+		Custom   bool       `json:"custom,omitempty"`
+		Format   string     `json:"format"`
+		BaseURL  string     `json:"base_url,omitempty"`
+		NoKey    bool       `json:"no_key,omitempty"`
 	}
-	out := make([]providerOut, 0, len(cloud.Providers))
-	for _, p := range cloud.Providers {
+	all := cloud.AllProviders()
+	out := make([]providerOut, 0, len(all))
+	for _, p := range all {
 		models := []modelOut{}
 		if choices := cloud.Choices(p.ID); len(choices) > 0 {
 			for _, c := range choices {
 				models = append(models, modelOut{ID: c[0], Label: c[1]})
 			}
-		} else {
+		} else if p.DefaultModel != "" {
 			models = append(models, modelOut{ID: p.DefaultModel, Label: p.DefaultModel})
 		}
 		n := len(cloud.LoadKeys(p.ID))
-		out = append(out, providerOut{
+		po := providerOut{
 			ID:       p.ID,
 			Name:     p.Name,
 			KeyHint:  p.KeyHint,
-			HasKey:   n > 0,
+			HasKey:   n > 0 || p.NoKey,
 			KeyCount: n,
 			MaxKeys:  cloud.MaxKeysPerProvider,
 			Models:   models,
-		})
+			Custom:   p.Custom,
+			Format:   string(p.Format),
+			NoKey:    p.NoKey,
+		}
+		if p.Custom {
+			po.BaseURL = p.KeyHint
+		}
+		out = append(out, po)
 	}
 	respond(w, 200, map[string]interface{}{"providers": out})
 }
@@ -264,18 +290,13 @@ func handleCloudChat(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, 400, "unknown provider")
 			return
 		}
-		keys = cloud.LoadKeys(req.Provider)
+		keys = cloud.KeysFor(req.Provider)
 		if len(keys) == 0 {
 			jsonError(w, 400, fmt.Sprintf("no API key for %s — add your own key in Cloud Models", p.Name))
 			return
 		}
 		// Override the model if the caller picked one.
-		if req.Model != "" {
-			p.DefaultModel = req.Model
-			if p.Format == cloud.FormatGemini {
-				p.BaseURL = "https://generativelanguage.googleapis.com/v1beta/models/" + req.Model + ":generateContent"
-			}
-		}
+		p = cloud.ForModel(p, req.Model)
 	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -340,4 +361,68 @@ func handleCloudChat(w http.ResponseWriter, r *http.Request) {
 	if canFlush {
 		flusher.Flush()
 	}
+}
+
+// POST   /api/cloud/custom {"name","base_url","format":"openai|anthropic","key","default_model","no_key"}
+//
+//	→ add (or update, with "id") an OpenAI- or Anthropic-compatible endpoint
+//
+// DELETE /api/cloud/custom {"id"} → remove it and its keys
+func handleCloudCustom(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		cloud.CustomProvider
+		Key string `json:"key"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<10)).Decode(&req); err != nil {
+		jsonError(w, 400, "invalid request")
+		return
+	}
+	switch r.Method {
+	case http.MethodDelete:
+		if err := cloud.DeleteCustomProvider(req.ID); err != nil {
+			jsonError(w, 400, err.Error())
+			return
+		}
+		respond(w, 200, map[string]interface{}{"ok": true})
+	case http.MethodPost:
+		key := strings.TrimSpace(req.Key)
+		cp := req.CustomProvider
+		if key == "" && cp.ID == "" {
+			cp.NoKey = true
+		}
+		p, err := cloud.SaveCustomProvider(cp)
+		if err != nil {
+			jsonError(w, 400, err.Error())
+			return
+		}
+		if key != "" {
+			if err := cloud.SaveKeys(p.ID, []string{key}); err != nil {
+				jsonError(w, 500, err.Error())
+				return
+			}
+		}
+		respond(w, 200, map[string]interface{}{"ok": true, "id": p.ID, "name": p.Name})
+	default:
+		jsonError(w, 405, "method not allowed")
+	}
+}
+
+// GET /api/cloud/models?provider=openai — the provider's live model list
+// (GET …/v1/models with the stored key), for browsing beyond the curated picks.
+func handleCloudModels(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("provider")
+	models, err := cloud.ListModels(id)
+	if err != nil {
+		jsonError(w, 502, err.Error())
+		return
+	}
+	type modelOut struct {
+		ID    string `json:"id"`
+		Label string `json:"label"`
+	}
+	out := make([]modelOut, 0, len(models))
+	for _, m := range models {
+		out = append(out, modelOut{m[0], m[1]})
+	}
+	respond(w, 200, map[string]interface{}{"provider": id, "models": out})
 }

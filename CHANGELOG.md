@@ -2,6 +2,16 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.93] — 2026-09-29
+### Added
+- Any OpenAI-compatible (`/v1/chat/completions`: LM Studio, vLLM, LocalAI, LiteLLM, llama.cpp, Ollama, another Vortelio…) or Anthropic-compatible (`/v1/messages`) endpoint can be added as a provider, with or without an API key. Custom providers are saved server-side (`~/.vortelio/cloud_providers.json`) and work everywhere: web UI, `vortelio code`, the menu TUI, the unified `/v1` gateway and agents.
+- `vortelio code` `/model`: "＋ Add provider / API key" configures OpenAI, Anthropic, OpenRouter, Gemini, Groq, Mistral, xAI, DeepSeek, Together, Perplexity, Ollama Cloud or a custom endpoint without leaving the terminal (key input is masked). "＋ Browse all models of a provider" lists the provider's live catalog (`/v1/models`) with type-to-filter.
+- Web UI: "Add cloud model" loads the provider's live model list; custom endpoints choose the API format (OpenAI / Anthropic).
+- API: `POST/DELETE /api/cloud/custom`, `GET /api/cloud/models?provider=`.
+### Changed
+- `/model` in `vortelio code` now lists the models of every configured provider, including paid ones (OpenAI, Anthropic…), which previously showed nothing.
+- Anthropic model list updated (Claude Opus 5.5, Sonnet 5.5, Fable 5.1, Haiku 4.5).
+
 ## [0.3.92] — 2026-09-29
 ### Changed
 - Web UI, Agent → Developer: cleaner IDE-style workspace. The working folder is a compact pill in the composer instead of a full-width path bar, and it is remembered between sessions. The file explorer shows the folder name, line icons and expand arrows. Tool calls are one quiet row — status (spinner, check, cross), a readable action ("Read", "Run", "Edit"…) and its target (path, command, query) — expandable for arguments and result.

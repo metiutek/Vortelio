@@ -65,6 +65,8 @@ type Provider struct {
 	AuthPrefix   string
 	Format       APIFormat
 	KeyHint      string
+	Custom       bool // user-defined endpoint (see providers_custom.go)
+	NoKey        bool // endpoint works without an API key
 
 	ctx context.Context // cancels in-flight requests (see WithContext)
 }
@@ -96,7 +98,7 @@ var Providers = []Provider{
 	{
 		ID:           "anthropic",
 		Name:         "Anthropic",
-		DefaultModel: "claude-3-5-haiku-20241022",
+		DefaultModel: "claude-haiku-4-5",
 		BaseURL:      "https://api.anthropic.com/v1/messages",
 		AuthHeader:   "x-api-key",
 		AuthPrefix:   "",
@@ -197,6 +199,11 @@ func FindProvider(id string) (Provider, bool) {
 	for _, p := range Providers {
 		if p.ID == id {
 			return p, true
+		}
+	}
+	for _, c := range LoadCustomProviders() {
+		if c.ID == id {
+			return c.provider(), true
 		}
 	}
 	return Provider{}, false
@@ -479,7 +486,9 @@ func chatOpenAI(p Provider, apiKey string, messages []Message, onToken func(stri
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(p.AuthHeader, p.AuthPrefix+apiKey)
+	if apiKey != "" {
+		req.Header.Set(p.AuthHeader, p.AuthPrefix+apiKey)
+	}
 	if p.ID == "openrouter" {
 		req.Header.Set("HTTP-Referer", "https://vortelio.app")
 		req.Header.Set("X-Title", "Vortelio")
@@ -607,7 +616,9 @@ func chatAnthropic(p Provider, apiKey string, messages []Message, onToken func(s
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", apiKey)
+	if apiKey != "" {
+		req.Header.Set("x-api-key", apiKey)
+	}
 	req.Header.Set("anthropic-version", "2023-06-01")
 
 	client := streamingHTTPClient
@@ -686,7 +697,9 @@ func chatOpenAIWithTools(p Provider, apiKey string, messages []Message, opts *To
 			return "", err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set(p.AuthHeader, p.AuthPrefix+apiKey)
+		if apiKey != "" {
+			req.Header.Set(p.AuthHeader, p.AuthPrefix+apiKey)
+		}
 		if p.ID == "openrouter" {
 			req.Header.Set("HTTP-Referer", "https://vortelio.app")
 			req.Header.Set("X-Title", "Vortelio")
@@ -862,7 +875,9 @@ func chatOpenAIWithTools(p Provider, apiKey string, messages []Message, opts *To
 		data, _ := json.Marshal(body)
 		if req, err := http.NewRequestWithContext(p.context(), "POST", p.BaseURL, bytes.NewReader(data)); err == nil {
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set(p.AuthHeader, p.AuthPrefix+apiKey)
+			if apiKey != "" {
+				req.Header.Set(p.AuthHeader, p.AuthPrefix+apiKey)
+			}
 			if p.ID == "openrouter" {
 				req.Header.Set("HTTP-Referer", "https://vortelio.app")
 				req.Header.Set("X-Title", "Vortelio")
@@ -988,7 +1003,9 @@ func chatAnthropicWithTools(p Provider, apiKey string, messages []Message, opts 
 			return "", err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("x-api-key", apiKey)
+		if apiKey != "" {
+			req.Header.Set("x-api-key", apiKey)
+		}
 		req.Header.Set("anthropic-version", "2023-06-01")
 
 		client := streamingHTTPClient

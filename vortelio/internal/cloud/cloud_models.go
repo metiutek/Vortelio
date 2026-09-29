@@ -1,5 +1,7 @@
 package cloud
 
+import "strings"
+
 // ModelChoices is the curated model list per provider (model id, display label).
 // Users can still send any model string via the API; this is just the picker.
 var ModelChoices = map[string][][2]string{
@@ -10,9 +12,10 @@ var ModelChoices = map[string][][2]string{
 		{"o1-mini", "o1-mini"},
 	},
 	"anthropic": {
-		{"claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet"},
-		{"claude-3-5-haiku-20241022", "Claude 3.5 Haiku"},
-		{"claude-3-opus-20240229", "Claude 3 Opus"},
+		{"claude-opus-5-5", "Claude Opus 5.5"},
+		{"claude-sonnet-5-5", "Claude Sonnet 5.5"},
+		{"claude-fable-5-1", "Claude Fable 5.1"},
+		{"claude-haiku-4-5", "Claude Haiku 4.5"},
 	},
 	"gemini": {
 		{"gemini-2.0-flash", "Gemini 2.0 Flash"},
@@ -154,8 +157,8 @@ type CloudModel struct {
 // and the Open Code config generator.
 func ModelsWithKeys() []CloudModel {
 	var out []CloudModel
-	for _, p := range Providers {
-		if LoadKey(p.ID) == "" {
+	for _, p := range AllProviders() {
+		if !Configured(p.ID) {
 			continue
 		}
 		choices := Choices(p.ID)
@@ -174,6 +177,9 @@ func ModelsWithKeys() []CloudModel {
 // (messages, tools, stream). Anthropic and Gemini expose dedicated
 // OpenAI-compatible endpoints; the rest already point there.
 func ChatCompletionsURL(p Provider) string {
+	if p.Custom && p.Format == FormatAnthropic {
+		return strings.TrimSuffix(p.BaseURL, "/messages") + "/chat/completions"
+	}
 	switch p.ID {
 	case "anthropic":
 		return "https://api.anthropic.com/v1/chat/completions"

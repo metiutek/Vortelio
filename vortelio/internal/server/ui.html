@@ -481,9 +481,10 @@ textarea.inp::placeholder { color: var(--text3); }
 .search-box:focus { border-color: var(--border2); }
 
 /* Toast */
+/* Top of the window, so it never covers the composer */
 .toast {
-  position: fixed; bottom: 24px; left: 50%;
-  transform: translateX(-50%) translateY(80px);
+  position: fixed; top: 64px; left: 50%;
+  transform: translateX(-50%) translateY(-140px);
   background: var(--text); color: #fff; border-radius: 24px;
   padding: 9px 20px; font-size: 13px; z-index: 500;
   pointer-events: none; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,.2);
@@ -863,16 +864,23 @@ body.side-open #main { padding-right: min(46%, 660px); transition: padding-right
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 .code-writing{font-size:10px;color:var(--text3);animation:blink 1s infinite}
 
-/* ── Tool call / result — minimal expandable line with shimmer ─── */
-.tool-block { background: transparent; border: none; margin: 3px 0; font-size: 12.5px; }
+/* ── Tool call / result — one quiet row: status · action · target ─── */
+.tool-block { background: transparent; border: none; margin: 1px 0; font-size: 13px; }
 .tool-header {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 2px 0; background: transparent; cursor: pointer; user-select: none;
-  color: var(--text3);
+  display: flex; align-items: center; gap: 8px; max-width: 100%;
+  padding: 4px 8px; margin: 0 -8px; border-radius: 7px;
+  background: transparent; cursor: pointer; user-select: none; color: var(--text2);
 }
-.tool-header:hover { color: var(--text2); }
-.tool-icon { font-size: 13px; flex-shrink: 0; opacity: .8; }
-.tool-name { font-family: var(--mono); font-weight: 500; font-size: 12.5px; color: var(--text2); }
+.tool-header:hover { background: var(--bg3); }
+.tool-st { width: 14px; height: 14px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--text3); }
+.tool-st svg { width: 13px; height: 13px; }
+.tool-st.run::before { content: ''; width: 10px; height: 10px; border-radius: 50%; border: 1.6px solid var(--border2); border-top-color: var(--accent); animation: toolSpin .8s linear infinite; }
+.tool-st.ok { color: #16a34a; }
+.tool-st.err { color: #dc2626; }
+@keyframes toolSpin { to { transform: rotate(360deg); } }
+.tool-name { font-weight: 500; font-size: 13px; color: var(--text); flex-shrink: 0; }
+.tool-arg { font-family: var(--mono); font-size: 12px; color: var(--text3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-header .tool-chevron { margin-left: auto; }
 /* Light-reflection shimmer that sweeps across the name while the tool runs */
 .tool-name.shimmer {
   background: linear-gradient(90deg, var(--text3) 20%, var(--text) 45%, #fff 50%, var(--text) 55%, var(--text3) 80%);
@@ -887,7 +895,7 @@ body.side-open #main { padding-right: min(46%, 660px); transition: padding-right
 .tool-chevron { width: 9px; height: 9px; transition: transform .15s; color: var(--text3); flex-shrink: 0; opacity: .55; }
 .tool-block.open .tool-chevron { transform: rotate(90deg); }
 .tool-body {
-  display: none; padding: 8px 12px; margin: 4px 0 4px 14px;
+  display: none; padding: 8px 12px; margin: 4px 0 8px 6px;
   border-left: 2px solid var(--border);
   font-family: var(--mono); font-size: 11.5px; line-height: 1.55;
   color: var(--text2); white-space: pre-wrap; word-break: break-all;
@@ -896,8 +904,8 @@ body.side-open #main { padding-right: min(46%, 660px); transition: padding-right
 .tool-label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
 .tool-json { background: var(--bg3); border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; overflow-x: auto; }
 .dark .tool-json { background: #11111b !important; }
-.dark .tool-status.done { background: #052e16 !important; color: #86efac !important; border-color: #166534 !important; }
-.dark .tool-status.error { background: #450a0a !important; color: #fca5a5 !important; border-color: #991b1b !important; }
+.dark .tool-status.error, .dark .tool-st.err { color: #fca5a5 !important; }
+.dark .tool-st.ok { color: #86efac !important; }
 /* ── Account dropdown ─────────────────────────────────────────── */
 .acct-menu {
   position:fixed;top:44px;right:8px;z-index:300;
@@ -966,28 +974,32 @@ body.side-open #main { padding-right: min(46%, 660px); transition: padding-right
 .mode-seg.active { background: var(--accent); color: #fff; }
 .dark .mode-switch { background: var(--bg2) !important; border-color: var(--border) !important; }
 
-/* ── Developer workspace bar ── */
-.dev-bar { display: none; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg2); font-size: 12px; flex-wrap: wrap; }
-.dev-bar.on { display: flex; }
-.dev-bar input { flex: 1; min-width: 180px; padding: 5px 9px; border: 1px solid var(--border2); border-radius: var(--radius-xs); font-family: var(--mono); font-size: 12px; background: var(--bg); color: var(--text); }
-.dev-bar .dev-pill { font-size: 11px; color: var(--text3); }
-.dark .dev-bar { background: var(--bg2) !important; border-color: var(--border) !important; }
-.dark .dev-bar input { background: var(--bg3) !important; color: var(--text) !important; border-color: var(--border2) !important; }
-
 /* ── Developer split layout + file explorer ── */
 .dev-split { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .dev-col { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.dev-explorer { display: none; flex-direction: column; width: 250px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--bg2); overflow: hidden; }
+.dev-explorer { display: none; flex-direction: column; width: 240px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--bg2); overflow: hidden; }
 #ws-chat.dev-active .dev-explorer { display: flex; }
-.dev-explorer .dx-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; font-size: 12px; font-weight: 500; color: var(--text2); border-bottom: 1px solid var(--border); }
-.dev-explorer .dx-refresh { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 14px; padding: 2px 4px; border-radius: 5px; }
+.dev-explorer .dx-head { display: flex; align-items: center; gap: 6px; padding: 12px 10px 8px 14px; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); }
+.dev-explorer .dx-head #dx-root { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dev-explorer .dx-refresh { display: inline-flex; background: none; border: none; cursor: pointer; color: var(--text3); padding: 3px; border-radius: 5px; }
+.dev-explorer .dx-refresh svg { width: 13px; height: 13px; }
 .dev-explorer .dx-refresh:hover { background: var(--bg3); color: var(--text); }
-.dev-explorer .dx-tree { flex: 1; overflow-y: auto; padding: 6px 4px; font-size: 12.5px; font-family: var(--mono); }
-.dev-explorer .dx-empty { color: var(--text3); font-family: var(--sans); font-size: 12px; padding: 12px; line-height: 1.5; }
-.dx-node { display: flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 5px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text2); }
+.dev-explorer .dx-tree { flex: 1; overflow-y: auto; padding: 0 6px 10px; font-size: 13px; }
+.dev-explorer .dx-empty { color: var(--text3); font-size: 12.5px; padding: 6px 8px; line-height: 1.5; }
+.dev-explorer .dx-empty a { color: var(--accent); cursor: pointer; }
+.dx-node { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; overflow: hidden; color: var(--text2); }
+.dx-node > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .dx-node:hover { background: var(--bg3); color: var(--text); }
-.dx-node .dx-ic { flex-shrink: 0; opacity: .8; }
-.dx-children { margin-left: 12px; border-left: 1px solid var(--border); }
+.dx-node .dx-ic { flex-shrink: 0; display: inline-flex; color: var(--text3); }
+.dx-node .dx-ic svg { width: 14px; height: 14px; }
+.dx-node .dx-chev { flex-shrink: 0; display: inline-flex; width: 10px; color: var(--text3); transition: transform .12s; }
+.dx-node .dx-chev svg { width: 9px; height: 9px; }
+.dx-node.open .dx-chev { transform: rotate(90deg); }
+.dx-node.file { padding-left: 24px; }
+.dx-children { margin-left: 13px; padding-left: 4px; border-left: 1px solid var(--border); }
+/* Working folder pill in the composer (Developer) */
+#ws-btn #ws-lbl { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#ws-btn.empty { color: var(--accent); }
 .dark .dev-explorer { background: var(--bg2) !important; border-color: var(--border) !important; }
 
 /* ── Approval card ── */
@@ -1091,10 +1103,10 @@ body.embed-mode #split-btn, body.embed-mode .topbar-right, body.embed-mode #remo
 
 /* ── Active capability chips in composer ── */
 .cap-chips { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.cap-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 3px 8px; border-radius: 13px; background: var(--accent-light); color: var(--accent); border: 1px solid transparent; }
-.cap-chip .x { cursor: pointer; opacity: .7; font-weight: 600; }
-.cap-chip .x:hover { opacity: 1; }
-.dark .cap-chip { background: rgba(99,91,255,.18) !important; color: #aaa4ff !important; }
+.cap-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 4px 2px 9px; border-radius: 13px; background: transparent; color: var(--text2); border: 1px solid var(--border); }
+.cap-chip .x { cursor: pointer; opacity: .5; font-size: 10px; padding: 1px 4px; border-radius: 50%; }
+.cap-chip .x:hover { opacity: 1; background: var(--bg3); }
+.dark .cap-chip { background: transparent !important; color: var(--text2) !important; border-color: var(--border) !important; }
 
 /* ── Top-bar mode segmented control ── */
 .topbar-modes { display: inline-flex; gap: 2px; background: var(--bg3); border: 1px solid var(--border); border-radius: 9px; padding: 2px; }
@@ -1386,20 +1398,16 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
     </div>
     <!-- Split view: several independent chats side by side in one window -->
     <div id="split-view" style="display:none"></div>
-    <!-- Developer workspace bar (visible only in Developer mode) -->
-    <div class="dev-bar" id="dev-bar">
-      <span class="dev-pill">📁 Workspace</span>
-      <input id="dev-workspace" placeholder="Pick a folder for the coding agent to read/write…" spellcheck="false">
-      <button class="btn" style="padding:5px 10px;font-size:12px;flex-shrink:0" onclick="openPathPicker('folder')">📂 Browse…</button>
-      <span class="dev-pill" id="dev-mode-pill">Mode: Ask · file + shell access with confirmation</span>
-    </div>
+    <!-- Developer working folder: set from the composer's folder pill -->
+    <input type="hidden" id="dev-workspace">
     <div class="dev-split" id="dev-split">
     <aside class="dev-explorer" id="dev-explorer">
       <div class="dx-head">
-        <span>📂 Files</span>
-        <button class="dx-refresh" onclick="loadDevTree()" title="Refresh">⟳</button>
+        <span id="dx-root">Files</span>
+        <button class="dx-refresh" onclick="loadDevTree()" title="Refresh"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"/></svg></button>
+        <button class="dx-refresh" onclick="openPathPicker('folder')" title="Change folder"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M1.5 4.5a1 1 0 0 1 1-1h3.6l1.5 1.6h5.9a1 1 0 0 1 1 1v6.4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/></svg></button>
       </div>
-      <div class="dx-tree" id="dx-tree"><div class="dx-empty">Set a working folder above to browse it.</div></div>
+      <div class="dx-tree" id="dx-tree"><div class="dx-empty">No folder yet. <a onclick="openPathPicker('folder')">Choose one</a> for the agent to work in.</div></div>
     </aside>
     <div class="dev-col">
     <div class="incognito-banner" id="incognito-banner"><span>🕶</span> Private chat — this conversation won't be saved to your history.</div>
@@ -1497,6 +1505,12 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
               <div class="dd-item out-item" onclick="setType('threed','🧊','3D',this)"><span>🧊</span> 3D model</div>
             </div>
           </div>
+
+          <!-- Working folder (Developer only) -->
+          <button class="ctrl-btn empty" id="ws-btn" onclick="openPathPicker('folder')" title="Folder the agent reads, edits and runs code in" style="display:none">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M1.5 4.5a1 1 0 0 1 1-1h3.6l1.5 1.6h5.9a1 1 0 0 1 1 1v6.4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/></svg>
+            <span id="ws-lbl">Choose folder</span>
+          </button>
 
           <!-- Model selector -->
           <div class="dd-wrap" id="model-wrap">
@@ -3633,21 +3647,19 @@ function toggleSplit() {
   splitOn = !splitOn;
   const sv = document.getElementById('split-view');
   const devsplit = document.getElementById('dev-split');
-  const devbar = document.getElementById('dev-bar');
   const tabs = document.getElementById('chat-tabs');
   const btn = document.getElementById('split-btn');
   if (splitOn) {
     if (!sv.dataset.built) renderSplitPanes(2);
     sv.classList.add('show'); sv.style.display = 'flex';
     devsplit.style.display = 'none';
-    if (devbar) devbar.style.display = 'none';
     if (tabs) tabs.style.display = 'none';
     if (btn) btn.classList.add('on');
   } else {
     sv.classList.remove('show'); sv.style.display = 'none';
     devsplit.style.display = '';
     if (btn) btn.classList.remove('on');
-    setAppMode(appMode); // restore the dev-bar/tabs visibility for the current mode
+    setAppMode(appMode); // restore the explorer/tabs visibility for the current mode
   }
 }
 function renderSplitPanes(n) {
@@ -4544,28 +4556,43 @@ function replaceOrInsertMedia(content, m, beforeNode) {
   else content.insertBefore(art, beforeNode || null);
 }
 
-// Icon for a tool by name (shared by local and cloud renderers).
-function _toolIcon(raw) {
-  const n = String(raw || '').toLowerCase();
-  return n.includes('search') || n.includes('web') ? '🔍'
-    : n.includes('fetch') || n.includes('url') || n.includes('link') ? '🔗'
-    : n.includes('image') || n.includes('media') ? '🎨'
-    : (n.includes('install') || n.includes('model')) ? '📦'
-    : (n.includes('file') || n.includes('read') || n.includes('write') || n.includes('dir') || n.includes('grep') || n.includes('glob')) ? '📁'
-    : n.includes('shell') || n.includes('run') ? '⌨️'
-    : n.includes('skill') ? '🎓'
-    : n.includes('time') ? '🕐' : '🔧';
+// Human label for a tool: "read_file" → "Read", unknown ones → "Some tool".
+const TOOL_LABELS = {
+  read_file: 'Read', write_file: 'Write', edit_file: 'Edit', list_directory: 'List', grep: 'Search',
+  glob: 'Find files', run_shell: 'Run', run_code: 'Run code', todo_write: 'Plan', web_search: 'Web search',
+  fetch_url: 'Fetch', deep_research: 'Research', calculator: 'Calculate', get_current_time: 'Time',
+  create_document: 'Create document', generate_image: 'Generate image', generate_video: 'Generate video',
+  generate_3d: 'Generate 3D', ask_user: 'Question', create_skill: 'Create skill',
+};
+function toolLabel(name) {
+  const n = String(name || 'tool');
+  if (TOOL_LABELS[n]) return TOOL_LABELS[n];
+  const s = n.replace(/^mcp__[^_]+__/, '').replace(/[_-]+/g, ' ').trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
-// Collapsible tool block: shows only the name; expand to see arguments/result.
+// The one argument worth showing inline: the path, command, query or URL.
+function toolTarget(argsJSON) {
+  let a; try { a = JSON.parse(argsJSON || '{}'); } catch { return ''; }
+  if (!a || typeof a !== 'object') return '';
+  for (const k of ['command', 'cmd', 'pattern', 'query', 'url', 'path', 'file_path', 'file', 'prompt', 'expression', 'code', 'title', 'question']) {
+    if (typeof a[k] === 'string' && a[k].trim()) return a[k].trim().split('\n')[0].slice(0, 160);
+  }
+  return '';
+}
+const TOOL_OK  = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+const TOOL_ERR = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';
+
+// Collapsible tool row: status · action · target; expand for arguments/result.
 function makeToolBlock(tc) {
   const block = document.createElement('div');
   block.className = 'tool-block';
   let args = tc.arguments || '{}';
   try { args = JSON.stringify(JSON.parse(args), null, 2); } catch {}
   block.innerHTML =
-    '<div class="tool-header" onclick="this.parentElement.classList.toggle(\'open\')">' +
-    '<span class="tool-icon">' + _toolIcon(tc.name) + '</span>' +
-    '<span class="tool-name shimmer">' + esc(tc.name || 'tool') + '</span>' +
+    '<div class="tool-header" onclick="this.parentElement.classList.toggle(\'open\')" title="' + esc(tc.name || 'tool') + '">' +
+    '<span class="tool-st run"></span>' +
+    '<span class="tool-name shimmer">' + esc(toolLabel(tc.name)) + '</span>' +
+    '<span class="tool-arg">' + esc(toolTarget(tc.arguments)) + '</span>' +
     '<span class="tool-status"></span>' +
     '<svg class="tool-chevron" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 1l4 4-4 4"/></svg>' +
     '</div>' +
@@ -4578,9 +4605,16 @@ function makeToolBlock(tc) {
 function fillToolResult(block, tr) {
   if (!block) return;
   const nameEl = block.querySelector('.tool-name'); if (nameEl) nameEl.classList.remove('shimmer');
+  const err = !!(tr && tr.error);
+  const st = block.querySelector('.tool-st');
+  if (st) { st.className = 'tool-st ' + (err ? 'err' : 'ok'); st.innerHTML = err ? TOOL_ERR : TOOL_OK; }
+  const status = block.querySelector('.tool-status');
+  if (status) { status.className = 'tool-status' + (err ? ' error' : ''); status.textContent = err ? 'failed' : ''; }
   const area = block.querySelector('.tool-result-area'); if (!area) return;
-  if (tr && tr.error) area.innerHTML = '<code style="color:#dc2626">' + esc(tr.error) + '</code>';
-  else area.innerHTML = '<code>' + esc(String((tr && tr.result) || '').slice(0, 4000)) + '</code>';
+  if (err) { area.innerHTML = '<code style="color:#dc2626">' + esc(tr.error) + '</code>'; return; }
+  let rf = String((tr && tr.result) || '');
+  try { rf = JSON.stringify(JSON.parse(rf), null, 2); } catch {}
+  area.innerHTML = '<code>' + esc(rf.slice(0, 20000)) + '</code>';
 }
 
 // Compact tool-activity line for the cloud chat stream.
@@ -4664,16 +4698,16 @@ function renderCapChips() {
   const box = document.getElementById('cap-chips');
   if (!box) return;
   const chips = [];
-  if (webOn)       chips.push(['web', '🌐 Web', 'toggleWeb()']);
-  if (toolsOn)     chips.push(['tools', '🧰 Tools', 'toggleTools()']);
-  if (agentCfg.media) chips.push(['media', '🎨 Media', 'toggleMedia()']);
-  if (thinkOn)     chips.push(['think', '💡 Ragiona', 'toggleThink()']);
-  if (incognitoOn) chips.push(['inc', '🕶 Incognito', 'toggleIncognito()']);
-  if (agentCfg.mcp) chips.push(['mcp', '🔌 MCP', "agentCfg.mcp=false;renderCapChips()"]);
-  if (agentCfg.autonomous) chips.push(['auto', '🎯 Autonomo', 'toggleAutonomous()']);
+  if (webOn)       chips.push(['web', 'Web', 'toggleWeb()']);
+  if (toolsOn)     chips.push(['tools', 'Tools', 'toggleTools()']);
+  if (agentCfg.media) chips.push(['media', 'Media', 'toggleMedia()']);
+  if (thinkOn)     chips.push(['think', 'Ragiona', 'toggleThink()']);
+  if (incognitoOn) chips.push(['inc', 'Incognito', 'toggleIncognito()']);
+  if (agentCfg.mcp) chips.push(['mcp', 'MCP', "agentCfg.mcp=false;renderCapChips()"]);
+  if (agentCfg.autonomous) chips.push(['auto', 'Autonomo', 'toggleAutonomous()']);
   (agentCfg.skills||[]).forEach(id => {
     const s = (allSkills||[]).find(x => x.id === id);
-    chips.push(['sk-'+id, '🎓 ' + (s ? s.name : id), `toggleSkill('${id}')`]);
+    chips.push(['sk-'+id, s ? s.name : id, `toggleSkill('${id}')`]);
   });
   box.innerHTML = chips.map(([k,label,fn]) =>
     `<span class="cap-chip">${esc(label)} <span class="x" onclick="${fn};renderCapChips()">✕</span></span>`
@@ -4689,9 +4723,9 @@ function setAppMode(mode) {
   // Developer (coding) is an opt-in sub-mode of Agent: the workspace bar, file
   // explorer and coding tools only show when the user turns Developer on.
   const coding = agent && codingOn;
-  document.getElementById('dev-bar').classList.toggle('on', coding);
   document.getElementById('ws-chat').classList.toggle('dev-active', coding);
   document.getElementById('codemode-wrap').style.display = coding ? '' : 'none';
+  document.getElementById('ws-btn').style.display = coding ? '' : 'none';
   // The "+" menu: Assistant keeps a friendly minimal set (.asst-only note + Web +
   // Think). Agent exposes the full power set (.dev-only items: media, skills, MCP,
   // Private, Developer toggle, hardware).
@@ -4757,20 +4791,36 @@ function setCodeMode(m, label) {
   document.querySelectorAll('#codemode-dd .dd-item').forEach(x => x.classList.remove('sel'));
   if (event && event.target) event.target.closest('.dd-item').classList.add('sel');
   closeAllDD();
-  const pill = document.getElementById('dev-mode-pill');
-  const desc = { plan:'read-only, proposes a plan', ask:'file + shell access with confirmation', auto:'runs file + shell without asking' }[m];
-  pill.textContent = 'Mode: ' + label.replace(/^[^ ]+ /, '') + ' · ' + desc;
 }
 
 // ── Developer file explorer ─────────────────────────
+const DX_DIR  = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M1.5 4.5a1 1 0 0 1 1-1h3.6l1.5 1.6h5.9a1 1 0 0 1 1 1v6.4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/></svg>';
+const DX_FILE = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M4 1.5h5l3.5 3.5v9a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5z"/><path d="M9 1.5V5h3.5"/></svg>';
+const DX_CHEV = '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 1.5L7 5l-3.5 3.5"/></svg>';
+
+// Last path segment of a folder, for the composer pill and the explorer header.
+function wsName(p) { return (p || '').replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p; }
+
+// Reflect the working folder into the composer pill and remember it.
+function syncWorkspace() {
+  const root = (document.getElementById('dev-workspace').value || '').trim();
+  const btn = document.getElementById('ws-btn'), lbl = document.getElementById('ws-lbl');
+  if (lbl) lbl.textContent = root ? wsName(root) : 'Choose folder';
+  if (btn) { btn.classList.toggle('empty', !root); btn.title = root || 'Folder the agent reads, edits and runs code in'; }
+  const hd = document.getElementById('dx-root');
+  if (hd) { hd.textContent = root ? wsName(root) : 'Files'; hd.title = root; }
+  try { localStorage.setItem('vortelio_dev_workspace', root); } catch {}
+}
+
 async function loadDevTree() {
   const treeEl = document.getElementById('dx-tree');
   if (!treeEl) return;
+  syncWorkspace();
   const root = (document.getElementById('dev-workspace').value || '').trim();
-  if (!root) { treeEl.innerHTML = '<div class="dx-empty">Set a working folder above to browse it.</div>'; return; }
+  if (!root) { treeEl.innerHTML = '<div class="dx-empty">No folder yet. <a onclick="openPathPicker(\'folder\')">Choose one</a> for the agent to work in.</div>'; return; }
   treeEl.innerHTML = '<div class="dx-empty">Loading…</div>';
   const items = await dxList(root);
-  if (items === null) { treeEl.innerHTML = '<div class="dx-empty">Could not read the folder. Check the path.</div>'; return; }
+  if (items === null) { treeEl.innerHTML = '<div class="dx-empty">Could not read this folder. <a onclick="openPathPicker(\'folder\')">Choose another</a>.</div>'; return; }
   treeEl.innerHTML = '';
   treeEl.appendChild(dxRender(items, root));
 }
@@ -4788,9 +4838,11 @@ function dxRender(items, parentPath) {
   const frag = document.createDocumentFragment();
   items.forEach(it => {
     const node = document.createElement('div');
-    node.className = 'dx-node';
+    node.className = 'dx-node' + (it.dir ? '' : ' file');
+    node.title = it.path;
     const full = it.path;
-    node.innerHTML = '<span class="dx-ic">' + (it.dir ? '📁' : '📄') + '</span><span>' + esc(it.name) + '</span>';
+    node.innerHTML = (it.dir ? '<span class="dx-chev">' + DX_CHEV + '</span>' : '') +
+      '<span class="dx-ic">' + (it.dir ? DX_DIR : DX_FILE) + '</span><span>' + esc(it.name) + '</span>';
     if (it.dir) {
       const kids = document.createElement('div');
       kids.className = 'dx-children';
@@ -4800,7 +4852,7 @@ function dxRender(items, parentPath) {
         e.stopPropagation();
         const open = kids.style.display === 'none';
         kids.style.display = open ? '' : 'none';
-        node.querySelector('.dx-ic').textContent = open ? '📂' : '📁';
+        node.classList.toggle('open', open);
         if (open && !loaded) {
           loaded = true;
           const sub = await dxList(full);
@@ -4849,7 +4901,10 @@ function showCodeViewer(name, path, content, truncated) {
 // Reload the tree when the workspace path changes.
 document.addEventListener('DOMContentLoaded', () => {
   const wi = document.getElementById('dev-workspace');
-  if (wi) wi.addEventListener('change', () => { if (appMode === 'agent') loadDevTree(); });
+  if (!wi) return;
+  try { wi.value = localStorage.getItem('vortelio_dev_workspace') || ''; } catch {}
+  syncWorkspace();
+  wi.addEventListener('change', () => { syncWorkspace(); if (appMode === 'agent') loadDevTree(); });
 });
 
 // ── Folder / file picker (server-side browse) ───────
@@ -4882,7 +4937,7 @@ async function ppNavigate(path) {
     entries.forEach(it => {
       const row = document.createElement('div');
       row.className = 'dx-node'; row.style.padding = '6px 10px';
-      row.innerHTML = '<span class="dx-ic">' + (it.dir ? '📁' : '📄') + '</span><span>' + esc(it.name) + '</span>';
+      row.innerHTML = '<span class="dx-ic">' + (it.dir ? DX_DIR : DX_FILE) + '</span><span>' + esc(it.name) + '</span>';
       row.onclick = () => { if (it.dir) ppNavigate(it.path); else ppPickFile(it.path); };
       list.appendChild(row);
     });
@@ -5301,7 +5356,7 @@ function openSlashMenu(query) {
 }
 async function openAtMenu(query) {
   const root = (document.getElementById('dev-workspace').value || '').trim();
-  if (!root) { renderComposerPop('File del workspace', [], 'Imposta prima una cartella di lavoro (barra in alto).'); return; }
+  if (!root) { renderComposerPop('File del workspace', [], 'Scegli prima una cartella di lavoro (pulsante cartella qui sotto).'); return; }
   let sub = root, frag = query;
   const sl = Math.max(query.lastIndexOf('/'), query.lastIndexOf('\\'));
   if (sl >= 0) { sub = root.replace(/[\\/]+$/, '') + '/' + query.slice(0, sl); frag = query.slice(sl + 1); }
@@ -5888,30 +5943,8 @@ async function doChat(text, files, signal) {
 
     // Helper: handle a tool_call event payload
     const _handleToolCall = (tc) => {
-      const block = document.createElement('div');
-      block.className = 'tool-block';
+      const block = makeToolBlock(tc);
       block.id = 'tool-' + tc.id;
-      let argsFormatted = tc.arguments || '{}';
-      try { argsFormatted = JSON.stringify(JSON.parse(argsFormatted), null, 2); } catch {}
-      const _icon = (raw) => { const n = String(raw||'').toLowerCase(); return n.includes('search')||n.includes('web') ? '🔍'
-        : n.includes('image')||n.includes('media') ? '🎨'
-        : (n.includes('install')||n.includes('model')) ? '📦'
-        : (n.includes('file')||n.includes('read')||n.includes('write')||n.includes('dir')||n.includes('grep')||n.includes('glob')) ? '📁'
-        : n.includes('shell')||n.includes('run') ? '⌨️'
-        : n.includes('time') ? '🕐' : '🔧'; };
-      block.innerHTML = `
-        <div class="tool-header" onclick="this.parentElement.classList.toggle('open')">
-          <span class="tool-icon">${_icon(tc.name)}</span>
-          <span class="tool-name shimmer">${esc(tc.name)}</span>
-          <span class="tool-status"></span>
-          <svg class="tool-chevron" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 1l4 4-4 4"/></svg>
-        </div>
-        <div class="tool-body">
-          <div class="tool-label">Arguments</div>
-          <div class="tool-json"><code>${esc(argsFormatted)}</code></div>
-          <div class="tool-label">Result</div>
-          <div class="tool-json tool-result-area"><span class="dot-pulse" style="display:inline-flex"><span></span><span></span><span></span></span></div>
-        </div>`;
       content.insertBefore(block, textNode);
       maybeAddMediaPlaceholder(content, textNode, tc.name); // animated square while it renders
       _toolBlocks[tc.id] = block;
@@ -5922,19 +5955,7 @@ async function doChat(text, files, signal) {
     const _handleToolResult = (tr) => {
       const block = _toolBlocks[tr.call_id];
       if (!block) return;
-      const statusEl = block.querySelector('.tool-status');
-      const nameEl = block.querySelector('.tool-name');
-      if (nameEl) nameEl.classList.remove('shimmer'); // stop the light-reflection animation
-      const resultArea = block.querySelector('.tool-result-area');
-      if (tr.error) {
-        statusEl.className = 'tool-status error'; statusEl.textContent = '✕ errore';
-        resultArea.innerHTML = '<code style="color:#dc2626">' + esc(tr.error) + '</code>';
-      } else {
-        statusEl.className = 'tool-status done'; statusEl.textContent = '';
-        let rf = tr.result || '';
-        try { rf = JSON.stringify(JSON.parse(rf), null, 2); } catch {}
-        resultArea.innerHTML = '<code>' + esc(rf) + '</code>';
-      }
+      fillToolResult(block, tr);
       // Keep the block COLLAPSED by default — it's just a compact line; the user
       // clicks the header to expand and see arguments/result.
       scrollBottom(canvas);

@@ -2,6 +2,26 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.92] — 2026-09-29
+### Changed
+- Web UI, Agent → Developer: cleaner IDE-style workspace. The working folder is a compact pill in the composer instead of a full-width path bar, and it is remembered between sessions. The file explorer shows the folder name, line icons and expand arrows. Tool calls are one quiet row — status (spinner, check, cross), a readable action ("Read", "Run", "Edit"…) and its target (path, command, query) — expandable for arguments and result.
+- Capability chips without emoji; notifications appear at the top instead of covering the composer; the duplicated "Mode: …" label is gone (the Plan/Ask/Auto menu stays).
+
+## [0.3.91] — 2026-09-29
+### Changed
+- `vortelio code` `/model` lists only models usable on each provider's free plan: Gemini (3.8/3.5 Flash, 2.5 Pro/Flash/Flash-Lite), Groq (gpt-oss 120B/20B, Qwen3.8 27B), Mistral (Large, Medium, Small, Codestral), OpenRouter (free models, checked against the live catalog) and Ollama Cloud. Providers without a free plan list nothing.
+- "＋ Custom model…" asks for the provider, then just the model id; custom models are remembered and work with every provider.
+
+## [0.3.90] — 2026-09-29
+### Changed
+- `vortelio code` no longer streams the model's reasoning by default: only the "Thinking…" spinner shows. Ctrl+O or `/thinking on` reveals it; an explicit `show_thinking` setting is still honoured.
+
+## [0.3.89] — 2026-09-29
+### Added
+- `vortelio code` `/model`: "＋ Custom model…" entry; custom cloud models are remembered and shown again for providers with a key.
+### Changed
+- Ollama Cloud picker in `vortelio code` shows a short featured list instead of the full live catalog.
+
 ## [0.3.88] — 2026-09-28
 ### Added
 - `vortelio code` rewritten in the style of Claude Code / Codex / OpenCode: permission modes (plan · ask · edits · auto, Shift+Tab), allow/deny rules, colored diffs in approvals, todo list, AGENTS.md/CLAUDE.md project memory with `/init` and `# note`, saved sessions (`/resume`, `-c`, `-r`), `/compact` (automatic when the context fills up), `/undo`, `/diff`, `/context`, `/status`, `/config`, `/permissions`, custom `/commands`, `!shell`, `@file`, Esc to interrupt, multi-line input, and a non-interactive `-p` mode with JSON output.

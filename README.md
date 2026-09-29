@@ -181,8 +181,10 @@ vortelio code --plan                   # read-only: investigate and propose a pl
   `/init` writes it, `# note` appends to it.
 - **Sessions** — saved automatically; `/resume`, `-c`, `-r <id>`. `/compact` (also automatic
   when the context fills up), `/undo` reverts the last turn's file changes, `/diff`.
+- **Models** — `/model` picks a local model or a free-plan cloud model (Gemini, Groq, Mistral,
+  OpenRouter, Ollama Cloud); "＋ Custom model…" adds any model from any provider you have a key for.
 - **Input** — `@file` attaches a file, `!cmd` runs a shell command, `Esc` interrupts,
-  custom commands from `.vortelio/commands/*.md`, reasoning of thinking models shown live.
+  custom commands from `.vortelio/commands/*.md`; `Ctrl+O` shows the reasoning of thinking models.
 
 `/help` lists every command; `/config` and `/permissions` show and change the settings.
 
@@ -195,7 +197,7 @@ vortelio code --plan                   # read-only: investigate and propose a pl
 - 🎤 **Audio** — Whisper STT (faster-whisper), Kokoro/Bark TTS
 - 🎬 **Video** — WAN 2.1, AnimateDiff, CogVideo
 - 🧊 **3D** — TripoSR, Shap-E, LGM, TRELLIS
-- 🌐 **Web UI** — clean, minimal single-file UI, light & dark theme, code blocks, streaming
+- 🌐 **Web UI** — clean, minimal single-file UI, light & dark theme, code blocks, streaming; Agent → Developer mode with file explorer, working folder and approvals for risky actions
 - 🔌 **API compatibility** — drop-in for OpenAI `/v1/chat/completions` and Ollama `/api/chat`
 - ☁️ **Cloud proxy** — OpenAI, Anthropic, Gemini, Groq, Mistral, OpenRouter, Ollama Cloud
 - 🤖 **AI agents** — install/start/stop OpenClaw, Open Code, Open WebUI, Flowise, CrewAI from the UI
@@ -379,6 +381,8 @@ curl http://localhost:11500/v1/chat/completions \
 | Chat | Dark theme |
 |---|---|
 | <img src="docs/screenshots/chat-light.jpg" alt="Chat" /> | <img src="docs/screenshots/chat-dark.jpg" alt="Dark theme" /> |
+
+<img src="docs/screenshots/developer.jpg" alt="Agent → Developer mode — file explorer, working folder, coding modes" width="100%" />
 
 <img src="docs/screenshots/models.jpg" alt="Model catalog — shows whether each model fits your machine" width="100%" />
 

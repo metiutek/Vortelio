@@ -37,6 +37,7 @@ type codeSettings struct {
 	MediaTools    *bool           `json:"media_tools,omitempty"`    // expose image/audio/video/3D generation (default false)
 	MCP           *bool           `json:"mcp,omitempty"`            // expose connected MCP tools (default false)
 	Permissions   codePermissions `json:"permissions,omitempty"`
+	CustomModels  []string        `json:"custom_models,omitempty"` // extra "cloud/<provider>/<model>" refs shown in /model (global file only)
 }
 
 func globalSettingsPath() string { return filepath.Join(config.HomeDir(), "code_settings.json") }

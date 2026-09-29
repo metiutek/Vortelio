@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vortelio/vortelio/internal/cloud"
 	"github.com/vortelio/vortelio/internal/hub"
 	"github.com/vortelio/vortelio/internal/runtime"
 	"github.com/vortelio/vortelio/internal/server"
@@ -318,8 +319,33 @@ func (s *codeSession) cmdModel(ref string) {
 		}
 	}
 	r := s.modelRef()
-	_ = updateGlobalSettings(func(g *codeSettings) { g.Model = r })
+	_ = updateGlobalSettings(func(g *codeSettings) {
+		g.Model = r
+		// A cloud model outside the featured list is a custom one: remember it
+		// so it keeps showing up in the picker.
+		if s.cloudProvider != "" && !isFeaturedCloud(s.cloudProvider, s.cloudModel) && !containsStr(g.CustomModels, r) {
+			g.CustomModels = append(g.CustomModels, r)
+		}
+	})
 	fmt.Printf("  %sModel: %s%s\n", cGray, s.modelLabel(), cReset)
+}
+
+func isFeaturedCloud(prov, model string) bool {
+	for _, c := range server.CloudModelsForCLI() {
+		if c.Provider == prov && c.Model == model {
+			return true
+		}
+	}
+	return false
+}
+
+func containsStr(list []string, v string) bool {
+	for _, x := range list {
+		if x == v {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *codeSession) pickModel() string {
@@ -350,15 +376,38 @@ func (s *codeSession) pickModel() string {
 		refs = append(refs, ref)
 		items = append(items, "☁  "+c.Label+cGray+" · "+c.ProviderName+cReset)
 	}
-	if len(items) == 0 {
-		fmt.Printf("  %sNo models. Install one with: vortelio pull qwen3.5:4b%s\n", cGray, cReset)
-		return ""
+	// Custom models the user added earlier — only for providers that still have
+	// a key, so an unconfigured provider never shows up.
+	if g, err := readSettings(globalSettingsPath()); err == nil {
+		for _, ref := range g.CustomModels {
+			prov, model, ok := parseCloudRef(ref)
+			if !ok || cloud.LoadKey(prov) == "" || containsStr(refs, "cloud/"+prov+"/"+model) {
+				continue
+			}
+			full := "cloud/" + prov + "/" + model
+			if full == cur {
+				start = len(items)
+			}
+			p, _ := cloud.FindProvider(prov)
+			refs = append(refs, full)
+			items = append(items, "☁  "+model+cGray+" · "+p.Name+" · custom"+cReset)
+		}
 	}
+	const customEntry = "\x00custom"
+	refs = append(refs, customEntry)
+	items = append(items, cGray+"＋ Custom model…"+cReset)
 	idx := selectList(s.t, "Select a model", items, start)
 	if idx < 0 {
 		return ""
 	}
-	return refs[idx]
+	if refs[idx] != customEntry {
+		return refs[idx]
+	}
+	in, ok := promptLine(s.t, "  Model ref (cloud/<provider>/<model>, e.g. cloud/openrouter/qwen/qwen3-coder:free): ")
+	if !ok {
+		return ""
+	}
+	return in
 }
 
 // ── /permissions ─────────────────────────────────────────────────────────────

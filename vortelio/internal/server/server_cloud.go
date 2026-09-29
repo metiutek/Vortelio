@@ -38,7 +38,7 @@ func CloudModelsForCLI() []CLICloudModel {
 		if cloud.LoadKey(p.ID) == "" {
 			continue
 		}
-		choices := cloud.Choices(p.ID)
+		choices := cloud.FeaturedChoices(p.ID)
 		if len(choices) == 0 {
 			choices = [][2]string{{p.DefaultModel, p.DefaultModel}}
 		}

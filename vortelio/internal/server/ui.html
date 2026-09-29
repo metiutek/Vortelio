@@ -202,7 +202,13 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
   border-radius: var(--radius-xs); padding: 10px 14px; margin-bottom: 12px;
   font-size: 13px; color: #7a6000; font-family: var(--mono); line-height: 1.6;
 }
-.thinking-label { font-size: 11px; font-weight: 500; margin-bottom: 5px; display: flex; align-items: center; gap: 4px; opacity: .8; }
+.thinking-label { font-size: 11px; font-weight: 500; display: flex; align-items: center; gap: 4px; opacity: .8; cursor: pointer; user-select: none; }
+.thinking-label::before { content: '▸'; display: inline-block; transition: transform .12s; }
+.thinking-block.open .thinking-label { margin-bottom: 5px; }
+.thinking-block.open .thinking-label::before { transform: rotate(90deg); }
+/* Reasoning is collapsed by default; click the label to expand it. */
+.thinking-block:not(.open) .thinking-text { display: none; }
+.thinking-text { white-space: pre-wrap; }
 
 /* Markdown blocks inside replies (rendered by _md) */
 .content h1, .content h2, .content h3, .content h4 { font-weight: 600; line-height: 1.3; margin: 14px 0 6px; }
@@ -5841,20 +5847,43 @@ async function doChat(text, files, signal) {
     const _toolBlocks = {}; // map of call_id -> DOM element
 
     // Helper: render a thinking token into a collapsible block
-    const _appendThink = (tok) => {
+    // Tokens are queued and revealed once per animation frame, proportional to
+    // the backlog: bursts (network/proxy coalescing, prompt-processing pauses)
+    // glide out smoothly instead of popping in as blocks, and the view follows.
+    let _thinkQ = '', _thinkRaf = 0;
+    const _thinkEl = () => {
       let tblock = grp.querySelector('.thinking-block');
       if (!tblock) {
         tblock = document.createElement('div');
         tblock.className = 'thinking-block';
-        tblock.innerHTML = '<div class="thinking-label">' + esc(t('reasoning')) + '</div><div class="thinking-text"></div>';
+        tblock.innerHTML = '<div class="thinking-label" onclick="this.parentElement.classList.toggle(\'open\')">' + esc(t('reasoning')) + '</div><div class="thinking-text"></div>';
         // Reasoning goes above the answer. The reference node must be a direct
         // child of content, or insertBefore throws (and the whole reply failed).
         let ref = textNode;
         while (ref && ref.parentNode !== content) ref = ref.parentNode;
         content.insertBefore(tblock, ref || content.firstChild);
       }
-      const tb = tblock.querySelector('.thinking-text');
-      if (tb) tb.appendChild(document.createTextNode(tok));
+      return tblock.querySelector('.thinking-text');
+    };
+    const _drainThink = (all) => {
+      _thinkRaf = 0;
+      if (!_thinkQ) return;
+      const tb = _thinkEl();
+      let n = all ? _thinkQ.length : Math.max(2, Math.ceil(_thinkQ.length / 6));
+      if (n < _thinkQ.length) { const c = _thinkQ.charCodeAt(n - 1); if (c >= 0xD800 && c <= 0xDBFF) n++; } // don't split a surrogate pair
+      if (tb) tb.appendChild(document.createTextNode(_thinkQ.slice(0, n)));
+      _thinkQ = _thinkQ.slice(n);
+      scrollFollow(canvas);
+      if (_thinkQ) _thinkRaf = requestAnimationFrame(() => _drainThink(false));
+    };
+    const _appendThink = (tok) => {
+      if (!tok) return;
+      _thinkQ += tok;
+      if (!_thinkRaf) _thinkRaf = requestAnimationFrame(() => _drainThink(false));
+    };
+    const _flushThink = () => {
+      if (_thinkRaf) { cancelAnimationFrame(_thinkRaf); _thinkRaf = 0; }
+      _drainThink(true);
     };
 
     // Helper: handle a tool_call event payload
@@ -6027,6 +6056,7 @@ async function doChat(text, files, signal) {
       }
     }
     _appendToken('', true); // flush any held-back tail
+    _flushThink();
     flushRender(textNode);
     textNode.innerHTML = renderMessage(full, true); // final render: no "writing" badge on unclosed fences
     scrollFollow(canvas);
@@ -9005,7 +9035,7 @@ async function toolThinkAPI() {
     const d = await r.json();
     if (d.error) throw new Error(d.error);
     el.innerHTML = `
-      ${d.thinking ? `<div class="thinking-block"><div class="thinking-label">💡 Reasoning</div><div style="white-space:pre-wrap;margin-top:4px">${esc(d.thinking)}</div></div>` : ''}
+      ${d.thinking ? `<div class="thinking-block"><div class="thinking-label" onclick="this.parentElement.classList.toggle('open')">💡 Reasoning</div><div class="thinking-text">${esc(d.thinking)}</div></div>` : ''}
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;font-size:14px;line-height:1.75;white-space:pre-wrap;margin-top:8px">${esc(d.answer)}</div>
     `;
   } catch(e) { el.innerHTML = `<span style="color:#dc2626">❌ ${esc(e.message)}</span>`; }

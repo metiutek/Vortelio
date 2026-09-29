@@ -76,6 +76,33 @@ var ModelChoices = map[string][][2]string{
 	},
 }
 
+// ollamaFeatured is the short list of Ollama Cloud models the `vortelio code`
+// picker shows: the main ones usable with a free account's starter credits.
+// Anything else can be added as a custom model.
+var ollamaFeatured = map[string]bool{
+	"gpt-oss:20b":         true,
+	"gpt-oss:120b":        true,
+	"nemotron-3-nano:30b": true,
+	"gemma4:31b":          true,
+	"glm-5.3-flash":       true,
+}
+
+// FeaturedChoices is the compact picker list for the CLI: the curated models per
+// provider, without Ollama Cloud's full live catalog (dozens of entries).
+func FeaturedChoices(providerID string) [][2]string {
+	all := ModelChoices[providerID]
+	if providerID != "ollamacloud" {
+		return all
+	}
+	var out [][2]string
+	for _, c := range all {
+		if ollamaFeatured[c[0]] {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // CloudModel is a ready-to-use cloud model (provider + model id + label).
 type CloudModel struct {
 	Provider     string

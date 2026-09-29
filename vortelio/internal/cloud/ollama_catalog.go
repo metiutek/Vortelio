@@ -129,6 +129,52 @@ func ollamaChoicesFor(ids []string) [][2]string {
 	return out
 }
 
+// openRouterModelsURL lists every model OpenRouter serves (public, no key).
+const openRouterModelsURL = "https://openrouter.ai/api/v1/models"
+
+var (
+	orMu      sync.Mutex
+	orFree    map[string]bool
+	orFetched time.Time
+)
+
+// openRouterFreeIDs returns the ids of OpenRouter's currently free models
+// (cached 6h), or nil when the catalog can't be fetched.
+func openRouterFreeIDs() map[string]bool {
+	orMu.Lock()
+	defer orMu.Unlock()
+	if !orFetched.IsZero() && time.Since(orFetched) < 6*time.Hour {
+		return orFree
+	}
+	orFetched = time.Now() // also throttles retries when offline
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(openRouterModelsURL)
+	if err != nil {
+		return orFree
+	}
+	defer resp.Body.Close()
+	var body struct {
+		Data []struct {
+			ID      string `json:"id"`
+			Pricing struct {
+				Prompt     string `json:"prompt"`
+				Completion string `json:"completion"`
+			} `json:"pricing"`
+		} `json:"data"`
+	}
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&body) != nil || len(body.Data) == 0 {
+		return orFree
+	}
+	free := map[string]bool{}
+	for _, m := range body.Data {
+		if strings.HasSuffix(m.ID, ":free") || (m.Pricing.Prompt == "0" && m.Pricing.Completion == "0") {
+			free[m.ID] = true
+		}
+	}
+	orFree = free
+	return orFree
+}
+
 func trimFloat(f float64) string {
 	s := strings.TrimRight(strings.TrimRight(strconv.FormatFloat(f, 'f', 3, 64), "0"), ".")
 	if s == "" {

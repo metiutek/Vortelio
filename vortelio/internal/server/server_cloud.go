@@ -30,19 +30,17 @@ type CLICloudModel struct {
 	Label        string
 }
 
-// CloudModelsForCLI returns the cloud models the user can use (providers with a
-// saved API key), for the `vortelio code` /model picker.
+// CloudModelsForCLI returns the free-plan cloud models the user can use
+// (providers with a saved API key), for the `vortelio code` /model picker.
+// Providers without a free plan contribute nothing; their models are added as
+// custom ones.
 func CloudModelsForCLI() []CLICloudModel {
 	var out []CLICloudModel
 	for _, p := range cloud.Providers {
 		if cloud.LoadKey(p.ID) == "" {
 			continue
 		}
-		choices := cloud.FeaturedChoices(p.ID)
-		if len(choices) == 0 {
-			choices = [][2]string{{p.DefaultModel, p.DefaultModel}}
-		}
-		for _, c := range choices {
+		for _, c := range cloud.FeaturedChoices(p.ID) {
 			out = append(out, CLICloudModel{Provider: p.ID, ProviderName: p.Name, Model: c[0], Label: c[1]})
 		}
 	}

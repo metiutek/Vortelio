@@ -76,27 +76,65 @@ var ModelChoices = map[string][][2]string{
 	},
 }
 
-// ollamaFeatured is the short list of Ollama Cloud models the `vortelio code`
-// picker shows: the main ones usable with a free account's starter credits.
-// Anything else can be added as a custom model.
-var ollamaFeatured = map[string]bool{
-	"gpt-oss:20b":         true,
-	"gpt-oss:120b":        true,
-	"nemotron-3-nano:30b": true,
-	"gemma4:31b":          true,
-	"glm-5.3-flash":       true,
+// freeChoices is what the `vortelio code` picker shows: only models usable on
+// each provider's free plan (checked 2026-09 against the providers' pricing and
+// rate-limit pages). Providers without a free plan (OpenAI, Anthropic, xAI,
+// DeepSeek, Perplexity, Together) list nothing; any model, on any provider, can
+// still be added as a custom one.
+var freeChoices = map[string][][2]string{
+	"gemini": {
+		{"gemini-3.8-flash", "Gemini 3.8 Flash"},
+		{"gemini-3.5-flash", "Gemini 3.5 Flash"},
+		{"gemini-2.5-pro", "Gemini 2.5 Pro"},
+		{"gemini-2.5-flash", "Gemini 2.5 Flash"},
+		{"gemini-2.5-flash-lite", "Gemini 2.5 Flash-Lite"},
+	},
+	"groq": {
+		{"openai/gpt-oss-120b", "gpt-oss 120B"},
+		{"openai/gpt-oss-20b", "gpt-oss 20B"},
+		{"qwen/qwen3.8-27b", "Qwen3.8 27B"},
+	},
+	// Mistral's free Experiment plan covers every model; these are the main ones.
+	"mistral": {
+		{"mistral-large-latest", "Mistral Large"},
+		{"mistral-medium-latest", "Mistral Medium"},
+		{"mistral-small-latest", "Mistral Small"},
+		{"codestral-latest", "Codestral"},
+	},
+	// OpenRouter's free models rotate: entries that disappeared from the live
+	// catalog are dropped (see FeaturedChoices).
+	"openrouter": {
+		{"openrouter/free", "Auto (best free model)"},
+		{"qwen/qwen3.8-27b:free", "Qwen3.8 27B (free)"},
+		{"nvidia/nemotron-3-super-120b-a12b:free", "Nemotron 3 Super 120B (free)"},
+		{"google/gemma-4-31b-it:free", "Gemma 4 31B (free)"},
+		{"poolside/laguna-s-2.1:free", "Laguna S 2.1 (free)"},
+		{"cohere/north-mini-code:free", "North Mini Code (free)"},
+	},
+	// Usable with a free account's starter credits.
+	"ollamacloud": {
+		{"gpt-oss:20b", "gpt-oss 20B"},
+		{"gpt-oss:120b", "gpt-oss 120B"},
+		{"nemotron-3-nano:30b", "Nemotron 3 Nano 30B"},
+		{"gemma4:31b", "Gemma 4 31B"},
+		{"glm-5.3-flash", "GLM 5.3 Flash"},
+	},
 }
 
-// FeaturedChoices is the compact picker list for the CLI: the curated models per
-// provider, without Ollama Cloud's full live catalog (dozens of entries).
+// FeaturedChoices is the compact picker list for the CLI: the provider's
+// free-plan models, or nil when it has no free plan.
 func FeaturedChoices(providerID string) [][2]string {
-	all := ModelChoices[providerID]
-	if providerID != "ollamacloud" {
+	all := freeChoices[providerID]
+	if providerID != "openrouter" {
 		return all
+	}
+	live := openRouterFreeIDs()
+	if len(live) == 0 {
+		return all // offline: keep the curated list
 	}
 	var out [][2]string
 	for _, c := range all {
-		if ollamaFeatured[c[0]] {
+		if live[c[0]] {
 			out = append(out, c)
 		}
 	}

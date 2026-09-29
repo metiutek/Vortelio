@@ -30,7 +30,7 @@ type codePermissions struct {
 type codeSettings struct {
 	Model         string          `json:"model,omitempty"`          // "qwen3.5:4b" or "cloud/<provider>/<model>"
 	Mode          string          `json:"mode,omitempty"`           // plan | ask | edits | auto
-	ShowThinking  *bool           `json:"show_thinking,omitempty"`  // stream the model's reasoning (default true)
+	ShowThinking  *bool           `json:"show_thinking,omitempty"`  // stream the model's reasoning (default false; Ctrl+O toggles)
 	AutoCompact   *bool           `json:"auto_compact,omitempty"`   // summarize old context when it gets full (default true)
 	ContextTokens int             `json:"context_tokens,omitempty"` // local model context window (default 16384)
 	MaxTurns      int             `json:"max_turns,omitempty"`      // tool rounds per request (default 30)

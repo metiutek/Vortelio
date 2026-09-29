@@ -403,11 +403,34 @@ func (s *codeSession) pickModel() string {
 	if refs[idx] != customEntry {
 		return refs[idx]
 	}
-	in, ok := promptLine(s.t, "  Model ref (cloud/<provider>/<model>, e.g. cloud/openrouter/qwen/qwen3-coder:free): ")
-	if !ok {
+	return s.pickCustomModel()
+}
+
+// pickCustomModel asks for a provider (among those with a key) and then a model
+// id, e.g. OpenAI → gpt-5-mini. The result is remembered by cmdModel.
+func (s *codeSession) pickCustomModel() string {
+	var provs []cloud.Provider
+	var items []string
+	for _, p := range cloud.Providers {
+		if cloud.LoadKey(p.ID) != "" {
+			provs = append(provs, p)
+			items = append(items, p.Name)
+		}
+	}
+	if len(provs) == 0 {
+		fmt.Printf("  %sNo cloud API keys. Add one in the web UI (Settings → Add cloud model) or with: vortelio cloud%s\n", cGray, cReset)
 		return ""
 	}
-	return in
+	i := selectList(s.t, "Provider", items, 0)
+	if i < 0 {
+		return ""
+	}
+	in, ok := promptLine(s.t, "  "+provs[i].Name+" model id: ")
+	in = strings.TrimSpace(in)
+	if !ok || in == "" {
+		return ""
+	}
+	return "cloud/" + provs[i].ID + "/" + in
 }
 
 // ── /permissions ─────────────────────────────────────────────────────────────
@@ -585,7 +608,7 @@ func (s *codeSession) cmdConfig(rest string) {
 	case "mode":
 		s.mode = s.settings.Mode
 	case "show_thinking":
-		s.showThinking = boolOr(s.settings.ShowThinking, true)
+		s.showThinking = boolOr(s.settings.ShowThinking, false)
 		s.ui.showThinking = s.showThinking
 	case "media_tools":
 		s.media = boolOr(s.settings.MediaTools, false)

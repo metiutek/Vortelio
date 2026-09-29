@@ -130,7 +130,7 @@ func (c *CodeCommand) Run(args []string) error {
 	if opts.mode != "" {
 		s.mode = opts.mode
 	}
-	s.showThinking = boolOr(s.settings.ShowThinking, true)
+	s.showThinking = boolOr(s.settings.ShowThinking, false)
 	s.mcpOn = boolOr(s.settings.MCP, false)
 	s.media = boolOr(s.settings.MediaTools, false)
 	s.instr = loadInstructions(s.workdir)
@@ -456,6 +456,13 @@ func (s *codeSession) pickInitialModel() error {
 	if cl := server.CloudModelsForCLI(); len(cl) > 0 {
 		s.cloudProvider, s.cloudModel = cl[0].Provider, cl[0].Model
 		return nil
+	}
+	// Only keys for providers without a free plan: use that provider's default.
+	for _, p := range cloud.Providers {
+		if cloud.LoadKey(p.ID) != "" {
+			s.cloudProvider, s.cloudModel = p.ID, p.DefaultModel
+			return nil
+		}
 	}
 	return errors.New("no language model installed and no cloud API key configured.\n  Install one:  vortelio pull qwen3.5:4b\n  or add a cloud key in the web UI (vortelio gui → Settings → Add cloud model)")
 }

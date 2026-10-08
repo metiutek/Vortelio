@@ -20,7 +20,7 @@
 
 <br/>
 
-<img src="docs/screenshots/chat-light.jpg" alt="Vortelio chat" width="100%" />
+<img src="assets/vortelio_ad.gif" alt="Vortelio" width="100%" />
 
 </div>
 

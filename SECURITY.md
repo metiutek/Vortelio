@@ -9,7 +9,7 @@
 
 ## Reporting a vulnerability
 
-**Do not open a public issue.** Email **mattia.cibin17@gmail.com** with:
+**Do not open a public issue.** Contact [@metiutek](https://github.com/metiutek) privately on GitHub with:
 - Description and impact
 - Reproduction steps or PoC
 - Affected version(s)

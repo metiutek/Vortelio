@@ -22,7 +22,7 @@ Examples of unacceptable behavior:
 
 ## Enforcement
 
-Instances of abusive behavior may be reported to the maintainers at **mattia.cibin17@gmail.com**. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive behavior may be reported privately to the maintainer, [@metiutek](https://github.com/metiutek) on GitHub. All complaints will be reviewed and investigated promptly and fairly.
 
 ## Attribution
 

@@ -483,3 +483,6 @@ description: Vortelio is the open-source local AI platform. Run LLMs (Llama, Mis
 keywords: vortelio, local ai platform, run llm locally, run ai locally, local llm, ollama alternative, lm studio alternative, comfyui alternative, open source ai, self-hosted ai, private ai, offline ai, local stable diffusion, run stable diffusion locally, flux local, local image generation ai, whisper local, run whisper locally, local speech to text, offline transcription, kokoro tts local, local text to speech, wan 2.1 local, local video generation ai, triposr local, local 3d generation ai, crewai local models, crewai without openai, crewai ollama, multi-agent ai local, local ai orchestration, openai api compatible, ollama api compatible, openai drop-in replacement, langchain local, llamaindex local, local rag, local embeddings, local ai agents, self-hosted chatgpt, free chatgpt alternative, private chatgpt, gdpr ai, hipaa ai, air-gapped ai, offline ai platform, go ai server, golang ai, single binary ai, windows ai, linux ai, macos ai, apple silicon llm, m1 m2 m3 m4 ai, cuda llm, rocm llm, metal llm, cpu llm, gguf, huggingface local, multimodal ai, all-in-one ai, local inference server, edge ai, no api key ai, no subscription ai
 -->
 
+---
+
+made by https://metiu.xyz/

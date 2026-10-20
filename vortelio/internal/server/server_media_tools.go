@@ -35,8 +35,8 @@ func newMediaProvider(emit rt.ToolEventEmitter) *mediaProvider {
 
 func (m *mediaProvider) Tools() []rt.ToolDef {
 	return []rt.ToolDef{
-		toolDef("generate_image", "Generate an image from a text prompt using a local image model (e.g. Stable Diffusion). Returns the saved file path.",
-			`{"type":"object","properties":{"prompt":{"type":"string","description":"What to draw."},"model":{"type":"string","description":"Optional image model name. Defaults to the first installed image model."},"steps":{"type":"integer","description":"Sampling steps. Default 20."}},"required":["prompt"]}`),
+		toolDef("generate_image", "Generate an image from a text prompt using a local image model (Z-Image, Stable Diffusion, FLUX). Write the prompt in English, describing subject, style and lighting. Returns the saved file path.",
+			`{"type":"object","properties":{"prompt":{"type":"string","description":"What to draw, in English."},"negative_prompt":{"type":"string","description":"Optional: what to avoid (only Stable Diffusion models use it)."},"width":{"type":"integer","description":"Optional width in pixels (multiple of 64). Default: the model's native size."},"height":{"type":"integer","description":"Optional height in pixels (multiple of 64)."},"model":{"type":"string","description":"Optional image model name. Defaults to the best installed image model."},"steps":{"type":"integer","description":"Optional sampling steps. Default: the model's recommended value."}},"required":["prompt"]}`),
 		toolDef("generate_video", "Generate a short video clip from a text prompt using a local video model. Returns the saved file path.",
 			`{"type":"object","properties":{"prompt":{"type":"string","description":"What the video should show."},"model":{"type":"string","description":"Optional video model name."},"steps":{"type":"integer","description":"Sampling steps. Default 20."}},"required":["prompt"]}`),
 		toolDef("text_to_speech", "Synthesize speech audio from text using a local TTS model (e.g. Kokoro). Returns the saved audio file path.",
@@ -49,8 +49,8 @@ func (m *mediaProvider) Tools() []rt.ToolDef {
 			`{"type":"object","properties":{"prompt":{"type":"string","description":"Text prompt describing the object."},"input_file":{"type":"string","description":"Optional input image path for image-to-3D."},"model":{"type":"string","description":"Optional 3D model name."}},"required":[]}`),
 		toolDef("list_models", "List the user's installed models and a set of models that can be installed on demand. Use this before generating media if you are unsure a suitable model is installed.",
 			`{"type":"object","properties":{},"required":[]}`),
-		toolDef("install_model", "Download and install a model so it can be used (e.g. an image model for generate_image). Accept a catalog ref like \"image/openjourney\" or a plain name like \"stable diffusion\", \"sdxl\", \"whisper\". The download can take a few minutes; when it finishes the model is ready to use.",
-			`{"type":"object","properties":{"model":{"type":"string","description":"Model to install: a catalog ref (image/openjourney, audio/whisper:base, llm/qwen2.5:7b) or a plain name."}},"required":["model"]}`),
+		toolDef("install_model", "Download and install a model so it can be used (e.g. an image model for generate_image). Accept a catalog ref like \"image/z-image:turbo\" or a plain name like \"stable diffusion\", \"sdxl\", \"whisper\". The download can take a few minutes; when it finishes the model is ready to use.",
+			`{"type":"object","properties":{"model":{"type":"string","description":"Model to install: a catalog ref (image/z-image:turbo, audio/whisper:base, llm/qwen2.5:7b) or a plain name."}},"required":["model"]}`),
 		toolDef("rename_file", "Rename or move a file on the user's computer (e.g. rename a generated image). Use this to actually perform the rename yourself instead of telling the user how to do it.",
 			`{"type":"object","properties":{"path":{"type":"string","description":"Current full file path."},"new_name":{"type":"string","description":"New name. A bare name keeps the same folder and extension; a full path moves it there."}},"required":["path","new_name"]}`),
 	}
@@ -124,9 +124,10 @@ func (m *mediaProvider) listModels() (string, error) {
 		installed = append(installed, md.Type+"/"+md.Name+":"+md.Tag)
 	}
 	installable := []map[string]string{
-		{"ref": "image/openjourney", "note": "Stable Diffusion 1.5 — light, good for 4GB GPUs"},
-		{"ref": "image/sdxl", "note": "Stable Diffusion XL — higher quality, needs more VRAM"},
-		{"ref": "image/flux:schnell", "note": "FLUX.1 Schnell — top quality, large"},
+		{"ref": "image/z-image:turbo", "note": "Z-Image Turbo — best quality, runs on 4GB GPUs"},
+		{"ref": "image/sd1.5", "note": "Stable Diffusion 1.5 — light and fast"},
+		{"ref": "image/sdxl", "note": "Stable Diffusion XL — 1024px, needs more VRAM"},
+		{"ref": "image/flux:schnell", "note": "FLUX.1 Schnell — top prompt following, large (8GB+)"},
 		{"ref": "audio/whisper:base", "note": "Whisper — speech-to-text"},
 		{"ref": "audio/kokoro", "note": "Kokoro — text-to-speech"},
 		{"ref": "llm/qwen3.5:9b", "note": "Qwen 3.5 9B — capable chat/coding"},
@@ -143,7 +144,7 @@ func resolveInstallRef(q string) string {
 	if q == "" {
 		return ""
 	}
-	if strings.Contains(q, "/") { // already a ref like image/openjourney[:tag]
+	if strings.Contains(q, "/") { // already a ref like image/z-image:turbo[:tag]
 		return q
 	}
 	s := strings.ToLower(q)
@@ -152,10 +153,14 @@ func resolveInstallRef(q string) string {
 		return "image/sdxl:latest"
 	case strings.Contains(s, "flux"):
 		return "image/flux:schnell"
-	case strings.Contains(s, "openjourney"), strings.Contains(s, "midjourney"):
-		return "image/openjourney:latest"
-	case strings.Contains(s, "stable"), strings.Contains(s, "diffusion"), s == "sd", strings.Contains(s, "image"):
-		return "image/openjourney:latest" // SD 1.5 — lightest image model
+	case strings.Contains(s, "z-image"), strings.Contains(s, "zimage"), strings.Contains(s, "z image"):
+		return "image/z-image:turbo"
+	case strings.Contains(s, "openjourney"), strings.Contains(s, "midjourney"), strings.Contains(s, "1.5"):
+		return "image/sd1.5:latest"
+	case strings.Contains(s, "stable"), strings.Contains(s, "diffusion"), s == "sd":
+		return "image/sd1.5:latest" // lightest image model
+	case strings.Contains(s, "image"):
+		return "image/z-image:turbo"
 	case strings.Contains(s, "whisper"), strings.Contains(s, "transcri"), strings.Contains(s, "speech-to"):
 		return "audio/whisper:base"
 	case strings.Contains(s, "kokoro"), strings.Contains(s, "tts"), strings.Contains(s, "voice"), strings.Contains(s, "speech"):
@@ -180,7 +185,7 @@ func (m *mediaProvider) installModel(argsJSON string) (string, error) {
 	json.Unmarshal([]byte(argsJSON), &a)
 	refStr := resolveInstallRef(a.Model)
 	if refStr == "" {
-		return "", fmt.Errorf("specify which model to install (e.g. \"image/openjourney\" or \"stable diffusion\")")
+		return "", fmt.Errorf("specify which model to install (e.g. \"image/z-image:turbo\" or \"stable diffusion\")")
 	}
 	ref, err := hub.ParseModelRef(refStr)
 	if err != nil {
@@ -218,6 +223,11 @@ func (m *mediaProvider) installModel(argsJSON string) (string, error) {
 // matches by Name/DisplayName (substring, case-insensitive); otherwise the first
 // installed model of that type is returned.
 func findMediaModel(typ, name string) (*hub.Model, error) {
+	if typ == "image" {
+		if m, err := pickImageModel(name); err == nil {
+			return m, nil
+		}
+	}
 	models, err := hub.NewModelStore().List()
 	if err != nil {
 		return nil, err
@@ -275,16 +285,16 @@ func (m *mediaProvider) saveArtifact(kind, ext, mime string, data []byte) (strin
 
 func (m *mediaProvider) generateImage(argsJSON string) (string, error) {
 	var a struct {
-		Prompt string `json:"prompt"`
-		Model  string `json:"model"`
-		Steps  int    `json:"steps"`
+		Prompt   string `json:"prompt"`
+		Negative string `json:"negative_prompt"`
+		Width    int    `json:"width"`
+		Height   int    `json:"height"`
+		Model    string `json:"model"`
+		Steps    int    `json:"steps"`
 	}
 	json.Unmarshal([]byte(argsJSON), &a)
 	if strings.TrimSpace(a.Prompt) == "" {
 		return "", fmt.Errorf("prompt is required")
-	}
-	if a.Steps <= 0 {
-		a.Steps = 20
 	}
 	// Prefer a configured cloud image provider (BYOK: OpenAI/Stability/fal.ai).
 	var cloudErr error
@@ -302,12 +312,27 @@ func (m *mediaProvider) generateImage(argsJSON string) (string, error) {
 		}
 		return "", err
 	}
-	runner := rt.NewImageRunner(mdl, getHardware())
-	data, err := runner.GenerateToBytes(a.Prompt, a.Steps, false)
+	if !nativeImageModel(mdl) {
+		// Diffusers folder: the Python runner.
+		data, err := rt.NewImageRunner(mdl, getHardware()).GenerateToBytes(a.Prompt, a.Steps, false)
+		if err != nil {
+			return "", err
+		}
+		return m.saveArtifact("image", "png", "image/png", data)
+	}
+	last := -10
+	res, err := rt.NativeGenerateImage(context.Background(), mdl, getHardware(), rt.ImageRequest{
+		Prompt: a.Prompt, Negative: a.Negative, Width: a.Width, Height: a.Height, Steps: a.Steps,
+	}, func(pct int, msg string) {
+		if m.emit != nil && pct-last >= 10 {
+			last = pct
+			m.emit("tool_progress", map[string]string{"text": fmt.Sprintf("Generating image — %s (%d%%)", msg, pct)})
+		}
+	})
 	if err != nil {
 		return "", err
 	}
-	return m.saveArtifact("image", "png", "image/png", data)
+	return m.saveArtifact("image", "png", "image/png", res.Images[0])
 }
 
 func (m *mediaProvider) textToSpeech(argsJSON string) (string, error) {

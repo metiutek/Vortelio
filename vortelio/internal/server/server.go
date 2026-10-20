@@ -187,6 +187,9 @@ func NewMux() *http.ServeMux {
 	mux.HandleFunc("/api/hf/token", ca(handleHFToken))
 
 	// Audio studio (native audio.cpp / whisper.cpp)
+	mux.HandleFunc("/api/image/catalog", ca(handleImageCatalog))
+	mux.HandleFunc("/api/image/generate", ca(withRateLimit(generateLimiter, handleImageGenerate)))
+	mux.HandleFunc("/api/image/unload", ca(handleImageUnload))
 	mux.HandleFunc("/api/audio/catalog", ca(handleAudioCatalog))
 	mux.HandleFunc("/api/audio/speech", ca(withRateLimit(generateLimiter, handleAudioSpeech)))
 	mux.HandleFunc("/api/audio/generate", ca(withRateLimit(generateLimiter, handleAudioGenerate)))

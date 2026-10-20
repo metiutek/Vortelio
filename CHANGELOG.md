@@ -2,6 +2,19 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.97] — 2026-10-20
+### Added
+- **Image studio** (sidebar → Images): describe a picture, pick a shape (square, portrait, landscape, wide) and generate one or more images; advanced settings for steps, guidance, seed and what to avoid. Results show in a gallery (click to enlarge, download, reuse the seed) and are saved to the Downloads folder. Models install from the page in one click.
+- Image models run on a persistent stable-diffusion.cpp server (`sd-server`): the model loads once and stays ready for the next image, with live step progress; it stops after 5 minutes idle or when the chat needs the GPU.
+- Model families: each knows the extra files it needs (VAE, CLIP-L, T5-XXL, Qwen3 text encoder) and the settings it was trained for (steps, guidance, sampler, size, negative prompt). Downloading a model fetches its extra files too, shared between models of the same family. This makes FLUX.1 and **Z-Image Turbo** work (new default: best quality, readable text, runs on a 4 GB GPU).
+- API: `GET /api/image/catalog`, `POST /api/image/generate` (server-sent progress, base64 PNG results), `POST /api/image/unload`.
+### Changed
+- The `generate_image` chat tool and `/v1/images/generations` use the native engine with the model's own defaults; the tool accepts `width`, `height` and `negative_prompt`, the OpenAI endpoint honours `size` and generates `n` images in one batch. Without a model name the best installed image model is used.
+- `image/openjourney` is now called `image/sd1.5` (the old name still works).
+### Fixed
+- Every image reloaded the model from disk and used Stable Diffusion 1.5 settings (CFG 7, 512×512, negative prompt) for every model; FLUX models could not run at all because their VAE and text encoders were never downloaded.
+- `vortelio run` with an image or audio model no longer leaves the engine running after the command ends.
+
 ## [0.3.96] — 2026-10-20
 ### Added
 - **Audio studio** (sidebar → Audio & music): Speak, Clone a voice, Edit speech, Music, Sound effects, Separate tracks and Transcribe, each with its own page. Recordings can be uploaded in any format or recorded from the microphone; results play in place and can be downloaded. Models install from the page in one click (Downloads panel).

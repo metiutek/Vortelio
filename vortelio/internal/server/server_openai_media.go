@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -263,12 +264,7 @@ func handleOpenAIImageGenerations(w http.ResponseWriter, r *http.Request) {
 	if req.ResponseFormat == "" {
 		req.ResponseFormat = "url"
 	}
-	modelName := req.Model
-	if modelName == "" {
-		modelName = "image/sdxl"
-	}
-
-	model, err := resolveImageModel(modelName)
+	model, err := resolveImageModel(req.Model)
 	if err != nil {
 		jsonError(w, 404, err.Error())
 		return
@@ -282,9 +278,28 @@ func handleOpenAIImageGenerations(w http.ResponseWriter, r *http.Request) {
 	}
 	var results []imgResult
 
-	for i := 0; i < req.N; i++ {
-		data, err := ir.GenerateToBytes(req.Prompt, 20, false)
+	var native [][]byte
+	if nativeImageModel(model) {
+		ireq := runtime.ImageRequest{Prompt: req.Prompt, Count: req.N}
+		if wd, ht, ok := strings.Cut(req.Size, "x"); ok {
+			ireq.Width, _ = strconv.Atoi(wd)
+			ireq.Height, _ = strconv.Atoi(ht)
+		}
+		res, err := runtime.NativeGenerateImage(r.Context(), model, hw, ireq, nil)
 		if err != nil {
+			jsonError(w, 500, fmt.Sprintf("generation failed: %v", err))
+			return
+		}
+		native = res.Images
+	}
+	for i := 0; i < req.N; i++ {
+		var data []byte
+		if native != nil {
+			if i >= len(native) {
+				break
+			}
+			data = native[i]
+		} else if data, err = ir.GenerateToBytes(req.Prompt, 0, false); err != nil {
 			jsonError(w, 500, fmt.Sprintf("generation failed: %v", err))
 			return
 		}
@@ -352,26 +367,11 @@ func openAIVoice(m *hub.Model, voice string) string {
 	return ""
 }
 
+// resolveImageModel finds the model an OpenAI-style request names; when it
+// is not installed (clients send "dall-e-3"…) the best installed one is used.
 func resolveImageModel(name string) (*hub.Model, error) {
-	if !strings.Contains(name, "/") {
-		name = "image/" + name
+	if m, err := pickImageModel(name); err == nil {
+		return m, nil
 	}
-	ref, err := hub.ParseModelRef(name)
-	if err != nil {
-		return nil, err
-	}
-	store := hub.NewModelStore()
-	model, err := store.Resolve(ref)
-	if err != nil {
-		models, lerr := store.List()
-		if lerr == nil {
-			for _, m := range models {
-				if m.Type == "image" {
-					return m, nil
-				}
-			}
-		}
-		return nil, fmt.Errorf("image model %q not found", name)
-	}
-	return model, nil
+	return nil, fmt.Errorf("no image model installed — install one from the Images page")
 }

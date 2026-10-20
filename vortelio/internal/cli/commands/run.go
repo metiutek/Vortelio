@@ -129,5 +129,9 @@ func (c *RunCommand) Run(args []string) error {
 	}
 
 	fmt.Printf("🚀  Running %s/%s:%s\n\n", ref.Type, ref.Name, ref.Tag)
+	// Native media engines run as child servers: stop them before exiting,
+	// or they outlive the command and keep the model in memory.
+	defer runtime.StopImageServer()
+	defer runtime.StopAudioServers()
 	return runner.Run(opts)
 }

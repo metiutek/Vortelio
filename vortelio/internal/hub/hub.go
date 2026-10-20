@@ -248,6 +248,8 @@ type Model struct {
 	Voices       []string `json:"voices,omitempty"`
 	DefaultVoice string   `json:"default_voice,omitempty"`
 	Description  string   `json:"description,omitempty"`
+	// Native image models: extra files by role (vae, clip_l, t5xxl, llm).
+	Components map[string]string `json:"components,omitempty"`
 }
 
 func (m *Model) SizeHuman() string {
@@ -746,37 +748,7 @@ var hfRegistry = map[string]HFEntry{
 		File:   "gpt-oss-20b-MXFP4.gguf",
 		Format: "gguf", Params: "20B", License: "Apache-2.0",
 	},
-	// ── Image — GGUF (gpustack repos, public, no token) ───────────────────
-	"image/openjourney:latest": {
-		Repo:   "gpustack/stable-diffusion-v1-5-GGUF",
-		File:   "stable-diffusion-v1-5-Q4_1.gguf",
-		Format: "gguf", Params: "860M", License: "CreativeML",
-	},
-	"image/dreamshaper:latest": {
-		Repo:   "gpustack/dreamshaper-8-GGUF",
-		File:   "dreamshaper-8-Q5_0.gguf",
-		Format: "gguf", Params: "860M", License: "CreativeML",
-	},
-	"image/sdxl:latest": {
-		Repo:   "gpustack/stable-diffusion-xl-base-1.0-GGUF",
-		File:   "stable-diffusion-xl-base-1.0-Q4_1.gguf",
-		Format: "gguf", Params: "3.5B", License: "CreativeML",
-	},
-	"image/flux:schnell": {
-		Repo:   "city96/FLUX.1-schnell-gguf",
-		File:   "flux1-schnell-Q4_K_S.gguf",
-		Format: "gguf", Params: "12B", License: "Apache-2.0",
-	},
-	"image/flux:dev": {
-		Repo:   "city96/FLUX.1-dev-gguf",
-		File:   "flux1-dev-Q4_K_S.gguf",
-		Format: "gguf", Params: "12B", License: "NC",
-	},
-	"image/realvisxl:v4": {
-		Repo:   "gpustack/RealVisXL_V4.0-GGUF",
-		File:   "RealVisXL_V4.0-Q5_0.gguf",
-		Format: "gguf", Params: "3.5B", License: "CreativeML",
-	},
+	// Image models: see ImageCatalog (image_catalog.go).
 	// ── Audio — Whisper GGUF (ggerganov, widely mirrored) ────────────────
 	"audio/whisper:large": {
 		Repo:   "ggerganov/whisper.cpp",
@@ -1392,8 +1364,29 @@ func (d *Downloader) pullGGUFPlan(ref *ModelRef, owner, repo string, plan ggufPl
 		fmt.Printf(" + vision projector %s", path.Base(plan.Mmproj.Rfilename))
 	}
 	fmt.Printf(" — %.2f GB\n", float64(plan.size())/1e9)
-	mainPath, mmprojPath, err := d.fetchGGUF(owner, repo, dir, plan, progress)
+	// Image models also need their family's VAE and text encoders: report
+	// progress over all the files.
+	var comps []ImageComponent
+	if ref.Type == "image" {
+		fam := DetectImageFamily(plan.Shards[0].Rfilename)
+		if e, ok := ImageCatalogFor(ref); ok {
+			fam = e.Family
+		}
+		comps = MissingImageComponents(&Model{Type: "image", Family: fam, LocalPath: plan.Shards[0].Rfilename})
+	}
+	mainProgress := progress
+	if len(comps) > 0 && progress != nil {
+		var extra int64
+		for _, c := range comps {
+			extra += c.Size
+		}
+		mainProgress = func(done, total int64) { progress(done, total+extra) }
+	}
+	mainPath, mmprojPath, err := d.fetchGGUF(owner, repo, dir, plan, mainProgress)
 	if err != nil {
+		return err
+	}
+	if err := d.fetchImageComponents(comps, plan.size(), progress); err != nil {
 		return err
 	}
 	if format == "" {
@@ -1491,6 +1484,11 @@ func (d *Downloader) saveManifest(ref *ModelRef, dir, localPath, format, params,
 		describeAudioModel(m, &e)
 	} else {
 		describeAudioModel(m, nil)
+	}
+	if e, ok := ImageCatalogFor(ref); ok {
+		describeImageModel(m, &e)
+	} else {
+		describeImageModel(m, nil)
 	}
 	return d.store.Save(m)
 }

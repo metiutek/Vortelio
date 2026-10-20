@@ -1239,6 +1239,27 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 .au-err { color: #dc2626; font-size: 13px; }
 @media (max-width: 600px) { #ws-audio .panel-inner { padding: 20px 16px; } .au-card { padding: 14px; } }
 
+/* ── Image studio ─────────────────────────────────────────────────────── */
+#ws-image .panel-inner { max-width: 980px; }
+.im-sizes { display: flex; gap: 6px; flex-wrap: wrap; }
+.im-size { border: 1px solid var(--border); background: var(--bg); color: var(--text2); font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.im-size.active { border-color: var(--accent); color: var(--text); background: var(--bg3); }
+.im-size i { display: inline-block; border: 1.5px solid currentColor; border-radius: 2px; }
+.im-adv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+.au-card input[type=number] { border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 9px 11px; font: inherit; font-size: 14px; background: var(--bg); color: var(--text); width: 100%; }
+.im-prog { height: 6px; border-radius: 3px; background: var(--bg3); overflow: hidden; flex: 1; min-width: 140px; }
+.im-prog > div { height: 100%; background: var(--accent); width: 0; transition: width .4s ease; }
+.im-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
+.im-res { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; display: flex; flex-direction: column; background: var(--bg); }
+.im-res img { width: 100%; display: block; background: var(--bg3); cursor: zoom-in; }
+.im-res-meta { padding: 9px 11px 4px; font-size: 12.5px; color: var(--text2); line-height: 1.45; }
+.im-res-meta b { color: var(--text); font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.im-res .au-row { padding: 6px 11px 11px; gap: 6px; }
+.im-res .au-btn { font-size: 12.5px; padding: 6px 10px; }
+.im-view { position: fixed; inset: 0; background: rgba(0,0,0,.82); z-index: 950; display: flex; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; }
+.im-view img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+@media (max-width: 600px) { #ws-image .panel-inner { padding: 20px 16px; } .im-grid { grid-template-columns: 1fr; } }
+
 /* ── Downloads panel (background jobs: models + engines) ─────────────── */
 .dl-badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 6px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; display: none; align-items: center; justify-content: center; }
 .dl-badge.on { display: inline-flex; }
@@ -1373,7 +1394,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 
   <div class="sidebar-nav" id="sidebar-nav">
     <button class="nav-item active" id="nav-chat" onclick="studio('chat')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.8 7.2L3 20l1.4-4.6A8.4 8.4 0 1 1 21 11.5z"/></svg> Chat</button>
-    <button class="nav-item" id="nav-image" onclick="studio('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/></svg> Images</button>
+    <button class="nav-item" id="nav-image" onclick="imageStudio()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/></svg> Images</button>
     <button class="nav-item" id="nav-video" onclick="studio('video')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="3"/><path d="m16 10.5 6-3.5v10l-6-3.5"/></svg> Video</button>
     <button class="nav-item" id="nav-audio" onclick="audioStudio()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Audio &amp; music</button>
     <button class="nav-item" id="nav-threed" onclick="studio('threed')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg> 3D</button>
@@ -1649,6 +1670,16 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
         </div>
       </div>
       <div id="mlist"></div>
+    </div>
+  </div>
+
+  <!-- IMAGE STUDIO PANEL -->
+  <div class="panel" id="ws-image">
+    <div class="panel-inner">
+      <div class="panel-title">Image studio</div>
+      <div class="au-sub">Pictures from a description — generated on your computer, offline.</div>
+      <div id="im-body"></div>
+      <div class="im-grid" id="im-results"></div>
     </div>
   </div>
 
@@ -6679,8 +6710,9 @@ function _showPanel(name) {
   if (name === 'tools')    { populateToolModelSelects(); switchToolTab('rag'); }
   if (name === 'crewai')   crewRefreshList();
   if (name === 'audio')    auEnter();
+  if (name === 'image')    imEnter();
   // Update topbar context
-  const titles = {chat:'Chat', models:'Installed models', registry:'Download models', agents:'AI Agents', agent:'Agent chat', cloud:'☁️ Cloud Models', tools:'🔧 Advanced Tools', crewai:'🤖 CrewAI', audio:'Audio studio'};
+  const titles = {chat:'Chat', models:'Installed models', registry:'Download models', agents:'AI Agents', agent:'Agent chat', cloud:'☁️ Cloud Models', tools:'🔧 Advanced Tools', crewai:'🤖 CrewAI', audio:'Audio studio', image:'Image studio'};
   const ttEl = document.getElementById('topbar-title');
   if (ttEl) ttEl.textContent = titles[name] || 'Vortelio';
   // Save button only visible in chat panel when there are messages
@@ -10509,6 +10541,188 @@ function auRenderResults() {
   el.innerHTML = html;
   list.forEach(r => { r.fresh = false; });
 }
+
+// ── Image studio ─────────────────────────────────────────────────────────
+// Native text-to-image (/api/image/*): stable-diffusion.cpp keeps the model
+// loaded between images. Progress arrives as server-sent events.
+const IM = { cat: null, models: [], busy: false, ctrl: null, results: [], size: 'square', started: 0, timer: null };
+const IM_SIZES = [
+  { id: 'square', label: 'Square', r: 1 },
+  { id: 'portrait', label: 'Portrait', r: 3 / 4 },
+  { id: 'landscape', label: 'Landscape', r: 4 / 3 },
+  { id: 'wide', label: 'Wide', r: 16 / 9 },
+];
+
+function imageStudio() {
+  if (appMode === 'agent') setAppMode('assistant');
+  showPanel('image');
+  clearNavActive();
+  document.getElementById('nav-image')?.classList.add('active');
+}
+async function imEnter() { imRender(); await imLoad(); }
+async function imLoad() {
+  try {
+    const d = await (await fetch('/api/image/catalog')).json();
+    IM.cat = d.catalog || []; IM.models = (d.models || []).filter(m => m.native);
+  } catch { IM.cat = IM.cat || []; }
+  if (!IM.busy) imRender();
+}
+function imPref(k, v) {
+  try { if (v === undefined) return localStorage.getItem('im-' + k) || ''; localStorage.setItem('im-' + k, v); } catch {}
+  return '';
+}
+function imModel() {
+  const id = document.getElementById('im-model')?.value || imPref('model');
+  return IM.models.find(m => m.ref === id) || IM.models[0];
+}
+// Width × height for an aspect ratio, keeping the model's native area.
+function imDims(m, sizeId) {
+  const d = (m && m.defaults) || { width: 512, height: 512 };
+  const area = d.width * d.height, r = (IM_SIZES.find(x => x.id === sizeId) || IM_SIZES[0]).r;
+  const snap = v => Math.max(256, Math.round(v / 64) * 64);
+  return [snap(Math.sqrt(area * r)), snap(Math.sqrt(area / r))];
+}
+
+function imInstallsHTML() {
+  const rows = (IM.cat || []).filter(e => !e.installed);
+  const job = ref => Object.values(DL.jobs).find(j => j.meta && j.meta.model === ref && dlActive(j));
+  return rows.map(e => {
+    const j = job(e.ref);
+    const btn = j ? `<button class="au-btn" disabled><span class="au-spin"></span> ${j.total ? Math.floor(j.done * 100 / j.total) + '%' : 'Starting…'}</button>`
+                  : `<button class="au-btn primary" onclick="imInstall('${e.ref}')">Install · ${dlFmtBytes(e.size_bytes)}</button>`;
+    return `<div class="au-install"><div style="flex:1;min-width:200px"><div class="au-iname">${esc(e.name)}${e.recommended ? ' <span class="dl-state ok" style="margin-left:6px">Recommended</span>' : ''}</div>
+      <div class="au-idesc">${esc(e.description)}</div><div class="au-hint">License: ${esc(e.license)}</div></div>${btn}</div>`;
+  }).join('');
+}
+function imRenderInstalls() {
+  const el = document.getElementById('im-installs');
+  if (el) el.innerHTML = imInstallsHTML(); else imRender();
+}
+async function imInstall(ref) {
+  try { await dlPost('/api/downloads/start', { model: ref }); toast('Downloading… it keeps going even if you leave this page'); }
+  catch (e) { toast('❌ ' + e.message, 'err'); }
+  setTimeout(imRenderInstalls, 400);
+}
+
+function imRender() {
+  const body = document.getElementById('im-body');
+  if (!body) return;
+  const keep = {};
+  body.querySelectorAll('textarea[id], input[id]').forEach(e => { keep[e.id] = e.value; });
+  if (!IM.cat) { body.innerHTML = '<div class="au-card"><div class="au-hint">Loading…</div></div>'; return; }
+  if (!IM.models.length) {
+    body.innerHTML = `<div class="au-card"><div class="au-hint">Install an image model. It downloads in the background (Downloads panel) and runs offline afterwards.</div><div id="im-installs" style="display:flex;flex-direction:column;gap:8px">${imInstallsHTML()}</div></div>`;
+    imRenderResults(); return;
+  }
+  const m = imModel();
+  const d = m.defaults || {};
+  const sizeBtns = IM_SIZES.map(z => {
+    const [w, h] = imDims(m, z.id), k = 14 / Math.max(w, h);
+    return `<button class="im-size${z.id === IM.size ? ' active' : ''}" onclick="IM.size='${z.id}';imPref('size','${z.id}');imRender()" title="${w}×${h}"><i style="width:${Math.round(w * k)}px;height:${Math.round(h * k)}px"></i>${z.label}</button>`;
+  }).join('');
+  const [w, h] = imDims(m, IM.size);
+  let html = '<div class="au-card">';
+  html += `<div class="au-row"><div class="au-field"><label class="au-label">Model</label><select id="im-model" onchange="imPref('model',this.value);imRender()">` +
+    IM.models.map(x => `<option value="${esc(x.ref)}"${x.ref === m.ref ? ' selected' : ''}>${esc(x.name)}</option>`).join('') + '</select></div></div>';
+  if (m.description) html += `<div class="au-hint" style="margin-top:-6px">${esc(m.description)}</div>`;
+  html += `<div class="au-field"><label class="au-label">Describe the image</label><textarea id="im-prompt" placeholder="e.g. a red fox in a snowy forest at dawn, soft light, photo" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();imGo()}"></textarea></div>`;
+  html += `<div class="au-row" style="justify-content:space-between"><div class="im-sizes">${sizeBtns}</div><span class="au-hint">${w} × ${h}</span></div>`;
+  html += `<details${imPref('adv') === '1' ? ' open' : ''} ontoggle="imPref('adv',this.open?'1':'0')"><summary class="au-hint" style="cursor:pointer">Advanced</summary><div class="im-adv">`;
+  if (d.negative) html += `<div class="au-field" style="grid-column:1/-1"><label class="au-label">Avoid</label><input type="text" id="im-neg" placeholder="e.g. blurry, low quality, text, watermark"></div>`;
+  html += `<div class="au-field"><label class="au-label">Images</label><input type="number" id="im-count" min="1" max="8" value="1"></div>`;
+  html += `<div class="au-field"><label class="au-label">Steps</label><input type="number" id="im-steps" min="1" max="150" placeholder="${d.steps || 20}"></div>`;
+  if (d.negative) html += `<div class="au-field"><label class="au-label">Guidance (CFG)</label><input type="number" id="im-cfg" min="1" max="20" step="0.5" placeholder="${d.cfg || 7}"></div>`;
+  html += `<div class="au-field"><label class="au-label">Seed</label><input type="number" id="im-seed" min="0" placeholder="random"></div>`;
+  html += `</div><div class="au-hint" style="margin-top:8px">Empty fields use the values this model was made for. The same seed and prompt give the same image.</div></details>`;
+  html += `<div class="au-row"><button class="au-btn primary" id="im-go" onclick="imGo()" ${IM.busy ? 'disabled' : ''}>${IM.busy ? '<span class="au-spin"></span> Generating…' : 'Generate'}</button>
+    ${IM.busy ? '<button class="au-btn" onclick="imStop()">Stop</button><div class="im-prog"><div id="im-bar"></div></div>' : ''}
+    <span class="au-hint" id="im-status">${IM.busy ? 'The first image loads the model and takes longer.' : ''}</span></div><div class="au-err" id="im-err"></div>`;
+  html += `<details><summary class="au-hint" style="cursor:pointer">More models</summary><div id="im-installs" style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${imInstallsHTML()}</div></details>`;
+  html += '</div>';
+  body.innerHTML = html;
+  for (const [id, v] of Object.entries(keep)) { const e = document.getElementById(id); if (e && v !== '') e.value = v; }
+  imRenderResults();
+}
+
+function imNum(id) { const v = document.getElementById(id)?.value; return v === '' || v == null ? 0 : Number(v); }
+
+async function imGo() {
+  if (IM.busy) return;
+  const prompt = (document.getElementById('im-prompt')?.value || '').trim();
+  const err = document.getElementById('im-err');
+  if (!prompt) { if (err) err.textContent = 'Describe the image you want.'; return; }
+  const m = imModel();
+  const [width, height] = imDims(m, IM.size);
+  const seedV = document.getElementById('im-seed')?.value;
+  const req = { model: m.ref, prompt, width, height, count: imNum('im-count') || 1, steps: imNum('im-steps'), cfg: imNum('im-cfg'),
+                negative_prompt: document.getElementById('im-neg')?.value || '' };
+  if (seedV !== '' && seedV != null) req.seed = Number(seedV);
+  IM.busy = true; IM.started = Date.now(); IM.ctrl = new AbortController();
+  imRender();
+  const status = document.getElementById('im-status'), bar = document.getElementById('im-bar');
+  let msg = 'Starting…';
+  IM.timer = setInterval(() => { const s = document.getElementById('im-status'); if (s) s.textContent = msg + ' · ' + Math.round((Date.now() - IM.started) / 1000) + ' s'; }, 1000);
+  try {
+    const r = await fetch('/api/image/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req), signal: IM.ctrl.signal });
+    if (!r.ok) { let e = 'HTTP ' + r.status; try { e = (await r.json()).error || e; } catch {} throw new Error(e); }
+    const rd = r.body.getReader(), dec = new TextDecoder();
+    let buf = '', done = null;
+    for (;;) {
+      const { value, done: end } = await rd.read();
+      if (end) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const block = buf.slice(0, i); buf = buf.slice(i + 2);
+        let ev = 'message', data = '';
+        block.split('\n').forEach(l => { if (l.startsWith('event: ')) ev = l.slice(7); else if (l.startsWith('data: ')) data += l.slice(6); });
+        if (!data) continue;
+        const o = JSON.parse(data);
+        if (ev === 'progress') { msg = o.msg || msg; if (bar) bar.style.width = (o.pct || 0) + '%'; if (status) status.textContent = msg + ' · ' + Math.round((Date.now() - IM.started) / 1000) + ' s'; }
+        else if (ev === 'error') throw new Error(o.error || 'generation failed');
+        else if (ev === 'done') done = o;
+      }
+    }
+    if (!done) throw new Error('the connection closed before the image was ready');
+    const name = (IM.models.find(x => x.ref === done.model) || {}).name || done.model;
+    const batch = done.images.map((b64, i) => ({
+      url: 'data:image/png;base64,' + b64, prompt, model: name, w: done.width, h: done.height,
+      seed: done.seed + i, secs: done.elapsed, path: (done.paths || [])[i] || '', at: new Date(),
+    }));
+    IM.results = batch.concat(IM.results).slice(0, 60);
+  } catch (e) {
+    IM.busy = false; clearInterval(IM.timer); imRender();
+    if (e.name !== 'AbortError') { const el = document.getElementById('im-err'); if (el) el.textContent = typeof friendlyError === 'function' ? friendlyError(e.message) : e.message; }
+    return;
+  }
+  IM.busy = false; clearInterval(IM.timer); imRender();
+}
+function imStop() { try { IM.ctrl && IM.ctrl.abort(); } catch {} }
+
+function imRenderResults() {
+  const el = document.getElementById('im-results'); if (!el) return;
+  el.innerHTML = IM.results.map((r, i) => {
+    const fname = 'vortelio-' + r.at.toISOString().slice(0, 19).replace(/[:T]/g, '-') + '-' + r.seed + '.png';
+    return `<div class="im-res"><img src="${r.url}" alt="" loading="lazy" onclick="imView(${i})">
+      <div class="im-res-meta"><b title="${esc(r.prompt)}">${esc(r.prompt)}</b>${esc(r.model)} · ${r.w}×${r.h} · seed ${r.seed} · ${Math.round(r.secs)} s</div>
+      <div class="au-row"><a class="au-btn" href="${r.url}" download="${fname}">Download</a>
+      <button class="au-btn" onclick="imReuse(${i})" title="Same prompt and seed">Reuse</button></div></div>`;
+  }).join('');
+}
+function imView(i) {
+  const v = document.createElement('div');
+  v.className = 'im-view'; v.innerHTML = `<img src="${IM.results[i].url}" alt="">`;
+  v.onclick = () => v.remove();
+  document.body.appendChild(v);
+}
+function imReuse(i) {
+  const r = IM.results[i];
+  const p = document.getElementById('im-prompt'); if (p) { p.value = r.prompt; p.focus(); }
+  const det = document.querySelector('#im-body details'); if (det) det.open = true;
+  const s = document.getElementById('im-seed'); if (s) s.value = r.seed;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+try { IM.size = localStorage.getItem('im-size') || 'square'; } catch {}
 </script>
 <div class="dl-panel" id="dl-panel" role="dialog" aria-label="Downloads">
   <div class="dl-head">
@@ -10557,6 +10771,8 @@ function dlConnect() {
     if (prev && dlActive(prev) && j.state === 'done') dlOnDone(j);
     if (j.kind === 'model' && j.meta && j.meta.type === 'audio' && typeof auRender === 'function' &&
         document.getElementById('ws-audio')?.classList.contains('on') && !auModelsFor(auTask()).length) auRender();
+    if (j.kind === 'model' && j.meta && j.meta.type === 'image' && typeof imRender === 'function' &&
+        document.getElementById('ws-image')?.classList.contains('on') && !IM.busy) imRenderInstalls();
     if (prev && dlActive(prev) && j.state === 'failed') toast('❌ ' + j.title + ': ' + (j.error || 'download failed'), 'err');
     dlRender(); dlSyncCards(j);
   });
@@ -10572,6 +10788,7 @@ async function dlOnDone(j) {
     toast('✅ Downloaded: ' + j.title, 'ok');
     try { await refreshModels(); } catch {}
     if (j.meta && j.meta.type === 'audio' && typeof auLoad === 'function') auLoad();
+    if (j.meta && j.meta.type === 'image' && typeof imLoad === 'function') imLoad();
   } else if (j.kind === 'engine') {
     toast('✅ ' + j.title + ' ready', 'ok');
     dlLoadEngines();

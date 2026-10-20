@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vortelio/vortelio/internal/config"
+	"github.com/vortelio/vortelio/internal/downloads"
 )
 
 // ─── MODEL REFERENCE ─────────────────────────────────────────────────────────
@@ -334,6 +335,55 @@ type HFFileInfo = hfFileInfo
 type hfFileInfo struct {
 	Rfilename string `json:"rfilename"`
 	Size      int64  `json:"size"`
+	LFS       *struct {
+		SHA256 string `json:"sha256"`
+		Size   int64  `json:"size"`
+	} `json:"lfs,omitempty"`
+}
+
+// sha returns the SHA-256 HF publishes for an LFS file ("" for small git files).
+func (f hfFileInfo) sha() string {
+	if f.LFS != nil {
+		return f.LFS.SHA256
+	}
+	return ""
+}
+
+// HFToken is the Hugging Face access token used for gated models: HF_TOKEN /
+// HUGGING_FACE_HUB_TOKEN, else <home>/hf_token.
+func HFToken() string {
+	for _, k := range []string{"HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"} {
+		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+			return v
+		}
+	}
+	if b, err := os.ReadFile(filepath.Join(config.HomeDir(), "hf_token")); err == nil {
+		return strings.TrimSpace(string(b))
+	}
+	return ""
+}
+
+// SetHFToken stores (or with "" clears) the Hugging Face token.
+func SetHFToken(tok string) error {
+	p := filepath.Join(config.HomeDir(), "hf_token")
+	tok = strings.TrimSpace(tok)
+	if tok == "" {
+		err := os.Remove(p)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return os.WriteFile(p, []byte(tok), 0o600)
+}
+
+func hfHeader() http.Header {
+	h := http.Header{}
+	h.Set("User-Agent", "Mozilla/5.0 (compatible; Vortelio/1.0)")
+	if t := HFToken(); t != "" {
+		h.Set("Authorization", "Bearer "+t)
+	}
+	return h
 }
 
 type hfModelInfo struct {
@@ -347,14 +397,15 @@ func fetchHFModelInfo(owner, repo string) (*hfModelInfo, error) {
 }
 
 func fetchHFModelInfoCtx(ctx context.Context, owner, repo string) (*hfModelInfo, error) {
-	apiURL := fmt.Sprintf("https://huggingface.co/api/models/%s/%s", owner, repo)
+	// blobs=true adds each file's size and LFS SHA-256, used to verify downloads.
+	apiURL := fmt.Sprintf("https://huggingface.co/api/models/%s/%s?blobs=true", owner, repo)
 	ctx30, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx30, "GET", apiURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Vortelio/1.0)")
+	req.Header = hfHeader()
 	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -823,15 +874,27 @@ func (d *Downloader) Pull(ref *ModelRef, progress ProgressCallback) error {
 	if err != nil {
 		return err
 	}
-	if d.alreadyDownloaded(destFile) {
+	// Size and checksum from the repo listing (best effort: the file is still
+	// fetched without them when the API is unreachable).
+	var want hfFileInfo
+	if parts := strings.SplitN(entry.Repo, "/", 2); len(parts) == 2 {
+		if info, err := fetchHFModelInfoCtx(d.context(), parts[0], parts[1]); err == nil {
+			for _, f := range info.Files {
+				if f.Rfilename == entry.File {
+					want = f
+				}
+			}
+		}
+	}
+	if d.alreadyDownloaded(destFile, want.Size) {
 		fmt.Println("✓  File already present, updating manifest...")
 		return d.saveManifest(ref, destDir, destFile, entry.Format, entry.Params, entry.License,
 			fmt.Sprintf("https://huggingface.co/%s", entry.Repo), entry.ChatTemplate, entry.StopTokens)
 	}
 
 	url := fmt.Sprintf("https://huggingface.co/%s/resolve/main/%s", entry.Repo, entry.File)
-	fmt.Printf("⬇️   Download da HuggingFace: %s\n", entry.Repo)
-	if err := d.downloadWithProgress(url, destFile, progress); err != nil {
+	fmt.Printf("⬇️   Download from HuggingFace: %s\n", entry.Repo)
+	if err := d.downloadWithProgress(url, destFile, want.Size, want.sha(), progress); err != nil {
 		return err
 	}
 
@@ -990,7 +1053,7 @@ func (d *Downloader) pullHFDirect(ref *ModelRef, progress ProgressCallback) erro
 	hfd := ref.HFDirect
 	fmt.Printf("🔍  Searching model on HuggingFace: %s/%s\n", hfd.Owner, hfd.Repo)
 
-	info, err := fetchHFModelInfo(hfd.Owner, hfd.Repo)
+	info, err := fetchHFModelInfoCtx(d.context(), hfd.Owner, hfd.Repo)
 	if err != nil {
 		return err
 	}
@@ -1014,7 +1077,9 @@ func (d *Downloader) pullHFDirect(ref *ModelRef, progress ProgressCallback) erro
 	fileSize := chosen.Size
 	if fileSize == 0 {
 		url := fmt.Sprintf("https://huggingface.co/%s/%s/resolve/main/%s", hfd.Owner, hfd.Repo, chosen.Rfilename)
-		if resp, err := http.Head(url); err == nil {
+		hreq, _ := http.NewRequestWithContext(d.context(), http.MethodHead, url, nil)
+		hreq.Header = hfHeader()
+		if resp, err := http.DefaultClient.Do(hreq); err == nil {
 			fileSize = resp.ContentLength
 			resp.Body.Close()
 		}
@@ -1034,7 +1099,7 @@ func (d *Downloader) pullHFDirect(ref *ModelRef, progress ProgressCallback) erro
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(chosen.Rfilename)), ".")
 	source := fmt.Sprintf("https://huggingface.co/%s/%s", hfd.Owner, hfd.Repo)
 
-	if d.alreadyDownloaded(destFile) {
+	if d.alreadyDownloaded(destFile, fileSize) {
 		fmt.Println("✓  File already present, updating manifest...")
 		// Always save manifest — it may be missing even if file exists
 		return d.saveManifest(ref, destDir, destFile, ext, "", "vedi HuggingFace", source, chatTemplate, stopTokens)
@@ -1042,8 +1107,8 @@ func (d *Downloader) pullHFDirect(ref *ModelRef, progress ProgressCallback) erro
 
 	url := fmt.Sprintf("https://huggingface.co/%s/%s/resolve/main/%s", hfd.Owner, hfd.Repo, chosen.Rfilename)
 
-	fmt.Printf("⬇️   Download da: %s/%s\n", hfd.Owner, hfd.Repo)
-	if err := d.downloadWithProgress(url, destFile, progress); err != nil {
+	fmt.Printf("⬇️   Download from: %s/%s\n", hfd.Owner, hfd.Repo)
+	if err := d.downloadWithProgress(url, destFile, fileSize, chosen.sha(), progress); err != nil {
 		return err
 	}
 
@@ -1080,10 +1145,10 @@ func (d *Downloader) pullHFDiffusers(ref *ModelRef, hfd *HFDirectRef, allFiles [
 			return err
 		}
 
-		// Skip if already downloaded and non-empty
-		if fi, err := os.Stat(destFile); err == nil && fi.Size() > 0 {
+		// Skip only when the file on disk is whole (a truncated one is resumed).
+		if downloads.Complete(destFile, f.Size) {
 			fmt.Printf("  ✓  [%d/%d] %s (already present)\n", i+1, len(files), f.Rfilename)
-			downloadedBytes += fi.Size()
+			downloadedBytes += f.Size
 			continue
 		}
 
@@ -1094,7 +1159,7 @@ func (d *Downloader) pullHFDiffusers(ref *ModelRef, hfd *HFDirectRef, allFiles [
 		}
 		fmt.Println()
 
-		if err := d.downloadWithProgress(url, destFile, func(dl, total int64) {
+		if err := d.downloadWithProgress(url, destFile, f.Size, f.sha(), func(dl, total int64) {
 			if progress != nil && totalBytes > 0 {
 				progress(downloadedBytes+dl, totalBytes)
 			}
@@ -1162,8 +1227,8 @@ func (d *Downloader) pullHFTransformers(ref *ModelRef, hfd *HFDirectRef, allFile
 			return err
 		}
 
-		if fi, err := os.Stat(destFile); err == nil && fi.Size() > 0 {
-			downloadedBytes += fi.Size()
+		if downloads.Complete(destFile, f.Size) {
+			downloadedBytes += f.Size
 			if progress != nil && totalBytes > 0 {
 				progress(downloadedBytes, totalBytes)
 			}
@@ -1181,7 +1246,7 @@ func (d *Downloader) pullHFTransformers(ref *ModelRef, hfd *HFDirectRef, allFile
 		}
 
 		url := fmt.Sprintf("https://huggingface.co/%s/%s/resolve/main/%s", hfd.Owner, hfd.Repo, f.Rfilename)
-		if err := d.downloadWithProgress(url, destFile, func(dl, total int64) {
+		if err := d.downloadWithProgress(url, destFile, f.Size, f.sha(), func(dl, total int64) {
 			if progress != nil {
 				eff := totalBytes
 				if eff == 0 {
@@ -1259,126 +1324,39 @@ func (d *Downloader) prepareDestDir(ref *ModelRef, filename string) (dir, file s
 	return
 }
 
-func (d *Downloader) alreadyDownloaded(destFile string) bool {
-	// Check actual model file exists and is non-empty
-	fi, err := os.Stat(destFile)
-	if err != nil || fi.Size() == 0 {
-		return false
+func (d *Downloader) context() context.Context {
+	if d.ctx != nil {
+		return d.ctx
 	}
-	// Also verify it looks like a complete file (size > 1 MB — sanity check)
-	return fi.Size() > 1*1024*1024
+	return context.Background()
 }
 
-func (d *Downloader) downloadWithProgress(url, destFile string, progress ProgressCallback) error {
-	ctx := context.Background()
-	if d.ctx != nil {
-		ctx = d.ctx
+// alreadyDownloaded reports whether destFile is complete: its size must match
+// the expected one when known; otherwise it must be larger than 1 MB.
+func (d *Downloader) alreadyDownloaded(destFile string, size int64) bool {
+	if size > 0 {
+		return downloads.Complete(destFile, size)
 	}
+	fi, err := os.Stat(destFile)
+	return err == nil && !fi.IsDir() && fi.Size() > 1*1024*1024
+}
 
-	// Use a simple client — HuggingFace public files redirect to CDN
-	client := &http.Client{
-		Timeout: 0, // no timeout for large files
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) > 15 {
-				return fmt.Errorf("troppi redirect (%d)", len(via))
-			}
-			req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Vortelio/1.0)")
-			return nil
-		},
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return fmt.Errorf("request error: %w", err)
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Vortelio/1.0)")
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Accept-Encoding", "identity") // disable gzip to get real Content-Length
-
-	resp, err := client.Do(req)
-	if err != nil {
-		if ctx.Err() != nil {
-			return fmt.Errorf("download cancelled")
+// downloadWithProgress fetches url into destFile through the resumable
+// downloader: interrupted transfers continue from the .part file, dropped or
+// stalled connections are retried, and the result is checked against size and
+// sha256 when known. progress receives (bytes on disk, total).
+func (d *Downloader) downloadWithProgress(url, destFile string, size int64, sha string, progress ProgressCallback) error {
+	err := downloads.Fetch(d.context(), downloads.Spec{
+		URL: url, Dest: destFile, Size: size, SHA256: sha, Header: hfHeader(),
+	}, func(have int64) {
+		if progress != nil {
+			progress(have, size)
 		}
-		return fmt.Errorf("connection failed: %w", err)
+	})
+	if err == downloads.ErrCancelled {
+		return fmt.Errorf("download cancelled")
 	}
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case http.StatusOK, http.StatusPartialContent:
-		// proceed
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return fmt.Errorf("access denied (HTTP %d) — the model may require a HuggingFace token", resp.StatusCode)
-	case http.StatusNotFound:
-		return fmt.Errorf("file not found (404)\nURL: %s", url)
-	default:
-		return fmt.Errorf("server: %s\nURL: %s", resp.Status, url)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(destFile), 0755); err != nil {
-		return fmt.Errorf("create directory: %w", err)
-	}
-	// Download to a temp file and rename at the end, so an interrupted download
-	// never leaves a partial file that alreadyDownloaded() would treat as complete.
-	tmpFile := destFile + ".partial"
-	f, err := os.Create(tmpFile)
-	if err != nil {
-		return fmt.Errorf("create file: %w", err)
-	}
-	cleanup := func() {
-		f.Close()
-		os.Remove(tmpFile)
-	}
-
-	total := resp.ContentLength
-	var downloaded int64
-	buf := make([]byte, 512*1024) // 512 KB buffer
-
-	for {
-		if ctx.Err() != nil {
-			cleanup()
-			return fmt.Errorf("download cancelled")
-		}
-		n, readErr := resp.Body.Read(buf)
-		if n > 0 {
-			if _, werr := f.Write(buf[:n]); werr != nil {
-				cleanup()
-				return werr
-			}
-			downloaded += int64(n)
-			if progress != nil {
-				progress(downloaded, total)
-			}
-		}
-		if readErr == io.EOF {
-			break
-		}
-		if readErr != nil {
-			cleanup()
-			if ctx.Err() != nil {
-				return fmt.Errorf("download cancelled")
-			}
-			return fmt.Errorf("read error: %w", readErr)
-		}
-	}
-	if downloaded == 0 {
-		cleanup()
-		return fmt.Errorf("empty file received from HuggingFace")
-	}
-	if total > 0 && downloaded < total {
-		cleanup()
-		return fmt.Errorf("incomplete download: received %d of %d bytes", downloaded, total)
-	}
-	if err := f.Close(); err != nil {
-		os.Remove(tmpFile)
-		return fmt.Errorf("write error: %w", err)
-	}
-	os.Remove(destFile) // Windows: rename fails if the target exists
-	if err := os.Rename(tmpFile, destFile); err != nil {
-		os.Remove(tmpFile)
-		return fmt.Errorf("finalize download: %w", err)
-	}
-	return nil
+	return err
 }
 
 func dirOrFileSize(path string) int64 {

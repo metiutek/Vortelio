@@ -1198,6 +1198,44 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 .hist-item:hover, .hist-item.active { background: var(--bg3); }
 .sidebar-foot { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 1px; }
 .nav-update { color: var(--accent) !important; font-weight: 600; }
+/* ── Downloads panel (background jobs: models + engines) ─────────────── */
+.dl-badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 6px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; display: none; align-items: center; justify-content: center; }
+.dl-badge.on { display: inline-flex; }
+.dl-panel { position: fixed; left: 16px; bottom: 16px; width: min(420px, calc(100vw - 32px)); max-height: min(560px, calc(100vh - 32px)); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,.18); z-index: 900; display: none; flex-direction: column; overflow: hidden; }
+.dl-panel.open { display: flex; }
+.dl-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 8px; }
+.dl-tabs { display: flex; gap: 2px; background: var(--bg3); border-radius: 10px; padding: 3px; }
+.dl-tab { border: none; background: transparent; color: var(--text2); font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 8px; cursor: pointer; }
+.dl-tab.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.dl-close { margin-left: auto; border: none; background: transparent; color: var(--text3); font-size: 18px; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.dl-close:hover { background: var(--bg3); color: var(--text); }
+.dl-body { overflow-y: auto; padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+.dl-empty { color: var(--text3); font-size: 13px; padding: 18px 0; text-align: center; }
+.dl-item { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.dl-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dl-title { font-size: 13.5px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-kind { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text3); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; flex-shrink: 0; }
+.dl-sub { font-size: 12px; color: var(--text2); display: flex; gap: 8px; flex-wrap: wrap; }
+.dl-sub .err { color: #dc2626; }
+.dl-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; position: relative; }
+.dl-bar > i { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 3px; transition: width .25s; }
+.dl-bar.indet > i { width: 30% !important; animation: dl-indet 1.2s ease-in-out infinite; }
+@keyframes dl-indet { 0% { left: -30%; } 100% { left: 100%; } }
+.dl-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.dl-acts button { border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 8px; cursor: pointer; }
+.dl-acts button:hover { background: var(--bg3); }
+.dl-acts button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.dl-acts button:disabled { opacity: .5; cursor: default; }
+.dl-state { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 6px; flex-shrink: 0; }
+.dl-state.ok { background: rgba(34,197,94,.14); color: #16a34a; }
+.dl-state.warn { background: rgba(234,179,8,.16); color: #a16207; }
+.dl-state.bad { background: rgba(220,38,38,.12); color: #dc2626; }
+.dl-state.run { background: rgba(99,91,255,.12); color: var(--accent); }
+.dl-note { font-size: 12px; color: var(--text3); line-height: 1.45; }
+.dl-token { display: flex; gap: 6px; }
+.dl-token input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 12px; background: var(--bg); color: var(--text); }
+@media (max-width: 600px) { .dl-panel { left: 8px; right: 8px; bottom: 8px; width: auto; } }
+
 .hw-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px 2px; font-size: 12px; color: var(--text3); min-width: 0; }
 #hw-lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hw-dot { width: 7px; height: 7px; background: #22c55e; }
@@ -1342,6 +1380,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
         Sign in / Register
       </button>
     </div>
+    <button class="nav-item" id="nav-downloads" onclick="dlToggle()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg> Downloads <span class="dl-badge" id="dl-badge">0</span></button>
     <button class="nav-item" onclick="openSettings()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg> Settings</button>
     <!-- HW status -->
     <div class="hw-row">
@@ -6949,6 +6988,7 @@ function renderReg(items, query) {
       </div>
     </div>`;
   }).join('');
+  if (typeof dlSyncCards === 'function') dlSyncCards();
 }
 
 function filterType(t, btn) {
@@ -10105,6 +10145,232 @@ if (document.readyState === "loading") {
     </button>
   </div>
 </div>
+<div class="dl-panel" id="dl-panel" role="dialog" aria-label="Downloads">
+  <div class="dl-head">
+    <div class="dl-tabs">
+      <button class="dl-tab active" data-tab="jobs" onclick="dlTab('jobs')">Downloads</button>
+      <button class="dl-tab" data-tab="engines" onclick="dlTab('engines')">Engines</button>
+    </div>
+    <button class="dl-close" onclick="dlToggle(false)" aria-label="Close">×</button>
+  </div>
+  <div class="dl-body" id="dl-body"></div>
+</div>
+<script>
+// ── Downloads panel ────────────────────────────────────────────────────────
+// Every model/engine download is a server-side job (/api/downloads): it keeps
+// running when this page closes and resumes after a restart. This panel and
+// the model cards both follow it through one SSE stream.
+const DL = { jobs: {}, engines: null, llama: null, open: false, tab: 'jobs', es: null, retry: 0, hfSet: null };
+
+function dlFmtBytes(n) {
+  if (!n) return '0 B';
+  const u = ['B','KB','MB','GB','TB']; let i = 0;
+  while (n >= 1000 && i < u.length - 1) { n /= 1000; i++; }
+  return (n >= 100 || i === 0 ? n.toFixed(0) : n.toFixed(1)) + ' ' + u[i];
+}
+function dlFmtEta(s) {
+  if (!isFinite(s) || s <= 0) return '';
+  if (s < 60) return Math.ceil(s) + 's left';
+  if (s < 3600) return Math.ceil(s / 60) + ' min left';
+  return (s / 3600).toFixed(1) + ' h left';
+}
+function dlActive(j) { return j.state === 'running' || j.state === 'queued'; }
+
+function dlConnect() {
+  try { DL.es && DL.es.close(); } catch {}
+  const es = new EventSource('/api/downloads/events');
+  DL.es = es;
+  es.addEventListener('snapshot', ev => {
+    DL.retry = 0;
+    try { DL.jobs = {}; (JSON.parse(ev.data).jobs || []).forEach(j => DL.jobs[j.id] = j); } catch {}
+    dlRender(); dlSyncCards();
+  });
+  es.addEventListener('job', ev => {
+    let j; try { j = JSON.parse(ev.data); } catch { return; }
+    const prev = DL.jobs[j.id];
+    if (j.state === 'dismissed') delete DL.jobs[j.id]; else DL.jobs[j.id] = j;
+    if (prev && dlActive(prev) && j.state === 'done') dlOnDone(j);
+    if (prev && dlActive(prev) && j.state === 'failed') toast('❌ ' + j.title + ': ' + (j.error || 'download failed'), 'err');
+    dlRender(); dlSyncCards(j);
+  });
+  es.onerror = () => {
+    es.close();
+    DL.retry = Math.min(DL.retry + 1, 6);
+    setTimeout(dlConnect, 1000 * DL.retry);
+  };
+}
+
+async function dlOnDone(j) {
+  if (j.kind === 'model') {
+    toast('✅ Downloaded: ' + j.title, 'ok');
+    try { await refreshModels(); } catch {}
+  } else if (j.kind === 'engine') {
+    toast('✅ ' + j.title + ' ready', 'ok');
+    dlLoadEngines();
+  }
+}
+
+// Mirror job progress onto the model card that started it (survives reloads).
+function dlSyncCards(only) {
+  const list = only ? [only] : Object.values(DL.jobs);
+  for (const j of list) {
+    if (j.kind !== 'model' || !j.meta || !j.meta.model) continue;
+    const sid = safeId(j.meta.model);
+    const prog = document.getElementById('dl-prog-' + sid);
+    if (!prog) continue;
+    const bar = document.getElementById('dl-bar-' + sid), lbl = document.getElementById('dl-lbl-' + sid), pct = document.getElementById('dl-pct-' + sid);
+    const foot = document.getElementById('dl-foot-' + sid);
+    if (dlActive(j)) {
+      prog.style.display = 'block'; if (foot) foot.style.display = 'none';
+      const p = j.total > 0 ? Math.min(100, Math.floor(j.done * 100 / j.total)) : 0;
+      if (bar) bar.style.width = p + '%';
+      if (pct) pct.textContent = j.total > 0 ? p + '%' : '';
+      if (lbl) lbl.textContent = j.total > 0 ? dlFmtBytes(j.done) + ' / ' + dlFmtBytes(j.total) : (j.phase || 'Starting…');
+    }
+  }
+}
+
+function dlBadge() {
+  const n = Object.values(DL.jobs).filter(dlActive).length;
+  const b = document.getElementById('dl-badge');
+  if (!b) return;
+  b.textContent = n; b.classList.toggle('on', n > 0);
+}
+
+function dlToggle(force) {
+  DL.open = force === undefined ? !DL.open : force;
+  document.getElementById('dl-panel').classList.toggle('open', DL.open);
+  if (DL.open) { if (DL.tab === 'engines') dlLoadEngines(); dlRender(); }
+}
+function dlTab(t) {
+  DL.tab = t;
+  document.querySelectorAll('.dl-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  if (t === 'engines') dlLoadEngines();
+  dlRender();
+}
+
+async function dlPost(url, body) {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+  return d;
+}
+async function dlAct(action, id) {
+  try { await dlPost('/api/downloads/' + action, { id }); }
+  catch (e) { toast('❌ ' + e.message, 'err'); }
+}
+// Start a model download as a background job and open the panel.
+async function dlStartModel(ref) {
+  try { await dlPost('/api/downloads/start', { model: ref }); dlToggle(true); dlTab('jobs'); }
+  catch (e) { toast('❌ ' + e.message, 'err'); }
+}
+
+function dlJobHTML(j) {
+  const states = { running: ['run', 'Downloading'], queued: ['run', 'Waiting'], done: ['ok', 'Done'], failed: ['bad', 'Failed'], cancelled: ['warn', 'Paused'], interrupted: ['warn', 'Paused'] };
+  const [cls, label] = states[j.state] || ['warn', j.state];
+  const p = j.total > 0 ? Math.min(100, j.done * 100 / j.total) : 0;
+  let sub = [];
+  if (j.total > 0) sub.push(dlFmtBytes(j.done) + ' of ' + dlFmtBytes(j.total));
+  else if (j.done > 0) sub.push(dlFmtBytes(j.done));
+  if (j.state === 'running' && j.speed > 0) {
+    sub.push(dlFmtBytes(j.speed) + '/s');
+    if (j.total > 0) sub.push(dlFmtEta((j.total - j.done) / j.speed));
+  }
+  if (j.phase && dlActive(j)) sub.push(esc(j.phase));
+  if (j.state === 'failed' && j.error) sub.push('<span class="err">' + esc(j.error) + '</span>');
+  if ((j.state === 'cancelled' || j.state === 'interrupted') && j.done > 0) sub.push('resumes where it stopped');
+  const acts = [];
+  if (dlActive(j)) acts.push(`<button onclick="dlAct('cancel','${j.id}')">Pause</button>`);
+  if (j.state === 'failed' || j.state === 'cancelled' || j.state === 'interrupted') acts.push(`<button class="primary" onclick="dlAct('retry','${j.id}')">${j.state === 'failed' ? 'Retry' : 'Resume'}</button>`);
+  if (!dlActive(j)) acts.push(`<button onclick="dlAct('dismiss','${j.id}')">Clear</button>`);
+  const bar = dlActive(j) ? `<div class="dl-bar${j.total > 0 ? '' : ' indet'}"><i style="width:${p.toFixed(1)}%"></i></div>` : '';
+  return `<div class="dl-item">
+    <div class="dl-row"><span class="dl-kind">${j.kind === 'engine' ? 'Engine' : esc((j.meta && j.meta.type) || 'Model')}</span><span class="dl-title" title="${esc(j.title)}">${esc(j.title)}</span><span class="dl-state ${cls}">${label}</span></div>
+    ${bar}
+    ${sub.length ? `<div class="dl-sub">${sub.join('<span>·</span>')}</div>` : ''}
+    <div class="dl-acts">${acts.join('')}</div>
+  </div>`;
+}
+
+async function dlLoadEngines() {
+  try {
+    const d = await (await fetch('/api/engines')).json();
+    DL.engines = d.engines || []; DL.llama = d.llama || null;
+  } catch { DL.engines = DL.engines || []; }
+  try { DL.hfSet = (await (await fetch('/api/hf/token')).json()).set; } catch {}
+  if (DL.tab === 'engines') dlRender();
+}
+
+function dlEngineHTML(e) {
+  const job = Object.values(DL.jobs).find(j => j.key === 'engine:' + e.id);
+  const running = job && dlActive(job);
+  let state = e.installed ? (e.update_available ? ['warn', 'Update'] : ['ok', 'Ready']) : (e.broken ? ['bad', 'Broken'] : ['warn', 'Not installed']);
+  if (running) state = ['run', 'Installing'];
+  const sub = [];
+  if (e.installed) sub.push(esc(e.tag) + (e.accel ? ' · ' + esc(e.accel.toUpperCase()) : '') + ' · ' + dlFmtBytes(e.size_bytes));
+  if (e.update_available) sub.push('pinned: ' + esc(e.pinned_tag));
+  if (e.broken) sub.push('<span class="err">' + esc(e.broken) + '</span>');
+  if (job && job.state === 'failed') sub.push('<span class="err">' + esc(job.error || 'install failed') + '</span>');
+  const acts = [];
+  if (!running) {
+    if (!e.installed) acts.push(`<button class="primary" onclick="dlEngine('install','${e.id}')">Install</button>`);
+    else if (e.update_available) acts.push(`<button class="primary" onclick="dlEngine('install','${e.id}')">Update</button>`);
+    else acts.push(`<button onclick="dlEngine('install','${e.id}')">Repair</button>`);
+    if (e.can_rollback) acts.push(`<button onclick="dlEngine('rollback','${e.id}')">Restore ${esc(e.previous_tag)}</button>`);
+    if (e.installed) acts.push(`<button onclick="dlEngine('remove','${e.id}')">Remove</button>`);
+  } else acts.push(`<button onclick="dlAct('cancel','${job.id}')">Cancel</button>`);
+  const p = running && job.total > 0 ? Math.min(100, job.done * 100 / job.total) : 0;
+  const bar = running ? `<div class="dl-bar${job.total > 0 ? '' : ' indet'}"><i style="width:${p.toFixed(1)}%"></i></div><div class="dl-sub">${esc(job.phase || '')}</div>` : '';
+  return `<div class="dl-item">
+    <div class="dl-row"><span class="dl-title">${esc(e.name)}</span><span class="dl-state ${state[0]}">${state[1]}</span></div>
+    <div class="dl-note">${esc(e.purpose)}</div>
+    ${bar}
+    ${sub.length ? `<div class="dl-sub">${sub.join('<span>·</span>')}</div>` : ''}
+    <div class="dl-acts">${acts.join('')}</div>
+  </div>`;
+}
+
+async function dlEngine(action, id) {
+  if (action === 'remove' && !confirmRemoveEngine(id)) return;
+  try { await dlPost('/api/engines/' + action, { id }); }
+  catch (e) { toast('❌ ' + e.message, 'err'); }
+  dlLoadEngines();
+}
+// Two clicks within 4 s confirm a removal (no blocking browser dialog).
+let _dlRemoveArm = '';
+function confirmRemoveEngine(id) {
+  if (_dlRemoveArm === id) { _dlRemoveArm = ''; return true; }
+  _dlRemoveArm = id; toast('Click Remove again to delete this engine (models are kept)');
+  setTimeout(() => { if (_dlRemoveArm === id) _dlRemoveArm = ''; }, 4000);
+  return false;
+}
+async function dlSaveToken() {
+  const inp = document.getElementById('dl-hf-token');
+  try { const d = await dlPost('/api/hf/token', { token: inp.value }); DL.hfSet = d.set; inp.value = ''; toast(d.set ? '🔑 Hugging Face token saved' : 'Token removed', 'ok'); dlRender(); }
+  catch (e) { toast('❌ ' + e.message, 'err'); }
+}
+
+function dlRender() {
+  dlBadge();
+  if (!DL.open) return;
+  const body = document.getElementById('dl-body');
+  if (DL.tab === 'jobs') {
+    const jobs = Object.values(DL.jobs).sort((a, b) => (dlActive(b) - dlActive(a)) || (new Date(b.created_at) - new Date(a.created_at)));
+    body.innerHTML = jobs.length ? jobs.map(dlJobHTML).join('') : '<div class="dl-empty">No downloads yet. Models you download appear here — they keep going even if you close this page.</div>';
+    return;
+  }
+  if (!DL.engines) { body.innerHTML = '<div class="dl-empty">Loading…</div>'; return; }
+  const ll = DL.llama ? `<div class="dl-item"><div class="dl-row"><span class="dl-title">llama.cpp</span><span class="dl-state ${DL.llama.installed ? 'ok' : 'warn'}">${DL.llama.installed ? 'Ready' : 'Not installed'}</span></div><div class="dl-note">Chat models (LLM)</div>${DL.llama.build ? `<div class="dl-sub">build ${DL.llama.build}</div>` : ''}</div>` : '';
+  body.innerHTML = '<div class="dl-note">Native engines run images, video and audio without Python. They install once, are checked before use, and the previous version is kept so you can roll back.</div>'
+    + ll + DL.engines.map(dlEngineHTML).join('')
+    + `<div class="dl-item"><div class="dl-row"><span class="dl-title">Hugging Face token</span><span class="dl-state ${DL.hfSet ? 'ok' : 'warn'}">${DL.hfSet ? 'Set' : 'Not set'}</span></div>
+       <div class="dl-note">Needed only for gated models (accept their terms on huggingface.co first).</div>
+       <div class="dl-token"><input id="dl-hf-token" type="password" placeholder="hf_…" autocomplete="off"><button class="primary" style="border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer" onclick="dlSaveToken()">Save</button></div></div>`;
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && DL.open) dlToggle(false); });
+dlConnect();
+</script>
 </body>
 </html>
 

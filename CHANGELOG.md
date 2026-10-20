@@ -2,6 +2,19 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.94] — 2026-10-20
+### Added
+- Downloads panel (sidebar → Downloads): every model and engine download is a background job. It keeps going when the page is closed, resumes by itself after Vortelio restarts, and can be paused, resumed, retried or cleared. Shows size, speed and time left.
+- Native engines (Downloads → Engines): stable-diffusion.cpp (images, video), audio.cpp (speech, music, voice editing and cloning) and whisper.cpp (speech to text) install as pinned prebuilt releases — no Python. Each install is checked against the release SHA-256, must start before it replaces the working one, and the previous version is kept for one-click restore. CUDA builds share one copy of the CUDA runtime (hard links), reusing llama.cpp's when present.
+- Hugging Face token for gated models (Downloads → Engines, or `HF_TOKEN`).
+- API: `GET /api/downloads`, `GET /api/downloads/events` (SSE), `POST /api/downloads/{start,cancel,retry,dismiss}`, `GET /api/engines`, `POST /api/engines/{install,rollback,remove}`, `GET/POST /api/hf/token`.
+### Changed
+- Model downloads are resumable: an interrupted transfer continues from where it stopped (HTTP Range) instead of starting over, dropped or stalled connections are retried automatically, and every file is checked against the size and SHA-256 published by Hugging Face before it is used. A truncated file is no longer mistaken for a complete one.
+- `/api/pull` no longer cancels the download when the client disconnects; it follows the background job.
+- Image generation uses the pinned stable-diffusion.cpp engine instead of the latest upstream build.
+### Fixed
+- Streaming responses (chat tokens, download progress) were held back in 4 KB chunks: the request logger hid `http.Flusher` from every handler.
+
 ## [0.3.93] — 2026-09-29
 ### Added
 - Any OpenAI-compatible (`/v1/chat/completions`: LM Studio, vLLM, LocalAI, LiteLLM, llama.cpp, Ollama, another Vortelio…) or Anthropic-compatible (`/v1/messages`) endpoint can be added as a provider, with or without an API key. Custom providers are saved server-side (`~/.vortelio/cloud_providers.json`) and work everywhere: web UI, `vortelio code`, the menu TUI, the unified `/v1` gateway and agents.

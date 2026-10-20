@@ -1,12 +1,13 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/vortelio/vortelio/internal/downloads"
 	"github.com/vortelio/vortelio/internal/hub"
 	"github.com/vortelio/vortelio/internal/runtime"
 )
@@ -204,6 +205,9 @@ func handleModelMmProj(w http.ResponseWriter, r *http.Request) {
 
 // ── Download ──────────────────────────────────────────────────────────────────
 
+// handlePull starts (or joins) the background download job for a model and
+// streams its progress. Disconnecting does not stop the download: it keeps
+// going in the Downloads panel and can be cancelled with /api/pull/cancel.
 func handlePull(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, 405, "POST only")
@@ -227,8 +231,7 @@ func handlePull(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, 400, "model is required")
 		return
 	}
-	ref, err := hub.ParseModelRef(modelName)
-	if err != nil {
+	if _, err := hub.ParseModelRef(modelName); err != nil {
 		jsonError(w, 400, err.Error())
 		return
 	}
@@ -258,58 +261,85 @@ func handlePull(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
-	registerPull(modelName, cancel)
-	defer unregisterPull(modelName)
-
+	m := downloads.Default()
+	ch, stop := m.Subscribe()
+	defer stop()
+	job, _, err := StartModelDownload(modelName)
+	if err != nil {
+		emit("error", map[string]interface{}{"error": err.Error()})
+		return
+	}
 	if streaming {
 		emit("progress", map[string]interface{}{
 			"status": "pulling manifest",
 			"pct":    0,
 			"msg":    "Connecting to HuggingFace...",
+			"job_id": job.ID,
 		})
 	}
-
-	doneCh := make(chan error, 1)
-	go func() {
-		d := hub.NewDownloaderWithContext(ctx)
-		cb := func(downloaded, total int64) {
-			if !streaming {
+	report := func(j downloads.Job) bool {
+		switch j.State {
+		case downloads.Done:
+			emit("done", map[string]interface{}{"status": "success", "model": modelName, "job_id": j.ID})
+			return true
+		case downloads.Failed:
+			emit("error", map[string]interface{}{"error": j.Error, "job_id": j.ID})
+			return true
+		case downloads.Cancelled:
+			emit("error", map[string]interface{}{"error": "download cancelled", "job_id": j.ID})
+			return true
+		}
+		if !streaming {
+			return false
+		}
+		var pct int
+		var msg string
+		if j.Total > 0 {
+			pct = int(j.Done * 100 / j.Total)
+			if pct > 99 {
+				pct = 99
+			}
+			msg = fmt.Sprintf("%.1f / %.1f MB (%d%%)", float64(j.Done)/1e6, float64(j.Total)/1e6, pct)
+		} else if j.Done > 0 {
+			pct = 5
+			msg = fmt.Sprintf("%.1f MB downloaded...", float64(j.Done)/1e6)
+		} else {
+			msg = j.Phase
+		}
+		emit("progress", map[string]interface{}{
+			"status":    "downloading",
+			"completed": j.Done,
+			"total":     j.Total,
+			"pct":       pct,
+			"msg":       msg,
+			"speed":     j.Speed,
+			"job_id":    j.ID,
+		})
+		return false
+	}
+	if cur, ok := m.Get(job.ID); ok && report(cur) {
+		return
+	}
+	var last time.Time
+	for {
+		select {
+		case <-r.Context().Done():
+			return // the job keeps running in the background
+		case j, ok := <-ch:
+			if !ok {
 				return
 			}
-			var pct int
-			var msg string
-			if total > 0 {
-				pct = int(downloaded * 100 / total)
-				if pct > 99 {
-					pct = 99
-				}
-				msg = fmt.Sprintf("%.1f / %.1f MB (%d%%)", float64(downloaded)/1e6, float64(total)/1e6, pct)
-			} else {
-				pct = 5
-				msg = fmt.Sprintf("%.1f MB downloaded...", float64(downloaded)/1e6)
+			if j.ID != job.ID {
+				continue
 			}
-			emit("progress", map[string]interface{}{
-				"status":    "downloading",
-				"completed": downloaded,
-				"total":     total,
-				"pct":       pct,
-				"msg":       msg,
-			})
+			if j.State == downloads.Running && time.Since(last) < 200*time.Millisecond {
+				continue
+			}
+			last = time.Now()
+			if report(j) {
+				return
+			}
 		}
-		doneCh <- d.Pull(ref, cb)
-	}()
-
-	select {
-	case err := <-doneCh:
-		if err != nil {
-			emit("error", map[string]interface{}{"error": err.Error()})
-		} else {
-			emit("done", map[string]interface{}{"status": "success", "model": modelName})
-		}
-	case <-r.Context().Done():
-		cancel()
 	}
 }
 
@@ -325,9 +355,17 @@ func handlePullCancel(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, 400, "invalid JSON")
 		return
 	}
-	if cancelPull(req.Model) {
-		respond(w, 200, map[string]string{"status": "cancelled", "model": req.Model})
-	} else {
-		jsonError(w, 404, "download not found or already completed")
+	ref, err := hub.ParseModelRef(req.Model)
+	if err != nil {
+		jsonError(w, 400, err.Error())
+		return
 	}
+	initDownloads()
+	j, ok := downloads.Default().Get(modelJobKey(ref))
+	if !ok || j.State.Finished() {
+		jsonError(w, 404, "download not found or already completed")
+		return
+	}
+	downloads.Default().Cancel(j.ID)
+	respond(w, 200, map[string]string{"status": "cancelled", "model": req.Model})
 }

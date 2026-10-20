@@ -62,32 +62,9 @@ func InitLogger(level string) {
 // ── Shared state ─────────────────────────────────────────────────────────────
 
 var (
-	activePullsMu sync.Mutex
-	activePulls   = map[string]context.CancelFunc{}
-	cachedHW      *runtime.Hardware
-	cachedHWOnce  sync.Once
+	cachedHW     *runtime.Hardware
+	cachedHWOnce sync.Once
 )
-
-func registerPull(model string, cancel context.CancelFunc) {
-	activePullsMu.Lock()
-	defer activePullsMu.Unlock()
-	activePulls[model] = cancel
-}
-func unregisterPull(model string) {
-	activePullsMu.Lock()
-	defer activePullsMu.Unlock()
-	delete(activePulls, model)
-}
-func cancelPull(model string) bool {
-	activePullsMu.Lock()
-	defer activePullsMu.Unlock()
-	if fn, ok := activePulls[model]; ok {
-		fn()
-		delete(activePulls, model)
-		return true
-	}
-	return false
-}
 
 func getHardware() *runtime.Hardware {
 	cachedHWOnce.Do(func() { cachedHW = runtime.DetectHardware() })
@@ -194,6 +171,20 @@ func NewMux() *http.ServeMux {
 	mux.HandleFunc("/api/models/mmproj", ca(handleModelMmProj))
 	mux.HandleFunc("/api/pull", ca(withRateLimit(pullLimiter, handlePull)))
 	mux.HandleFunc("/api/pull/cancel", ca(handlePullCancel))
+
+	// Downloads panel + native engines (background jobs, resumable)
+	initDownloads()
+	mux.HandleFunc("/api/downloads", ca(handleDownloads))
+	mux.HandleFunc("/api/downloads/events", ca(handleDownloadEvents))
+	mux.HandleFunc("/api/downloads/start", ca(handleDownloadStart))
+	mux.HandleFunc("/api/downloads/cancel", ca(handleDownloadAction("cancel")))
+	mux.HandleFunc("/api/downloads/retry", ca(handleDownloadAction("retry")))
+	mux.HandleFunc("/api/downloads/dismiss", ca(handleDownloadAction("dismiss")))
+	mux.HandleFunc("/api/engines", ca(handleEngines))
+	mux.HandleFunc("/api/engines/install", ca(handleEngineAction("install")))
+	mux.HandleFunc("/api/engines/rollback", ca(handleEngineAction("rollback")))
+	mux.HandleFunc("/api/engines/remove", ca(handleEngineAction("remove")))
+	mux.HandleFunc("/api/hf/token", ca(handleHFToken))
 
 	// Generate (rate limited)
 	mux.HandleFunc("/api/generate", ca(withRateLimit(generateLimiter, handleGenerate)))

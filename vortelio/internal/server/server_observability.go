@@ -79,6 +79,18 @@ func (s *statusRecorder) WriteHeader(c int) {
 	s.ResponseWriter.WriteHeader(c)
 }
 
+// Flush keeps streaming responses (chat tokens, SSE progress) flowing: without
+// it every `w.(http.Flusher)` check behind this wrapper fails and output is
+// held back in 4 KB chunks.
+func (s *statusRecorder) Flush() {
+	if f, ok := s.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer.
+func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
+
 // withObservability wraps a handler to record audit entries + prometheus metrics.
 func withObservability(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

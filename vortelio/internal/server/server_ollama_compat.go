@@ -346,7 +346,9 @@ func handleOllamaChat(w http.ResponseWriter, r *http.Request) {
 
 	hw := getHardware()
 	ka := parseKeepAlive(req.KeepAlive)
+	loadStart := time.Now()
 	runner, err := runtime.GlobalModelManager.GetOrLoad(model, hw, ka)
+	loadDur := time.Since(loadStart)
 	if err != nil {
 		jsonError(w, 500, err.Error())
 		return
@@ -368,7 +370,6 @@ func handleOllamaChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	modelID := ollamaModelID(model)
-	start := time.Now()
 
 	// Determine tool mode: client-side (pass tools to model, return tool_calls) vs server-side builtin
 	clientTools := req.Tools                     // may be nil
@@ -385,6 +386,8 @@ func handleOllamaChat(w http.ResponseWriter, r *http.Request) {
 		Options:      ollamaOptions(req.Options),
 		Format:       formatStr,
 	}
+	var genStats runtime.GenStats
+	sopts.Stats = &genStats
 
 	var thinkBuf strings.Builder
 	if req.Think {
@@ -420,13 +423,12 @@ func handleOllamaChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	buildDoneChunk := func(msg map[string]interface{}, reason string) map[string]interface{} {
-		return map[string]interface{}{
+		obj := map[string]interface{}{
 			"model": modelID, "created_at": time.Now().UTC().Format(time.RFC3339Nano),
 			"message": msg, "done": true, "done_reason": reason,
-			"total_duration": time.Since(start).Nanoseconds(),
-			"load_duration":  0, "prompt_eval_count": 0,
-			"eval_count": 0, "eval_duration": time.Since(start).Nanoseconds(),
 		}
+		addGenStats(obj, &genStats, loadDur, loadStart)
+		return obj
 	}
 
 	// Wire up ToolCallEmit: when client sends tools, return tool_calls to client (don't execute server-side)
@@ -548,7 +550,7 @@ func handleOllamaEmbed(w http.ResponseWriter, r *http.Request) {
 
 	hw := getHardware()
 	ka := parseKeepAlive(req.KeepAlive)
-	runner, err := runtime.GlobalModelManager.GetOrLoad(model, hw, ka)
+	runner, err := runtime.GlobalModelManager.GetOrLoadEmbed(model, hw, ka)
 	if err != nil {
 		jsonError(w, 500, err.Error())
 		return
@@ -601,7 +603,7 @@ func handleOllamaEmbeddings(w http.ResponseWriter, r *http.Request) {
 
 	hw := getHardware()
 	ka := parseKeepAlive(req.KeepAlive)
-	runner, err := runtime.GlobalModelManager.GetOrLoad(model, hw, ka)
+	runner, err := runtime.GlobalModelManager.GetOrLoadEmbed(model, hw, ka)
 	if err != nil {
 		jsonError(w, 500, err.Error())
 		return

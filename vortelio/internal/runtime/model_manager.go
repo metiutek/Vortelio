@@ -2,7 +2,8 @@ package runtime
 
 import (
 	"fmt"
-	"strings"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,28 +14,50 @@ import (
 const DefaultKeepAliveDuration = 5 * time.Minute
 
 // ModelManager keeps llama-server processes alive between HTTP requests.
+//
+// Residency policy (as in Ollama/Unsloth): by default only ONE model stays
+// loaded, so two models never fight for the same VRAM — loading another one
+// (or a different context size, or an image/audio generation that needs the
+// GPU) first stops the resident one. VORTELIO_MAX_LOADED_MODELS raises the
+// limit on machines with memory to spare.
 type ModelManager struct {
 	mu      sync.Mutex
 	entries map[string]*managedEntry
+	loading map[string]*loadCall
 }
 
 type managedEntry struct {
 	runner    *LLMRunner
+	ctxSize   int
+	keepAlive time.Duration
 	expiresAt time.Time // zero = never expire
+	lastUsed  time.Time
+}
+
+// loadCall lets concurrent requests for the same model share one load.
+type loadCall struct {
+	done   chan struct{}
+	runner *LLMRunner
+	err    error
 }
 
 // LoadedModel is returned by ListLoaded.
 type LoadedModel struct {
-	Model     *hub.Model
-	ExpiresAt time.Time
-	SizeVRAM  int64
+	Model       *hub.Model
+	ExpiresAt   time.Time
+	SizeVRAM    int64
+	GPULayers   int
+	TotalLayers int
+	ContextSize int
+	Embedding   bool
 }
 
 // GlobalModelManager is the singleton used by the HTTP server.
 var GlobalModelManager = newModelManager()
 
 func newModelManager() *ModelManager {
-	m := &ModelManager{entries: make(map[string]*managedEntry)}
+	m := &ModelManager{entries: map[string]*managedEntry{}, loading: map[string]*loadCall{}}
+	RegisterGPUEvictor("chat", m.UnloadAll)
 	go m.evictLoop()
 	return m
 }
@@ -43,46 +66,102 @@ func modelKey(model *hub.Model) string {
 	return fmt.Sprintf("%s/%s:%s", model.Type, model.Name, model.Tag)
 }
 
-// modelKeyCtx keys an entry by model AND context size, so requests asking for a
-// different context size get their own warm process instead of reusing one
-// started with the wrong --ctx-size.
-func modelKeyCtx(model *hub.Model, ctxSize int) string {
-	if ctxSize <= 0 {
-		return modelKey(model)
+// maxLoaded is how many llama-servers may run at once.
+func maxLoaded() int {
+	if v, err := strconv.Atoi(os.Getenv("VORTELIO_MAX_LOADED_MODELS")); err == nil && v > 0 {
+		return v
 	}
-	return fmt.Sprintf("%s#ctx%d", modelKey(model), ctxSize)
+	return 1
 }
 
 // GetOrLoad returns a running LLMRunner, starting llama-server if needed.
 // keepAlive = 0 → DefaultKeepAliveDuration; keepAlive < 0 → never expire.
 func (m *ModelManager) GetOrLoad(model *hub.Model, hw *Hardware, keepAlive time.Duration) (*LLMRunner, error) {
-	return m.GetOrLoadWithContext(model, hw, keepAlive, 0)
+	return m.getOrLoad(model, hw, keepAlive, 0, false)
 }
 
-// GetOrLoadWithContext is like GetOrLoad but pins the llama-server to a specific
-// context size. ctxSize <= 0 means "server default". Requests with a context
-// size still reuse a warm process (keyed by model+ctxSize) instead of spawning
-// and killing llama-server on every message.
+// GetOrLoadWithContext is like GetOrLoad but pins the llama-server to a
+// context size (<= 0 = server default). A different size restarts the model.
 func (m *ModelManager) GetOrLoadWithContext(model *hub.Model, hw *Hardware, keepAlive time.Duration, ctxSize int) (*LLMRunner, error) {
+	return m.getOrLoad(model, hw, keepAlive, ctxSize, false)
+}
+
+// GetOrLoadEmbed returns a llama-server started with --embeddings for model.
+// A chat server cannot embed (llama.cpp answers null vectors), so embeddings
+// always get their own server.
+func (m *ModelManager) GetOrLoadEmbed(model *hub.Model, hw *Hardware, keepAlive time.Duration) (*LLMRunner, error) {
+	return m.getOrLoad(model, hw, keepAlive, 0, true)
+}
+
+func (m *ModelManager) getOrLoad(model *hub.Model, hw *Hardware, keepAlive time.Duration, ctxSize int, embed bool) (*LLMRunner, error) {
 	if keepAlive == 0 {
 		keepAlive = DefaultKeepAliveDuration
 	}
-	key := modelKeyCtx(model, ctxSize)
-
-	m.mu.Lock()
-	if e, ok := m.entries[key]; ok {
-		if keepAlive > 0 {
-			e.expiresAt = time.Now().Add(keepAlive)
-		} else {
-			e.expiresAt = time.Time{}
-		}
-		runner := e.runner
-		m.mu.Unlock()
-		return runner, nil
+	key := modelKey(model)
+	if embed {
+		key += "#embed"
 	}
-	m.mu.Unlock()
+
+	for {
+		m.mu.Lock()
+		if e, ok := m.entries[key]; ok {
+			sameCtx := ctxSize <= 0 || e.ctxSize == ctxSize
+			if e.runner.Alive() && sameCtx {
+				m.touchLocked(e, keepAlive)
+				r := e.runner
+				m.mu.Unlock()
+				return r, nil
+			}
+			// Crashed, or asked for another context size: reload.
+			e.runner.stopServer()
+			delete(m.entries, key)
+		}
+		if call, ok := m.loading[key]; ok {
+			m.mu.Unlock()
+			<-call.done
+			if call.err != nil {
+				return nil, call.err
+			}
+			continue // pick up the entry the other request registered
+		}
+		call := &loadCall{done: make(chan struct{})}
+		m.loading[key] = call
+		m.mu.Unlock()
+
+		r, err := m.load(model, hw, ctxSize, embed)
+
+		m.mu.Lock()
+		delete(m.loading, key)
+		if err == nil {
+			e := &managedEntry{runner: r, ctxSize: ctxSize}
+			m.touchLocked(e, keepAlive)
+			m.entries[key] = e
+		}
+		call.runner, call.err = r, err
+		close(call.done)
+		m.mu.Unlock()
+		return r, err
+	}
+}
+
+func (m *ModelManager) touchLocked(e *managedEntry, keepAlive time.Duration) {
+	e.keepAlive = keepAlive
+	e.lastUsed = time.Now()
+	if keepAlive > 0 {
+		e.expiresAt = time.Now().Add(keepAlive)
+	} else {
+		e.expiresAt = time.Time{}
+	}
+}
+
+// load frees room for one more model and starts it.
+func (m *ModelManager) load(model *hub.Model, hw *Hardware, ctxSize int, embed bool) (*LLMRunner, error) {
+	// Image/video/audio engines release the GPU first, then older models.
+	AcquireGPU("chat")
+	m.makeRoom(maxLoaded() - 1)
 
 	runner := NewLLMRunnerForServer(model, hw)
+	runner.embedding = embed
 	if ctxSize > 0 {
 		runner.SetContextSize(ctxSize)
 	}
@@ -96,41 +175,68 @@ func (m *ModelManager) GetOrLoadWithContext(model *hub.Model, hw *Hardware, keep
 			return nil, err
 		}
 	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if e, ok := m.entries[key]; ok {
-		// Another goroutine loaded the same model concurrently
-		runner.stopServer()
-		if keepAlive > 0 {
-			e.expiresAt = time.Now().Add(keepAlive)
-		}
-		return e.runner, nil
-	}
-	expiry := time.Time{}
-	if keepAlive > 0 {
-		expiry = time.Now().Add(keepAlive)
-	}
-	m.entries[key] = &managedEntry{runner: runner, expiresAt: expiry}
 	return runner, nil
 }
 
-// Unload stops a model and removes it from the manager. It removes every
-// context-size variant of the model (base key and any "…#ctxN" entries) so a
-// manual unload actually frees the VRAM.
+// makeRoom stops the least recently used models until at most keep remain.
+func (m *ModelManager) makeRoom(keep int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for len(m.entries) > keep && len(m.entries) > 0 {
+		var oldKey string
+		var old *managedEntry
+		for k, e := range m.entries {
+			if old == nil || e.lastUsed.Before(old.lastUsed) {
+				oldKey, old = k, e
+			}
+		}
+		old.runner.stopServer()
+		delete(m.entries, oldKey)
+	}
+}
+
+// revive restarts the server of a runner that was stopped while a request was
+// still using it (e.g. a media tool took the GPU between tool rounds), and
+// registers it again so it is managed and eventually unloaded.
+func (m *ModelManager) revive(r *LLMRunner) error {
+	key := modelKey(r.model)
+	if r.embedding {
+		key += "#embed"
+	}
+	AcquireGPU("chat")
+	m.mu.Lock()
+	if e, ok := m.entries[key]; ok && e.runner != r {
+		e.runner.stopServer()
+		delete(m.entries, key)
+	}
+	m.mu.Unlock()
+	m.makeRoom(maxLoaded() - 1)
+	if err := r.EnsureServer(); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	e := &managedEntry{runner: r, ctxSize: r.currentCtxSize}
+	m.touchLocked(e, DefaultKeepAliveDuration)
+	m.entries[key] = e
+	m.mu.Unlock()
+	return nil
+}
+
+// Unload stops a model (chat and embedding servers) and frees its memory.
 func (m *ModelManager) Unload(model *hub.Model) {
 	base := modelKey(model)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for key, e := range m.entries {
-		if key == base || strings.HasPrefix(key, base+"#ctx") {
+	for _, key := range []string{base, base + "#embed"} {
+		if e, ok := m.entries[key]; ok {
 			e.runner.stopServer()
 			delete(m.entries, key)
 		}
 	}
 }
 
-// UnloadAll stops every running llama-server (e.g. before replacing llama.cpp).
+// UnloadAll stops every running llama-server (e.g. before replacing llama.cpp,
+// or when an image/video/audio engine needs the GPU).
 func (m *ModelManager) UnloadAll() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -153,16 +259,25 @@ func (m *ModelManager) updateLlamaForNewModel(hw *Hardware) bool {
 	return err == nil
 }
 
-// ListLoaded returns all currently loaded models with expiry info.
+// ListLoaded returns all currently loaded models with expiry and placement.
 func (m *ModelManager) ListLoaded() []LoadedModel {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var result []LoadedModel
 	for _, e := range m.entries {
-		result = append(result, LoadedModel{
-			Model:     e.runner.model,
-			ExpiresAt: e.expiresAt,
-		})
+		r := e.runner
+		lm := LoadedModel{
+			Model:       r.model,
+			ExpiresAt:   e.expiresAt,
+			GPULayers:   r.gpuLayers,
+			TotalLayers: r.totalLayers,
+			ContextSize: r.ctxSize,
+			Embedding:   r.embedding,
+		}
+		if r.totalLayers > 0 && r.model != nil {
+			lm.SizeVRAM = r.model.SizeBytes * int64(r.gpuLayers) / int64(r.totalLayers)
+		}
+		result = append(result, lm)
 	}
 	return result
 }
@@ -173,7 +288,8 @@ func (m *ModelManager) evictLoop() {
 		now := time.Now()
 		m.mu.Lock()
 		for key, e := range m.entries {
-			if !e.expiresAt.IsZero() && now.After(e.expiresAt) {
+			expired := !e.expiresAt.IsZero() && now.After(e.expiresAt)
+			if expired || !e.runner.Alive() {
 				e.runner.stopServer()
 				delete(m.entries, key)
 			}

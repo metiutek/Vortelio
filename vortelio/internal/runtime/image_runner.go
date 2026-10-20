@@ -26,6 +26,7 @@ func NewImageRunner(model *hub.Model, hw *Hardware) *ImageRunner {
 }
 
 func (r *ImageRunner) Run(opts *RunOptions) error {
+	AcquireGPU("image") // free VRAM held by a chat model
 	return r.run(opts, nil)
 }
 
@@ -419,6 +420,7 @@ func (r *ImageRunner) runPython(pythonBin, script string) error {
 // from the sd-cli sampling bar) on the given channel. The channel is always
 // closed before returning.
 func (r *ImageRunner) RunWithProgress(opts *RunOptions, progress chan<- ProgressEvent) error {
+	AcquireGPU("image") // free VRAM held by a chat model
 	if progress == nil {
 		return r.Run(opts)
 	}
@@ -453,6 +455,7 @@ func (r *ImageRunner) RunWithProgress(opts *RunOptions, progress chan<- Progress
 
 // GenerateToBytes runs image generation and returns the PNG bytes.
 func (r *ImageRunner) GenerateToBytes(prompt string, steps int, forceCPU bool) ([]byte, error) {
+	AcquireGPU("image") // free VRAM held by a chat model
 	tmp, err := os.CreateTemp("", "vortelio-img-*.png")
 	if err != nil {
 		return nil, err

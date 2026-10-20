@@ -13,12 +13,14 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"syscall"
 	"text/template"
 	"time"
 
+	"github.com/vortelio/vortelio/internal/gguf"
 	"github.com/vortelio/vortelio/internal/hub"
 )
 
@@ -33,7 +35,37 @@ type LLMRunner struct {
 	history        []HistEntry
 	thinkMode      bool
 	toolsEnabled   bool
+	// embedding: started with --embeddings (a separate server from chat).
+	embedding bool
+	// done is closed when the llama-server process exits.
+	done chan struct{}
+	// What the running server reported: layers on the GPU, context size and
+	// whether its chat template has a native thinking switch.
+	gpuLayers   int
+	totalLayers int
+	ctxSize     int
+	nativeThink bool
+	log         *tailBuf
 }
+
+// Alive reports whether this runner's llama-server is still running.
+func (r *LLMRunner) Alive() bool {
+	if r.apiURL == "" || r.done == nil {
+		return false
+	}
+	select {
+	case <-r.done:
+		return false
+	default:
+		return true
+	}
+}
+
+// Offload returns how many layers run on the GPU and the model's total.
+func (r *LLMRunner) Offload() (gpu, total int) { return r.gpuLayers, r.totalLayers }
+
+// Model returns the model this runner serves.
+func (r *LLMRunner) Model() *hub.Model { return r.model }
 
 // ToolEventEmitter is an optional callback for streaming tool-related events to the UI.
 type ToolEventEmitter func(eventType string, data interface{})
@@ -158,67 +190,106 @@ func (r *LLMRunner) ensureServer() error {
 		return err
 	}
 
-	// Determine GPU layers: model override > hardware auto-detect
-	autoGL := 0
-	switch r.hw.Backend {
-	case BackendCUDA:
-		// Fit as many layers as the card can actually hold (like Ollama), based on
-		// the model's size — not a flat per-VRAM number that OOMs on big models.
-		autoGL = gpuLayersForModel(r.hw.VRAM, r.model.SizeBytes)
-	case BackendMetal:
-		autoGL = 999
-	}
-	forcedGL := r.model.NumGPULayers > 0
-	forcedCPU := r.model.NumGPULayers < 0 // remembered: this model only loads on CPU here
-	if forcedGL {
-		autoGL = r.model.NumGPULayers
-	}
-	if forcedCPU {
-		autoGL = 0 // go straight to CPU — skip the slow GPU attempt
-	}
+	caps := probeLlamaCaps(srv)
 
-	ctxSize := 4096
+	// GPU placement. With --fit (llama.cpp ≥ b6xxx, on by default) llama.cpp
+	// measures the FREE memory of each device and places as many layers as fit,
+	// so Vortelio must not pass a guessed --n-gpu-layers: an explicit count turns
+	// that adjustment off. A per-model override still wins.
+	gpu := r.hw.Backend == BackendCUDA || r.hw.Backend == BackendMetal || r.hw.Backend == BackendROCm
+	forcedGL := r.model.NumGPULayers > 0
+	// Older versions remembered "this model only loads on CPU here" after one
+	// failed GPU attempt — often just VRAM held by another app at that moment.
+	// --fit sizes the load to the memory free right now, so that verdict is
+	// only honoured without it.
+	forcedCPU := r.model.NumGPULayers < 0 && !caps.Fit
+
+	ctxSize := 8192
 	if r.currentCtxSize > 0 {
 		ctxSize = r.currentCtxSize
 	}
 	if v, ok := r.model.ModelParameters["num_ctx"]; ok {
-		if n, err := fmt.Sscanf(v, "%d", new(int)); n == 1 && err == nil {
-			var parsed int
-			fmt.Sscanf(v, "%d", &parsed)
-			if parsed > 0 {
-				ctxSize = parsed
-			}
+		var parsed int
+		if n, err := fmt.Sscanf(v, "%d", &parsed); n == 1 && err == nil && parsed > 0 {
+			ctxSize = parsed
 		}
 	}
 
-	// attempt starts llama-server with nGL GPU layers and waits up to deadlineSecs
-	// for the model to become healthy. On any failure it kills the process and
-	// returns an error so the caller can retry with a safer configuration.
-	attempt := func(nGL, deadlineSecs int) error {
+	// attempt starts llama-server (on the GPU, or CPU-only when cpuOnly) and
+	// waits up to deadlineSecs for the model to become healthy. On any failure
+	// it kills the process and returns an error so the caller can retry with a
+	// safer configuration.
+	attempt := func(cpuOnly bool, deadlineSecs int) error {
 		port, err := freePort()
 		if err != nil {
 			return fmt.Errorf("could not find a free port: %w", err)
 		}
 		r.apiURL = fmt.Sprintf("http://127.0.0.1:%d", port)
 
+		r.gpuLayers = 0
 		args := []string{
 			"--model", r.model.LocalPath,
 			"--port", fmt.Sprintf("%d", port),
 			"--host", "127.0.0.1",
 			"--ctx-size", fmt.Sprintf("%d", ctxSize),
-			"--n-gpu-layers", fmt.Sprintf("%d", nGL),
 			"-np", "1",
 		}
+		switch {
+		case cpuOnly:
+			args = append(args, "--n-gpu-layers", "0")
+			if caps.Fit {
+				args = append(args, "--fit", "off")
+			}
+		case forcedGL:
+			args = append(args, "--n-gpu-layers", fmt.Sprintf("%d", r.model.NumGPULayers))
+			if caps.Fit {
+				args = append(args, "--fit", "off")
+			}
+		case caps.Fit:
+			// llama-fit-params does what --fit does inside the server, in the
+			// same time, but tells us the result: the layer count is then known
+			// (GPU/CPU split in the UI) without slow verbose server logging.
+			if n, ok := fitGPULayers(srv, r.model, ctxSize, r.hw.VRAM); ok {
+				args = append(args, "--n-gpu-layers", fmt.Sprintf("%d", n), "--fit", "off")
+				r.gpuLayers = n
+				break
+			}
+			args = append(args, "--fit", "on")
+			if caps.FitTarget {
+				args = append(args, "--fit-target", fmt.Sprintf("%d", fitTargetMiB(r.hw.VRAM)))
+			}
+		default: // old llama.cpp without --fit: estimate from the model size
+			args = append(args, "--n-gpu-layers", fmt.Sprintf("%d", gpuLayersForModel(r.hw.VRAM, r.model.SizeBytes)))
+		}
+		if r.embedding {
+			args = append(args, "--embeddings")
+			// Chat models carry no pooling type; OpenAI-style embeddings need one.
+			if caps.Pooling && needsPooling(r.model.LocalPath) {
+				args = append(args, "--pooling", "mean")
+			}
+		} else if caps.Jinja {
+			// Native chat template from the GGUF: correct prompts, tool calls
+			// and the thinking switch for every architecture.
+			args = append(args, "--jinja")
+		}
 
-		// Multimodal projector (LLaVA, BakLLaVA, etc.)
-		if r.model.MmProjPath != "" {
+		// Multimodal projector (vision)
+		if r.model.MmProjPath != "" && !r.embedding {
 			if _, statErr := os.Stat(r.model.MmProjPath); statErr == nil {
 				args = append(args, "--mmproj", r.model.MmProjPath)
 			}
 		}
-		// Flash attention
-		if mp, ok := r.model.ModelParameters["flash_attn"]; ok && (mp == "true" || mp == "1") {
-			args = append(args, "--flash-attn", "on")
+		// Flash attention (llama.cpp picks automatically unless set)
+		if mp, ok := r.model.ModelParameters["flash_attn"]; ok {
+			on := mp == "true" || mp == "1" || mp == "on"
+			switch {
+			case caps.FlashAttnValue && on:
+				args = append(args, "--flash-attn", "on")
+			case caps.FlashAttnValue:
+				args = append(args, "--flash-attn", "off")
+			case on:
+				args = append(args, "--flash-attn")
+			}
 		}
 		// mmap
 		if mp, ok := r.model.ModelParameters["use_mmap"]; ok && (mp == "false" || mp == "0") {
@@ -237,9 +308,10 @@ func (r *LLMRunner) ensureServer() error {
 		// Capture the tail of llama-server's output (it writes load errors to both
 		// stdout and stderr) so we can report the REAL failure — unsupported
 		// architecture, bad file, OOM — instead of guessing.
-		sb := &tailBuf{max: 16384}
+		sb := &tailBuf{max: 65536}
 		cmd.Stdout = sb
 		cmd.Stderr = sb
+		r.log = sb
 
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("llama-server start failed: %w\n    Path: %s", err, srv)
@@ -249,7 +321,9 @@ func (r *LLMRunner) ensureServer() error {
 		// Watch for early process exit (e.g. VRAM OOM, bad model) so we can fail
 		// over fast instead of polling /health until the deadline.
 		exited := make(chan error, 1)
-		go func() { exited <- cmd.Wait() }()
+		done := make(chan struct{})
+		r.done = done
+		go func() { exited <- cmd.Wait(); close(done) }()
 
 		// Wait until /health returns {"status":"ok"} — during loading it returns
 		// 200 {"status":"loading model"}, so we must wait for "ok" specifically.
@@ -276,6 +350,7 @@ func (r *LLMRunner) ensureServer() error {
 			json.Unmarshal(body, &health)
 			switch health.Status {
 			case "ok":
+				r.readServerInfo(sb.String())
 				return nil
 			case "error":
 				return fmt.Errorf("llama-server reported an error: %s", string(body))
@@ -291,31 +366,39 @@ func (r *LLMRunner) ensureServer() error {
 		return fmt.Errorf("timeout: model did not become ready within %ds", deadlineSecs)
 	}
 
-	// First try with the auto/forced GPU layers. Keep this window short so a model
-	// that is too big for the GPU fails over to CPU quickly instead of hanging.
 	fmt.Println("⏳  Loading model…")
-	err := attempt(autoGL, 60)
+	cpuFirst := forcedCPU || !gpu
+	deadline := 180 // partial GPU offload of a big model can take a while
+	if cpuFirst {
+		deadline = 600
+	}
+	err := attempt(cpuFirst, deadline)
 	if err == nil {
-		fmt.Println("✅  Model ready")
+		if r.model.NumGPULayers < 0 && !cpuFirst {
+			r.model.NumGPULayers = 0 // the GPU works again: forget the old CPU-only verdict
+			_ = hub.NewModelStore().Save(r.model)
+		}
+		r.printReady()
 		return nil
 	}
 
-	// If the GPU attempt failed — most often VRAM OOM on a model too large for the
-	// card — fall back to CPU so the chat still works instead of hard-failing.
-	// Slower, but it always answers. We skip CPU retry when the user forced a
-	// GPU-layer count, or when the failure is FATAL (bad file / unsupported model
-	// architecture) — CPU can't fix those, so retrying just wastes time.
+	// GPU load failed (driver OOM, a card shared with other apps…): run on the
+	// CPU so the chat still works. Not when the failure is FATAL (bad file,
+	// unknown architecture) — the CPU cannot fix those — or when the user pinned
+	// a GPU-layer count.
 	if le, ok := err.(loadError); ok && le.fatal {
 		return fmt.Errorf("%s", le.reason)
 	}
-	if autoGL > 0 && !forcedGL {
+	if !cpuFirst && !forcedGL {
 		fmt.Printf("⚠️  GPU load failed (%v).\n    Retrying on CPU — slower, but it will work…\n", err)
-		if cpuErr := attempt(0, 600); cpuErr == nil {
-			// Remember that this model only loads on CPU on this machine, so future
-			// loads skip the slow GPU attempt (no more long "Starting…" wait).
-			r.model.NumGPULayers = -1
-			_ = hub.NewModelStore().Save(r.model)
-			fmt.Println("✅  Model ready (CPU)")
+		if cpuErr := attempt(true, 600); cpuErr == nil {
+			// Without --fit, remember that this model only loads on CPU here so
+			// future loads skip the slow GPU attempt.
+			if !caps.Fit {
+				r.model.NumGPULayers = -1
+				_ = hub.NewModelStore().Save(r.model)
+			}
+			r.printReady()
 			return nil
 		} else {
 			err = cpuErr
@@ -325,13 +408,145 @@ func (r *LLMRunner) ensureServer() error {
 		return fmt.Errorf("%s", le.reason)
 	}
 	return fmt.Errorf("this model could not be loaded. Two common causes: it is too large for this machine (%s) — try a smaller model; "+
-		"or it uses a newer architecture (e.g. Gemma 3n) that the bundled llama.cpp can't read yet — update llama.cpp (run `vortelio setup`, "+
-		"or replace the binaries in ~/.vortelio/bin with a recent llama.cpp release). [%v]", r.hw.String(), err)
+		"or it uses a newer architecture that the installed llama.cpp can't read yet — update llama.cpp (Downloads → Engines, or `vortelio setup`). [%v]", r.hw.String(), err)
+}
+
+var (
+	offloadRe = regexp.MustCompile(`offloaded (\d+)/(\d+) layers to GPU`)
+	nCtxRe    = regexp.MustCompile(`n_ctx(?:_seq)?\s*=\s*(\d+)`)
+)
+
+// readServerInfo records what the freshly started server reports: GPU
+// offload, context size and whether the chat template has a thinking switch.
+func (r *LLMRunner) readServerInfo(log string) {
+	r.totalLayers, r.ctxSize = 0, 0
+	if g, err := gguf.Read(r.model.LocalPath, 0); err == nil {
+		if n, ok := g.ArchInt("block_count"); ok {
+			r.totalLayers = int(n) + 1 // + output layer, as llama.cpp counts
+		}
+		if r.gpuLayers > r.totalLayers {
+			r.gpuLayers = r.totalLayers
+		}
+	}
+	if m := offloadRe.FindAllStringSubmatch(log, -1); len(m) > 0 {
+		last := m[len(m)-1]
+		fmt.Sscanf(last[1], "%d", &r.gpuLayers)
+		fmt.Sscanf(last[2], "%d", &r.totalLayers)
+	}
+	if m := nCtxRe.FindStringSubmatch(log); m != nil {
+		fmt.Sscanf(m[1], "%d", &r.ctxSize)
+	}
+	r.nativeThink = false
+	if r.embedding {
+		return
+	}
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Get(r.apiURL + "/props")
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	var props struct {
+		ChatTemplate string `json:"chat_template"`
+	}
+	if json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&props) == nil {
+		t := props.ChatTemplate
+		r.nativeThink = strings.Contains(t, "enable_thinking") || strings.Contains(t, "<think>") ||
+			strings.Contains(t, "reasoning_content") || strings.Contains(t, "thinking")
+	}
+}
+
+// needsPooling reports whether a GGUF declares no pooling (chat models), so
+// an embedding server must be told how to pool token vectors.
+func needsPooling(path string) bool {
+	g, err := gguf.Read(path, 0)
+	if err != nil {
+		return true
+	}
+	v, ok := g.ArchInt("pooling_type")
+	return !ok || v <= 0
+}
+
+var fitNGLRe = regexp.MustCompile(`(?m)-ngl (-?\d+)`)
+
+// fitGPULayers runs llama-fit-params (shipped with llama.cpp) to find how many
+// layers fit in the free VRAM, keeping fitTargetMiB free.
+func fitGPULayers(srv string, model *hub.Model, ctxSize int, vram int64) (int, bool) {
+	tool := filepath.Join(filepath.Dir(srv), "llama-fit-params")
+	if runtime.GOOS == "windows" {
+		tool += ".exe"
+	}
+	if _, err := os.Stat(tool); err != nil {
+		return 0, false
+	}
+	// The tool has no --mmproj: keep the projector's room (weights + ~25%
+	// for its compute buffer) free on top of the usual margin.
+	target := fitTargetMiB(vram)
+	if model.MmProjPath != "" {
+		if st, err := os.Stat(model.MmProjPath); err == nil {
+			target += st.Size() / (1 << 20) * 5 / 4
+		}
+	}
+	args := []string{"--model", model.LocalPath, "--ctx-size", fmt.Sprintf("%d", ctxSize), "-np", "1",
+		"--fit-target", fmt.Sprintf("%d", target)}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, tool, args...)
+	cmd.Dir = filepath.Dir(tool)
+	HideWindow(cmd)
+	out, err := cmd.Output()
+	if err != nil {
+		return 0, false
+	}
+	m := fitNGLRe.FindSubmatch(out)
+	if m == nil {
+		return 0, false
+	}
+	var n int
+	fmt.Sscanf(string(m[1]), "%d", &n)
+	if n < 0 {
+		n = 999 // "-ngl -1": every layer fits
+	}
+	return n, true
+}
+
+// fitTargetMiB is the free VRAM --fit leaves: ~8% of the card, 256–1024 MiB.
+// llama.cpp's default (1 GiB) costs a third of the layers on a 4 GB card
+// (measured on a GTX 1650 with qwen3.5:4b: 22/33 layers, 7.8 tok/s → 32/33,
+// 28 tok/s).
+func fitTargetMiB(vram int64) int64 {
+	mib := vram / (1 << 20) * 8 / 100
+	if mib < 256 {
+		mib = 256
+	}
+	if mib > 1024 {
+		mib = 1024
+	}
+	return mib
+}
+
+func (r *LLMRunner) printReady() {
+	switch {
+	case r.totalLayers > 0 && r.gpuLayers >= r.totalLayers:
+		fmt.Printf("✅  Model ready (GPU, %d layers)\n", r.totalLayers)
+	case r.totalLayers > 0 && r.gpuLayers > 0:
+		fmt.Printf("✅  Model ready (%d/%d layers on GPU, rest on CPU)\n", r.gpuLayers, r.totalLayers)
+	case r.totalLayers > 0:
+		fmt.Println("✅  Model ready (CPU)")
+	default:
+		fmt.Println("✅  Model ready")
+	}
 }
 
 func (r *LLMRunner) stopServer() {
 	if r.proc != nil && r.proc.Process != nil {
 		r.proc.Process.Kill()
+		// Wait for the exit so its VRAM is really free before the next load.
+		if r.done != nil {
+			select {
+			case <-r.done:
+			case <-time.After(10 * time.Second):
+			}
+		}
 		r.proc = nil
 	}
 	r.apiURL = ""
@@ -985,7 +1200,13 @@ func (r *LLMRunner) EmbedBatch(inputs []string) ([][]float64, error) {
 					embs[d.Index] = d.Embedding
 				}
 			}
-			return embs, nil
+			complete := true
+			for _, e := range embs {
+				complete = complete && len(e) > 0
+			}
+			if complete {
+				return embs, nil
+			}
 		}
 	}
 
@@ -1004,6 +1225,9 @@ func (r *LLMRunner) EmbedBatch(inputs []string) ([][]float64, error) {
 		}
 		if err := json.Unmarshal(b2data, &res2); err != nil {
 			return nil, fmt.Errorf("embedding decode failed: %w", err)
+		}
+		if len(res2.Embedding) == 0 {
+			return nil, fmt.Errorf("llama-server returned no embedding (HTTP %d): %s", r2.StatusCode, strings.TrimSpace(string(b2data[:min(len(b2data), 300)])))
 		}
 		results = append(results, res2.Embedding)
 	}
@@ -1034,6 +1258,16 @@ type StreamOpts struct {
 	// ToolResultLimit caps each tool result fed back to the model, in bytes
 	// (0 = 2000). Coding agents raise it so whole files fit.
 	ToolResultLimit int
+	// Stats, when set, receives token counts and timings (Ollama eval_* fields).
+	Stats *GenStats
+}
+
+// GenStats are the token counts and timings llama-server reports.
+type GenStats struct {
+	PromptTokens   int
+	PromptDuration time.Duration
+	EvalTokens     int
+	EvalDuration   time.Duration
 }
 
 // applyModelfileTemplate renders an Ollama-style TEMPLATE with the given StreamOpts.
@@ -1277,7 +1511,9 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 		} else if r.model.SystemOverride != "" {
 			sysPrompt = r.model.SystemOverride
 		}
-		if sopts.Think {
+		// Models with a native thinking switch get it through the chat template
+		// (below); only plain models are asked to reason in <think> tags.
+		if sopts.Think && !r.nativeThink {
 			sysPrompt += " Before answering, reason step by step enclosed in <think> and </think> tags, then provide your final answer."
 		}
 		if sopts.ToolsEnabled {
@@ -1328,6 +1564,13 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 		maxToolRounds = sopts.MaxToolRounds
 	}
 	for round := 0; round < maxToolRounds; round++ {
+		// A tool (e.g. image generation) may have freed the GPU by stopping this
+		// server between rounds: start it again before continuing.
+		if !r.Alive() {
+			if err := GlobalModelManager.revive(r); err != nil {
+				return err
+			}
+		}
 		// On the final round, force a text answer (no tools) so the model can't
 		// keep calling tools forever and return an empty response.
 		lastRound := round == maxToolRounds-1
@@ -1337,6 +1580,12 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 			"temperature":    temp,
 			"repeat_penalty": repPen,
 			"stream":         true,
+		}
+		if r.nativeThink {
+			// Qwen3/3.5, GLM, DeepSeek, Gemma…: honour the Think toggle instead
+			// of letting the model always reason (which, with a token cap,
+			// can leave the answer empty).
+			payload["chat_template_kwargs"] = map[string]interface{}{"enable_thinking": sopts.Think}
 		}
 		if maxTok > 0 {
 			payload["max_tokens"] = maxTok
@@ -1435,7 +1684,8 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 		finishReason := ""
 
 		sc := bufio.NewScanner(resp.Body)
-		sc.Buffer(make([]byte, 64*1024), 64*1024)
+		// One SSE line can carry a whole tool call (e.g. a file to write).
+		sc.Buffer(make([]byte, 64*1024), 16<<20)
 		for sc.Scan() {
 			line := sc.Text()
 			if !strings.HasPrefix(line, "data: ") {
@@ -1446,6 +1696,12 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 				break
 			}
 			var chunk struct {
+				Timings *struct {
+					PromptN     int     `json:"prompt_n"`
+					PromptMS    float64 `json:"prompt_ms"`
+					PredictedN  int     `json:"predicted_n"`
+					PredictedMS float64 `json:"predicted_ms"`
+				} `json:"timings"`
 				Choices []struct {
 					Delta struct {
 						Content string `json:"content"`
@@ -1469,6 +1725,13 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 			}
 			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 				continue
+			}
+			if chunk.Timings != nil && sopts.Stats != nil {
+				t := chunk.Timings
+				sopts.Stats.PromptTokens += t.PromptN
+				sopts.Stats.PromptDuration += time.Duration(t.PromptMS * float64(time.Millisecond))
+				sopts.Stats.EvalTokens += t.PredictedN
+				sopts.Stats.EvalDuration += time.Duration(t.PredictedMS * float64(time.Millisecond))
 			}
 			if len(chunk.Choices) == 0 {
 				continue

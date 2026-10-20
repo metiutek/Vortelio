@@ -20,6 +20,7 @@ func NewThreeDRunner(model *hub.Model, hw *Hardware) *ThreeDRunner {
 }
 
 func (r *ThreeDRunner) Run(opts *RunOptions) error {
+	AcquireGPU("3d") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
 		return fmt.Errorf("Python 3 not found — needed for 3D models\n  Install Python 3.10+ from https://python.org/downloads")
@@ -352,6 +353,7 @@ func (r *ThreeDRunner) runPythonProg(pythonBin, script string, onProgress func(P
 
 // RunWithProgress for 3D
 func (r *ThreeDRunner) RunWithProgress(opts *RunOptions, progress chan<- ProgressEvent) error {
+	AcquireGPU("3d") // free VRAM held by a chat model
 	if progress != nil {
 		progress <- ProgressEvent{Percent: 5, Message: "Starting 3D generation..."}
 	}

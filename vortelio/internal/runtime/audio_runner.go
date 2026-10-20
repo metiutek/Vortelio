@@ -147,6 +147,7 @@ func (r *AudioRunner) ensureDeps(pythonBin string) {
 }
 
 func (r *AudioRunner) Run(opts *RunOptions) error {
+	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
 		return fmt.Errorf("Python 3 not found — needed for audio models\n  Install Python 3.10+ from https://python.org/downloads")
@@ -163,6 +164,7 @@ func (r *AudioRunner) Run(opts *RunOptions) error {
 }
 
 func (r *AudioRunner) RunCapture(opts *RunOptions) error {
+	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
 		return fmt.Errorf("python3 not found — install Python 3.10+")
@@ -178,6 +180,7 @@ func (r *AudioRunner) RunCapture(opts *RunOptions) error {
 }
 
 func (r *AudioRunner) RunWithProgress(opts *RunOptions, progress chan<- ProgressEvent) error {
+	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
 		if progress != nil {
@@ -389,6 +392,7 @@ func (r *AudioRunner) buildWhisperScript(opts *RunOptions) string {
 
 // TranscribeText runs Whisper on inputFile and returns the transcribed text.
 func (r *AudioRunner) TranscribeText(inputFile string) (string, error) {
+	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
 		return "", fmt.Errorf("python3 not found")
@@ -436,6 +440,7 @@ func (r *AudioRunner) TranscribeText(inputFile string) (string, error) {
 
 // TranslateText runs Whisper translate task on inputFile and returns English text.
 func (r *AudioRunner) TranslateText(inputFile string) (string, error) {
+	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
 		return "", fmt.Errorf("python3 not found")
@@ -483,6 +488,7 @@ else:
 
 // SynthesizeToBytes runs TTS on text and returns the WAV bytes.
 func (r *AudioRunner) SynthesizeToBytes(text string) ([]byte, error) {
+	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
 		return nil, fmt.Errorf("python3 not found")

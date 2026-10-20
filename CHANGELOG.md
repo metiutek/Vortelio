@@ -2,6 +2,22 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.95] — 2026-10-20
+### Changed
+- Local models are placed on the GPU by llama.cpp's own memory fitting (`--fit` / `llama-fit-params`), measured against the VRAM that is actually free, instead of a guess that assumed every model has 40 layers. The safety margin scales with the card (~8%, 256–1024 MiB) instead of llama.cpp's fixed 1 GiB, which on a 4 GB GPU cost a third of the layers. Measured on a GTX 1650 with qwen3.5:4b: 5.8 → 11–18 tok/s while another app shares the GPU, up to 28 tok/s with the card free.
+- Default context 8192 tokens (was 4096). Native chat templates (`--jinja`) for every model.
+- One model resident at a time: loading another model, or a different context size, first stops the previous one (`VORTELIO_MAX_LOADED_MODELS` raises the limit). Image, video, audio and 3D generation free the GPU from the chat model first; a chat that called such a tool reloads its model automatically and continues (`VORTELIO_GPU_SHARE=1` keeps everything resident).
+- GGUF downloads fetch every shard of split quants and, for chat models, the vision projector (`mmproj`), which is then used automatically. Without a quant in the reference, Q4_K_M is picked.
+- `/api/ps` reports the VRAM a model really uses.
+### Fixed
+- Think off was ignored by reasoning models (Qwen 3.5, GLM…): they kept thinking and, with a token limit, returned an empty answer. The switch now reaches the model's chat template.
+- Embeddings (`/api/embed`, `/api/embeddings`, `/v1/embeddings`, RAG) returned `null` vectors: they now run on a dedicated embedding server with mean pooling.
+- A model that once failed on the GPU (for example while another app held the VRAM) stayed on the CPU forever; it is now retried on the GPU.
+- Two simultaneous requests for a model no longer start it twice; a crashed llama-server is detected and restarted.
+- Long tool-call arguments (e.g. a whole file to write) could cut the response off silently (64 KB line limit).
+- Ollama responses now carry real `eval_count`, `eval_duration`, `prompt_eval_count` and `load_duration`.
+- GGUF inspection misread every key after a large vocabulary and was very slow.
+
 ## [0.3.94] — 2026-10-20
 ### Added
 - Downloads panel (sidebar → Downloads): every model and engine download is a background job. It keeps going when the page is closed, resumes by itself after Vortelio restarts, and can be paused, resumed, retried or cleared. Shows size, speed and time left.

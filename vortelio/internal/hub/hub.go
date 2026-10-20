@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -442,13 +443,29 @@ func fetchHFModelInfoCtx(ctx context.Context, owner, repo string) (*hfModelInfo,
 func pickFile(files []hfFileInfo, fileHint string) (hfFileInfo, error) {
 	hint := strings.ToLower(fileHint)
 
-	// If a hint is given, try to match by name first across ALL file types
+	// If a hint is given, try to match by name first across ALL file types.
+	// A vision projector only matches when asked for by name, and of a sharded
+	// quant the first shard is returned (planGGUF adds the others).
 	if hint != "" {
-		for _, f := range files {
-			if strings.Contains(strings.ToLower(f.Rfilename), hint) {
-				return f, nil
+		var match *hfFileInfo
+		for i := range files {
+			f := &files[i]
+			name := strings.ToLower(f.Rfilename)
+			if !strings.Contains(name, hint) || (isMmproj(name) && !strings.Contains(hint, "mmproj")) {
+				continue
+			}
+			if m := shardRe.FindStringSubmatch(f.Rfilename); m != nil && m[2] != "00001" {
+				continue
+			}
+			if match == nil {
+				match = f
 			}
 		}
+		if match != nil {
+			return *match, nil
+		}
+	} else if f, ok := preferredGGUF(files); ok {
+		return f, nil
 	}
 
 	// Priority order for model weights
@@ -884,6 +901,11 @@ func (d *Downloader) Pull(ref *ModelRef, progress ProgressCallback) error {
 					want = f
 				}
 			}
+			if want.Rfilename != "" && isGGUF(want.Rfilename) {
+				plan := planGGUF(info.Files, want, ref.Type == "llm")
+				return d.pullGGUFPlan(ref, parts[0], parts[1], plan, entry.Format, entry.Params, entry.License,
+					entry.ChatTemplate, entry.StopTokens, progress)
+			}
 		}
 	}
 	if d.alreadyDownloaded(destFile, want.Size) {
@@ -1071,6 +1093,11 @@ func (d *Downloader) pullHFDirect(ref *ModelRef, progress ProgressCallback) erro
 	chosen, err := pickFile(info.Files, hfd.FileHint)
 	if err != nil {
 		return err
+	}
+	if isGGUF(chosen.Rfilename) {
+		chatTemplate, stopTokens := detectChatTemplate(hfd.Repo)
+		plan := planGGUF(info.Files, chosen, ref.Type == "llm")
+		return d.pullGGUFPlan(ref, hfd.Owner, hfd.Repo, plan, "gguf", "", "vedi HuggingFace", chatTemplate, stopTokens, progress)
 	}
 
 	// Get file size: HF API sometimes returns 0, so fall back to HEAD request
@@ -1322,6 +1349,41 @@ func (d *Downloader) prepareDestDir(ref *ModelRef, filename string) (dir, file s
 	}
 	file = filepath.Join(dir, filename)
 	return
+}
+
+// pullGGUFPlan downloads a GGUF model (all shards, plus the vision projector
+// when the repo has one) and writes its manifest.
+func (d *Downloader) pullGGUFPlan(ref *ModelRef, owner, repo string, plan ggufPlan, format, params, license, chatTemplate string, stopTokens []string, progress ProgressCallback) error {
+	dir := filepath.Join(config.HomeDir(), "models", ref.Type, ref.Name, ref.Tag)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	fmt.Printf("📄  %s", plan.Shards[0].Rfilename)
+	if len(plan.Shards) > 1 {
+		fmt.Printf(" (+%d shards)", len(plan.Shards)-1)
+	}
+	if plan.Mmproj != nil {
+		fmt.Printf(" + vision projector %s", path.Base(plan.Mmproj.Rfilename))
+	}
+	fmt.Printf(" — %.2f GB\n", float64(plan.size())/1e9)
+	mainPath, mmprojPath, err := d.fetchGGUF(owner, repo, dir, plan, progress)
+	if err != nil {
+		return err
+	}
+	if format == "" {
+		format = "gguf"
+	}
+	if err := d.saveManifest(ref, dir, mainPath, format, params, license,
+		fmt.Sprintf("https://huggingface.co/%s/%s", owner, repo), chatTemplate, stopTokens); err != nil {
+		return err
+	}
+	if mmprojPath != "" {
+		if m, err := d.store.Resolve(ref); err == nil {
+			m.MmProjPath = mmprojPath
+			return d.store.Save(m)
+		}
+	}
+	return nil
 }
 
 func (d *Downloader) context() context.Context {

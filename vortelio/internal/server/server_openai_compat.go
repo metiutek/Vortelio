@@ -532,7 +532,7 @@ func handleOpenAIEmbeddings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hw := getHardware()
-	runner, err := runtime.GlobalModelManager.GetOrLoad(model, hw, 0)
+	runner, err := runtime.GlobalModelManager.GetOrLoadEmbed(model, hw, 0)
 	if err != nil {
 		jsonError(w, 500, err.Error())
 		return

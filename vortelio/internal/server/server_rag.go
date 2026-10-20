@@ -212,7 +212,7 @@ func resolveRunner(modelName string) (*runtime.LLMRunner, error) {
 	if err != nil {
 		return nil, err
 	}
-	return runtime.GlobalModelManager.GetOrLoad(m, getHardware(), 5*time.Minute)
+	return runtime.GlobalModelManager.GetOrLoadEmbed(m, getHardware(), 5*time.Minute)
 }
 
 func cosineSim(a, b []float64) float64 {

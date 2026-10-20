@@ -343,7 +343,11 @@ func handleGenerateLLM(w http.ResponseWriter, r *http.Request, model *hub.Model,
 	// failures under VRAM/port contention.
 	ka := parseKeepAlive(req.KeepAlive)
 	var loadErr error
+	reqStart := time.Now()
 	llmRunner, loadErr = runtime.GlobalModelManager.GetOrLoadWithContext(model, hw, ka, req.ContextSize)
+	loadDur := time.Since(reqStart)
+	var stats runtime.GenStats
+	sopts.Stats = &stats
 	if loadErr != nil {
 		jsonError(w, 500, loadErr.Error())
 		return
@@ -362,6 +366,7 @@ func handleGenerateLLM(w http.ResponseWriter, r *http.Request, model *hub.Model,
 			"response": response.String(), "done": true, "done_reason": "stop",
 			"context": newCtx,
 		}
+		addGenStats(obj, &stats, loadDur, reqStart)
 		if thinkBuf.Len() > 0 {
 			obj["thinking"] = thinkBuf.String()
 		}
@@ -398,6 +403,7 @@ func handleGenerateLLM(w http.ResponseWriter, r *http.Request, model *hub.Model,
 		"response": "", "done": true, "done_reason": "stop",
 		"context": newCtx,
 	}
+	addGenStats(doneObj, &stats, loadDur, reqStart)
 	if thinkBuf.Len() > 0 {
 		doneObj["thinking"] = thinkBuf.String()
 	}

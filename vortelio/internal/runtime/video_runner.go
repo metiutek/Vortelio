@@ -21,6 +21,7 @@ func NewVideoRunner(model *hub.Model, hw *Hardware) *VideoRunner {
 }
 
 func (r *VideoRunner) Run(opts *RunOptions) error {
+	AcquireGPU("video") // free VRAM held by a chat model
 	if opts.Prompt == "" {
 		return fmt.Errorf("a text prompt is required for video generation\n  Example: vortelio run video/wan:1.3b \"a flying cat\"")
 	}
@@ -371,6 +372,7 @@ func (r *VideoRunner) runPythonScriptProg(script string, onProgress func(Progres
 
 // RunWithProgress for video — streams VORTELIO_PROGRESS lines as channel events
 func (r *VideoRunner) RunWithProgress(opts *RunOptions, progress chan<- ProgressEvent) error {
+	AcquireGPU("video") // free VRAM held by a chat model
 	if opts.Prompt == "" {
 		if progress != nil {
 			close(progress)

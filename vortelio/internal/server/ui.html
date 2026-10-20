@@ -1198,6 +1198,47 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 .hist-item:hover, .hist-item.active { background: var(--bg3); }
 .sidebar-foot { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 1px; }
 .nav-update { color: var(--accent) !important; font-weight: 600; }
+/* ── Audio studio ─────────────────────────────────────────────────────── */
+#ws-audio .panel-inner { max-width: 900px; }
+.au-sub { color: var(--text2); font-size: 14px; margin: -14px 0 18px; }
+.au-tabs { display: flex; gap: 2px; background: var(--bg3); border-radius: 12px; padding: 3px; overflow-x: auto; scrollbar-width: none; margin-bottom: 18px; }
+.au-tabs::-webkit-scrollbar { display: none; }
+.au-tab { border: none; background: transparent; color: var(--text2); font: inherit; font-size: 13px; padding: 7px 13px; border-radius: 9px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.au-tab.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.au-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 14px; background: var(--bg); }
+.au-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.au-label { font-size: 12.5px; color: var(--text2); font-weight: 500; margin-bottom: 6px; display: block; }
+.au-field { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.au-card select, .au-card textarea, .au-card input[type=text] { border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 9px 11px; font: inherit; font-size: 14px; background: var(--bg); color: var(--text); width: 100%; }
+.au-card textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+.au-hint { font-size: 12.5px; color: var(--text3); line-height: 1.45; }
+.au-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 13.5px; padding: 8px 14px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.au-btn:hover { background: var(--bg3); }
+.au-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.au-btn.primary:hover { filter: brightness(1.06); }
+.au-btn:disabled { opacity: .55; cursor: default; }
+.au-btn.rec { color: #dc2626; border-color: rgba(220,38,38,.4); }
+.au-input { border: 1px dashed var(--border2); border-radius: var(--radius-sm); padding: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.au-input audio { height: 36px; flex: 1; min-width: 200px; }
+.au-input .au-fname { font-size: 13px; color: var(--text2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.au-install { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--bg2); }
+.au-install .au-iname { font-weight: 600; font-size: 14px; }
+.au-install .au-idesc { font-size: 12.5px; color: var(--text2); }
+.au-results { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.au-res { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.au-res-head { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text2); flex-wrap: wrap; }
+.au-res-head b { color: var(--text); font-weight: 600; }
+.au-res audio { width: 100%; height: 38px; }
+.au-res .au-text { white-space: pre-wrap; font-size: 14px; line-height: 1.55; background: var(--bg2); border-radius: 8px; padding: 10px; }
+.au-stems { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+.au-stem { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text2); text-transform: capitalize; }
+.au-spin { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: au-spin .8s linear infinite; display: inline-block; }
+@keyframes au-spin { to { transform: rotate(360deg); } }
+.au-range { display: flex; align-items: center; gap: 10px; }
+.au-range input { flex: 1; accent-color: var(--accent); }
+.au-err { color: #dc2626; font-size: 13px; }
+@media (max-width: 600px) { #ws-audio .panel-inner { padding: 20px 16px; } .au-card { padding: 14px; } }
+
 /* ── Downloads panel (background jobs: models + engines) ─────────────── */
 .dl-badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 6px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; display: none; align-items: center; justify-content: center; }
 .dl-badge.on { display: inline-flex; }
@@ -1334,7 +1375,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
     <button class="nav-item active" id="nav-chat" onclick="studio('chat')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.8 7.2L3 20l1.4-4.6A8.4 8.4 0 1 1 21 11.5z"/></svg> Chat</button>
     <button class="nav-item" id="nav-image" onclick="studio('image')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/></svg> Images</button>
     <button class="nav-item" id="nav-video" onclick="studio('video')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="3"/><path d="m16 10.5 6-3.5v10l-6-3.5"/></svg> Video</button>
-    <button class="nav-item" id="nav-audio" onclick="studio('audio')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Audio &amp; music</button>
+    <button class="nav-item" id="nav-audio" onclick="audioStudio()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Audio &amp; music</button>
     <button class="nav-item" id="nav-threed" onclick="studio('threed')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg> 3D</button>
 
     <div class="nav-divider"></div>
@@ -1608,6 +1649,17 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
         </div>
       </div>
       <div id="mlist"></div>
+    </div>
+  </div>
+
+  <!-- AUDIO STUDIO PANEL -->
+  <div class="panel" id="ws-audio">
+    <div class="panel-inner">
+      <div class="panel-title">Audio studio</div>
+      <div class="au-sub">Voices, music and sound — all generated on your computer, no Python needed.</div>
+      <div class="au-tabs" id="au-tabs"></div>
+      <div id="au-body"></div>
+      <div class="au-results" id="au-results"></div>
     </div>
   </div>
 
@@ -6626,8 +6678,9 @@ function _showPanel(name) {
   if (name === 'cloud')    { cloudPanelEnter(); }
   if (name === 'tools')    { populateToolModelSelects(); switchToolTab('rag'); }
   if (name === 'crewai')   crewRefreshList();
+  if (name === 'audio')    auEnter();
   // Update topbar context
-  const titles = {chat:'Chat', models:'Installed models', registry:'Download models', agents:'AI Agents', agent:'Agent chat', cloud:'☁️ Cloud Models', tools:'🔧 Advanced Tools', crewai:'🤖 CrewAI'};
+  const titles = {chat:'Chat', models:'Installed models', registry:'Download models', agents:'AI Agents', agent:'Agent chat', cloud:'☁️ Cloud Models', tools:'🔧 Advanced Tools', crewai:'🤖 CrewAI', audio:'Audio studio'};
   const ttEl = document.getElementById('topbar-title');
   if (ttEl) ttEl.textContent = titles[name] || 'Vortelio';
   // Save button only visible in chat panel when there are messages
@@ -10145,6 +10198,318 @@ if (document.readyState === "loading") {
     </button>
   </div>
 </div>
+<script>
+// ── Audio studio ───────────────────────────────────────────────────────────
+// Native audio models (audio.cpp / whisper.cpp) through /api/audio/*. Audio
+// inputs are decoded by the browser (any format it plays) and sent as WAV.
+const AU = { tab: 'speak', cat: null, models: [], inputs: {}, busy: false, rec: null, results: {} };
+const AU_TABS = [
+  { id: 'speak', label: 'Speak', task: 'tts' },
+  { id: 'clone', label: 'Clone a voice', task: 'clone' },
+  { id: 'edit', label: 'Edit speech', task: 'edit' },
+  { id: 'music', label: 'Music', task: 'music' },
+  { id: 'sfx', label: 'Sound effects', task: 'sfx' },
+  { id: 'separate', label: 'Separate tracks', task: 'sep' },
+  { id: 'transcribe', label: 'Transcribe', task: 'asr' },
+];
+const AU_LANG = { a: 'English (US)', b: 'English (UK)', i: 'Italian', e: 'Spanish', f: 'French', p: 'Portuguese', h: 'Hindi', j: 'Japanese', z: 'Chinese' };
+
+function audioStudio() {
+  if (appMode === 'agent') setAppMode('assistant');
+  showPanel('audio');
+  clearNavActive();
+  document.getElementById('nav-audio')?.classList.add('active');
+}
+async function auEnter() { auRenderTabs(); auRender(); await auLoad(); }
+async function auLoad() {
+  try {
+    const d = await (await fetch('/api/audio/catalog')).json();
+    AU.cat = d.catalog || []; AU.models = d.models || []; AU.ffmpeg = d.ffmpeg;
+  } catch { AU.cat = AU.cat || []; }
+  auRender();
+}
+function auTask() { return AU_TABS.find(t => t.id === AU.tab).task; }
+function auModelsFor(task) { return AU.models.filter(m => (m.tasks || []).includes(task)); }
+function auRenderTabs() {
+  document.getElementById('au-tabs').innerHTML = AU_TABS.map(t =>
+    `<button class="au-tab${t.id === AU.tab ? ' active' : ''}" onclick="auSetTab('${t.id}')">${t.label}</button>`).join('');
+}
+function auSetTab(id) { AU.tab = id; auRenderTabs(); auRender(); }
+
+function auModelSelect(task) {
+  const ms = auModelsFor(task);
+  const key = 'au-model-' + task;
+  let saved = ''; try { saved = localStorage.getItem(key) || ''; } catch {}
+  const sel = ms.find(m => m.ref === saved) ? saved : (ms[0] && ms[0].ref);
+  return `<div class="au-field"><label class="au-label">Model</label><select id="au-model" onchange="try{localStorage.setItem('${key}',this.value)}catch{};auRender()">` +
+    ms.map(m => `<option value="${esc(m.ref)}"${m.ref === sel ? ' selected' : ''}>${esc(m.name)}</option>`).join('') + '</select></div>';
+}
+function auCurrentModel() {
+  const id = document.getElementById('au-model')?.value;
+  return AU.models.find(m => m.ref === id);
+}
+
+// Install suggestions for a task (shown when nothing installed can do it).
+function auInstallHTML(task) {
+  const rows = (AU.cat || []).filter(e => (e.tasks || []).includes(task) && !e.installed);
+  if (!rows.length) return '';
+  const job = ref => Object.values(DL.jobs).find(j => j.meta && j.meta.model === ref && dlActive(j));
+  return rows.map(e => {
+    const j = job(e.ref);
+    const btn = j ? `<button class="au-btn" disabled><span class="au-spin"></span> ${j.total ? Math.floor(j.done * 100 / j.total) + '%' : 'Starting…'}</button>`
+                  : `<button class="au-btn primary" onclick="auInstall('${e.ref}')">Install · ${dlFmtBytes(e.size_bytes)}</button>`;
+    return `<div class="au-install"><div style="flex:1;min-width:200px"><div class="au-iname">${esc(e.name)}${e.recommended ? ' <span class="dl-state ok" style="margin-left:6px">Recommended</span>' : ''}</div>
+      <div class="au-idesc">${esc(e.description)}</div><div class="au-hint">Languages: ${esc(e.languages)} · License: ${esc(e.license)}</div></div>${btn}</div>`;
+  }).join('');
+}
+async function auInstall(ref) {
+  try { await dlPost('/api/downloads/start', { model: ref }); toast('Downloading… it keeps going even if you leave this page'); }
+  catch (e) { toast('❌ ' + e.message, 'err'); }
+  setTimeout(auRender, 400);
+}
+
+function auInputHTML(slot, hint) {
+  const inp = AU.inputs[slot];
+  const rec = AU.rec && AU.rec.slot === slot;
+  return `<div class="au-field"><label class="au-label">${hint}</label><div class="au-input">
+    ${inp ? `<span class="au-fname">${esc(inp.name)} · ${inp.seconds.toFixed(1)} s</span><audio controls src="${inp.url}"></audio>
+             <button class="au-btn" onclick="auClearInput('${slot}')">Remove</button>`
+          : `<button class="au-btn" onclick="auPick('${slot}')">Upload audio</button>
+             <button class="au-btn${rec ? ' rec' : ''}" onclick="auRecord('${slot}')">${rec ? '■ Stop recording' : '● Record'}</button>
+             <span class="au-hint">Any format: mp3, wav, m4a, ogg…</span>`}
+  </div></div>`;
+}
+
+function auRender() {
+  const body = document.getElementById('au-body');
+  if (!body) return;
+  // Re-rendering must not lose what the user typed.
+  const keep = {};
+  body.querySelectorAll('textarea[id], input[type=text][id], input[type=range][id], select[id]').forEach(e => { if (e.id !== 'au-model') keep[e.id] = e.value; });
+  if (AU.keepTab !== AU.tab) { AU.keepTab = AU.tab; for (const k in keep) delete keep[k]; }
+  const skip = AU.skipRestore || []; AU.skipRestore = null;
+  setTimeout(() => {
+    for (const [id, v] of Object.entries(keep)) {
+      const e = document.getElementById(id);
+      if (e && v !== '' && !skip.includes(id)) { e.value = v; if (e.type === 'range') e.dispatchEvent(new Event('input')); }
+    }
+  }, 0);
+  if (!AU.cat) { body.innerHTML = '<div class="au-card"><div class="au-hint">Loading…</div></div>'; return; }
+  const task = auTask();
+  const ms = auModelsFor(task);
+  let html = '<div class="au-card">';
+  if (!ms.length) {
+    html += `<div class="au-hint">Install a model for this. It downloads in the background (Downloads panel) and runs offline afterwards.</div>` + auInstallHTML(task) + '</div>';
+    body.innerHTML = html; auRenderResults(); return;
+  }
+  html += `<div class="au-row">${auModelSelect(task)}</div>`;
+  const m = (() => { const saved = (() => { try { return localStorage.getItem('au-model-' + task); } catch { return null; } })(); return ms.find(x => x.ref === saved) || ms[0]; })();
+  switch (AU.tab) {
+    case 'speak': {
+      const voices = m.voices || [];
+      const groups = {};
+      voices.forEach(v => { const g = AU_LANG[v[0]] || 'Other'; (groups[g] = groups[g] || []).push(v); });
+      let vsaved = ''; try { vsaved = localStorage.getItem('au-voice') || ''; } catch {}
+      const vsel = voices.includes(vsaved) ? vsaved : (m.default_voice || voices[0] || '');
+      const vname = v => v.slice(3).replace(/^\w/, c => c.toUpperCase()) + (v[1] === 'f' ? ' (female)' : v[1] === 'm' ? ' (male)' : '');
+      html += `<div class="au-field"><label class="au-label">Text</label><textarea id="au-text" placeholder="Type what the voice should say…">${esc(AU.draft?.speak || '')}</textarea></div>`;
+      if (voices.length) html += `<div class="au-row"><div class="au-field"><label class="au-label">Voice</label><select id="au-voice" onchange="try{localStorage.setItem('au-voice',this.value)}catch{}">` +
+        Object.entries(groups).map(([g, vs]) => `<optgroup label="${g}">` + vs.map(v => `<option value="${v}"${v === vsel ? ' selected' : ''}>${esc(vname(v))}</option>`).join('') + '</optgroup>').join('') + '</select></div></div>';
+      html += auGoButton('Generate speech');
+      break;
+    }
+    case 'clone':
+      html += auInputHTML('clone', 'Voice to copy — a clear 5–20 s recording of one person');
+      html += `<div class="au-field"><label class="au-label">What the recording says <span class="au-hint">(optional, improves the result)</span></label><input type="text" id="au-reftext" placeholder="Exact words spoken in the recording"></div>`;
+      html += `<div class="au-field"><label class="au-label">Text to say with that voice</label><textarea id="au-text" placeholder="Type the new sentence…"></textarea></div>`;
+      html += `<div class="au-hint">Only clone voices you have permission to use.</div>` + auGoButton('Generate with this voice');
+      break;
+    case 'edit':
+      html += auInputHTML('edit', 'Recording to edit (up to 60 s)');
+      html += `<div class="au-field"><label class="au-label">What the recording says</label><textarea id="au-transcript" placeholder="Leave empty to transcribe it automatically, or click Transcribe and fix any mistake">${esc(AU.draft?.transcript || '')}</textarea></div>`;
+      html += `<div class="au-row"><button class="au-btn" onclick="auTranscribeForEdit()" ${AU.busy ? 'disabled' : ''}>Transcribe</button><span class="au-hint">Then copy the text below and change the words you want.</span></div>`;
+      html += `<div class="au-field"><label class="au-label">What it should say</label><textarea id="au-target" placeholder="The same text with your changes">${esc(AU.draft?.target || '')}</textarea></div>`;
+      html += auGoButton('Apply changes');
+      break;
+    case 'music': case 'sfx': {
+      const isMusic = AU.tab === 'music';
+      html += `<div class="au-field"><label class="au-label">${isMusic ? 'Describe the music' : 'Describe the sound'}</label><textarea id="au-text" placeholder="${isMusic ? 'e.g. calm lo-fi piano with soft drums, 80 bpm' : 'e.g. heavy rain on a tin roof with distant thunder'}"></textarea></div>`;
+      const def = isMusic ? 30 : 8;
+      html += `<div class="au-field"><label class="au-label">Length</label><div class="au-range"><input type="range" id="au-secs" min="2" max="120" value="${def}" oninput="document.getElementById('au-secs-v').textContent=this.value+' s'"><span id="au-secs-v">${def} s</span></div></div>`;
+      html += `<div class="au-hint">English descriptions work best. Instrumental only.</div>` + auGoButton(isMusic ? 'Generate music' : 'Generate sound');
+      break;
+    }
+    case 'separate':
+      html += auInputHTML('separate', 'Song to split');
+      html += `<div class="au-hint">You get four tracks: vocals, drums, bass and everything else.</div>` + auGoButton('Separate');
+      break;
+    case 'transcribe':
+      html += auInputHTML('transcribe', 'Speech to transcribe');
+      html += `<div class="au-row"><div class="au-field"><label class="au-label">Language</label><select id="au-lang"><option value="">Detect automatically</option><option value="it">Italian</option><option value="en">English</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="pt">Portuguese</option></select></div></div>`;
+      html += auGoButton('Transcribe');
+      break;
+  }
+  const extra = auInstallHTML(task);
+  if (extra) html += `<details><summary class="au-hint" style="cursor:pointer">More models for this</summary><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${extra}</div></details>`;
+  html += '</div>';
+  body.innerHTML = html;
+  auRenderResults();
+}
+function auGoButton(label) {
+  return `<div class="au-row"><button class="au-btn primary" id="au-go" onclick="auGo()" ${AU.busy ? 'disabled' : ''}>${AU.busy ? '<span class="au-spin"></span> Working…' : label}</button>
+    <span class="au-hint" id="au-status">${AU.busy ? 'The first run loads the model and can take a minute.' : ''}</span></div><div class="au-err" id="au-err"></div>`;
+}
+
+// ── inputs: upload / record → WAV ──────────────────────────────────────────
+function auPick(slot) {
+  const f = document.createElement('input');
+  f.type = 'file'; f.accept = 'audio/*,video/*';
+  f.onchange = async () => { if (f.files[0]) await auSetInput(slot, f.files[0], f.files[0].name); };
+  f.click();
+}
+async function auRecord(slot) {
+  if (AU.rec) { AU.rec.mr.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mr = new MediaRecorder(stream); const chunks = [];
+    mr.ondataavailable = e => chunks.push(e.data);
+    mr.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      AU.rec = null;
+      await auSetInput(slot, new Blob(chunks, { type: mr.mimeType }), 'Recording');
+    };
+    mr.start(); AU.rec = { mr, slot }; auRender();
+  } catch (e) { toast('❌ Microphone not available: ' + e.message, 'err'); }
+}
+async function auSetInput(slot, blob, name) {
+  try {
+    const buf = await blob.arrayBuffer();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const audio = await ctx.decodeAudioData(buf.slice(0));
+    ctx.close();
+    const wav = auEncodeWAV(audio, slot === 'separate' ? 2 : 1);
+    if (AU.inputs[slot]?.url) URL.revokeObjectURL(AU.inputs[slot].url);
+    AU.inputs[slot] = { name, seconds: audio.duration, wav, url: URL.createObjectURL(new Blob([wav], { type: 'audio/wav' })) };
+  } catch (e) { toast('❌ Cannot read this audio: ' + (e.message || e), 'err'); }
+  auRender();
+}
+function auClearInput(slot) { if (AU.inputs[slot]?.url) URL.revokeObjectURL(AU.inputs[slot].url); delete AU.inputs[slot]; auRender(); }
+function auEncodeWAV(audio, channels) {
+  const ch = Math.min(channels, audio.numberOfChannels) || 1, rate = audio.sampleRate, n = audio.length;
+  const data = [];
+  for (let c = 0; c < ch; c++) data.push(audio.getChannelData(c));
+  if (channels === 1 && audio.numberOfChannels > 1) { // downmix
+    const mix = new Float32Array(n);
+    for (let c = 0; c < audio.numberOfChannels; c++) { const d = audio.getChannelData(c); for (let i = 0; i < n; i++) mix[i] += d[i] / audio.numberOfChannels; }
+    data[0] = mix;
+  }
+  const out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); out.setUint32(4, 36 + n * ch * 2, true); w(8, 'WAVEfmt '); out.setUint32(16, 16, true);
+  out.setUint16(20, 1, true); out.setUint16(22, ch, true); out.setUint32(24, rate, true); out.setUint32(28, rate * ch * 2, true);
+  out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true); w(36, 'data'); out.setUint32(40, n * ch * 2, true);
+  let o = 44;
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const v = Math.max(-1, Math.min(1, data[c][i])); out.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7FFF, true); o += 2; }
+  return out.buffer;
+}
+function auB64(buf) {
+  const bytes = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function auBlobURL(b64, mime) {
+  const bin = atob(b64); const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([u], { type: mime || 'audio/wav' }));
+}
+
+// ── run ────────────────────────────────────────────────────────────────────
+async function auCall(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+  return d;
+}
+function auNeed(slot) {
+  const inp = AU.inputs[slot];
+  if (!inp) throw new Error('Add a recording first (upload or record).');
+  return auB64(inp.wav);
+}
+async function auTranscribeForEdit() {
+  try {
+    const audio = auNeed('edit');
+    AU.busy = true; auRender();
+    const asr = AU.models.find(m => (m.tasks || []).includes('asr'));
+    if (!asr) throw new Error('Install a transcription model (Transcribe tab) or type the words yourself.');
+    const d = await auCall('/api/audio/transcribe', { audio, model: asr.ref });
+    AU.draft = { transcript: d.text, target: d.text };
+    AU.skipRestore = ['au-transcript', 'au-target'];
+  } catch (e) { toast('❌ ' + e.message, 'err'); }
+  AU.busy = false; auRender();
+}
+async function auGo() {
+  const m = auCurrentModel(); if (!m) return;
+  const val = id => (document.getElementById(id)?.value || '').trim();
+  let path, body, label;
+  try {
+    switch (AU.tab) {
+      case 'speak':
+        if (!val('au-text')) throw new Error('Type some text first.');
+        path = '/api/audio/speech'; body = { model: m.ref, text: val('au-text'), voice: val('au-voice') }; label = val('au-text');
+        AU.draft = { ...(AU.draft || {}), speak: val('au-text') };
+        break;
+      case 'clone':
+        if (!val('au-text')) throw new Error('Type the text to say.');
+        path = '/api/audio/speech'; body = { model: m.ref, text: val('au-text'), ref_audio: auNeed('clone'), ref_text: val('au-reftext') }; label = val('au-text');
+        break;
+      case 'edit':
+        if (!val('au-target')) throw new Error('Write what the recording should say.');
+        path = '/api/audio/edit'; body = { model: m.ref, audio: auNeed('edit'), transcript: val('au-transcript'), target: val('au-target') }; label = val('au-target');
+        AU.draft = { transcript: val('au-transcript'), target: val('au-target') };
+        break;
+      case 'music': case 'sfx':
+        if (!val('au-text')) throw new Error('Describe what you want to hear.');
+        path = '/api/audio/generate'; body = { model: m.ref, kind: AU.tab, prompt: val('au-text'), seconds: +val('au-secs') }; label = val('au-text');
+        break;
+      case 'separate':
+        path = '/api/audio/separate'; body = { model: m.ref, audio: auNeed('separate') }; label = AU.inputs.separate.name;
+        break;
+      case 'transcribe':
+        path = '/api/audio/transcribe'; body = { model: m.ref, audio: auNeed('transcribe'), language: val('au-lang') }; label = AU.inputs.transcribe.name;
+        break;
+    }
+  } catch (e) { const el = document.getElementById('au-err'); if (el) el.textContent = e.message; return; }
+  AU.busy = true; auRender();
+  const tab = AU.tab;
+  try {
+    const d = await auCall(path, body);
+    const res = { label, model: m.name, at: new Date(), elapsed: d.elapsed };
+    if (d.stems) res.stems = d.stems.map(s => ({ name: s.name, url: auBlobURL(s.audio) }));
+    else if (d.text !== undefined && tab === 'transcribe') res.text = d.text;
+    else { res.url = auBlobURL(d.audio, d.mime); res.seconds = d.seconds; if (d.transcript) res.note = 'Recognised: ' + d.transcript; }
+    res.fresh = true;
+    (AU.results[tab] = AU.results[tab] || []).unshift(res);
+  } catch (e) {
+    AU.busy = false; auRender();
+    const el = document.getElementById('au-err'); if (el) el.textContent = typeof friendlyError === 'function' ? friendlyError(e.message) : e.message;
+    return;
+  }
+  AU.busy = false; auRender();
+}
+function auRenderResults() {
+  const el = document.getElementById('au-results'); if (!el) return;
+  const list = AU.results[AU.tab] || [];
+  const fname = (r, suffix) => 'vortelio-' + AU.tab + '-' + r.at.toISOString().slice(0, 19).replace(/[:T]/g, '-') + (suffix ? '-' + suffix : '') + '.wav';
+  const html = list.map((r, i) => {
+    const head = `<div class="au-res-head"><b>${esc(r.label.length > 80 ? r.label.slice(0, 80) + '…' : r.label)}</b><span>· ${esc(r.model)}</span>${r.seconds ? `<span>· ${r.seconds.toFixed(1)} s</span>` : ''}${r.elapsed ? `<span>· made in ${r.elapsed.toFixed(0)} s</span>` : ''}</div>`;
+    if (r.text !== undefined) return `<div class="au-res">${head}<div class="au-text">${esc(r.text) || '<i>No speech found</i>'}</div><div class="au-row"><button class="au-btn" onclick="navigator.clipboard.writeText(AU.results['${AU.tab}'][${i}].text);toast('Copied','ok')">Copy text</button></div></div>`;
+    if (r.stems) return `<div class="au-res">${head}<div class="au-stems">${r.stems.map(s => `<div class="au-stem">${esc(s.name)}<audio controls src="${s.url}"></audio><a class="au-btn" href="${s.url}" download="${fname(r, s.name)}">Download</a></div>`).join('')}</div></div>`;
+    return `<div class="au-res">${head}${r.note ? `<div class="au-hint">${esc(r.note)}</div>` : ''}<audio controls src="${r.url}"${r.fresh ? ' autoplay' : ''}></audio><div class="au-row"><a class="au-btn" href="${r.url}" download="${fname(r)}">Download</a></div></div>`;
+  }).join('');
+  el.innerHTML = html;
+  list.forEach(r => { r.fresh = false; });
+}
+</script>
 <div class="dl-panel" id="dl-panel" role="dialog" aria-label="Downloads">
   <div class="dl-head">
     <div class="dl-tabs">
@@ -10190,6 +10555,8 @@ function dlConnect() {
     const prev = DL.jobs[j.id];
     if (j.state === 'dismissed') delete DL.jobs[j.id]; else DL.jobs[j.id] = j;
     if (prev && dlActive(prev) && j.state === 'done') dlOnDone(j);
+    if (j.kind === 'model' && j.meta && j.meta.type === 'audio' && typeof auRender === 'function' &&
+        document.getElementById('ws-audio')?.classList.contains('on') && !auModelsFor(auTask()).length) auRender();
     if (prev && dlActive(prev) && j.state === 'failed') toast('❌ ' + j.title + ': ' + (j.error || 'download failed'), 'err');
     dlRender(); dlSyncCards(j);
   });
@@ -10204,6 +10571,7 @@ async function dlOnDone(j) {
   if (j.kind === 'model') {
     toast('✅ Downloaded: ' + j.title, 'ok');
     try { await refreshModels(); } catch {}
+    if (j.meta && j.meta.type === 'audio' && typeof auLoad === 'function') auLoad();
   } else if (j.kind === 'engine') {
     toast('✅ ' + j.title + ' ready', 'ok');
     dlLoadEngines();

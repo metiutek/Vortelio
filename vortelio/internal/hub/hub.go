@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -238,6 +239,15 @@ type Model struct {
 	MmProjPath      string            `json:"mmproj_path,omitempty"`      // path to multimodal projector (LLaVA)
 	NumGPULayers    int               `json:"num_gpu_layers,omitempty"`   // override auto-detected GPU layers
 	ModelParameters map[string]string `json:"model_parameters,omitempty"` // PARAMETER values from Modelfile
+	// Native media models (audio.cpp, whisper.cpp): which engine runs them and
+	// what they can do, read from the model file at download time.
+	Engine       string   `json:"engine,omitempty"`
+	Family       string   `json:"family,omitempty"`
+	Tasks        []string `json:"tasks,omitempty"`
+	Languages    []string `json:"languages,omitempty"`
+	Voices       []string `json:"voices,omitempty"`
+	DefaultVoice string   `json:"default_voice,omitempty"`
+	Description  string   `json:"description,omitempty"`
 }
 
 func (m *Model) SizeHuman() string {
@@ -326,8 +336,24 @@ func (s *ModelStore) loadManifest(path string) (*Model, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A manifest edited by hand on Windows often starts with a UTF-8 BOM, which
+	// encoding/json rejects — the model then silently disappeared.
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
 	var m Model
-	return &m, json.Unmarshal(data, &m)
+	if err := json.Unmarshal(data, &m); err != nil {
+		return &m, err
+	}
+	// Audio models downloaded before native engines existed: describe them
+	// from their file now (not saved; the manifest stays as it was).
+	if m.Type == "audio" && m.Engine == "" && m.LocalPath != "" {
+		ref := &ModelRef{Type: m.Type, Name: m.Name, Tag: m.Tag}
+		if e, ok := AudioCatalogFor(ref); ok {
+			describeAudioModel(&m, &e)
+		} else {
+			describeAudioModel(&m, nil)
+		}
+	}
+	return &m, nil
 }
 
 // ─── HF API ──────────────────────────────────────────────────────────────────
@@ -1459,6 +1485,12 @@ func (d *Downloader) saveManifest(ref *ModelRef, dir, localPath, format, params,
 		StopTokens:   stopTokens,
 		DownloadedAt: time.Now(),
 		Capabilities: capabilitiesFor(ref.Type),
+	}
+	if e, ok := AudioCatalogFor(ref); ok {
+		m.Description = e.Description
+		describeAudioModel(m, &e)
+	} else {
+		describeAudioModel(m, nil)
 	}
 	return d.store.Save(m)
 }

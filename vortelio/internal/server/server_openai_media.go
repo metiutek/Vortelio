@@ -60,7 +60,7 @@ func handleOpenAIAudioTranscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 	tmp.Close()
 
-	model, err := resolveAudioModel(modelName)
+	model, err := resolveAudioModel(modelName, hub.TaskASR)
 	if err != nil {
 		jsonError(w, 404, err.Error())
 		return
@@ -142,7 +142,7 @@ func handleOpenAIAudioTranslations(w http.ResponseWriter, r *http.Request) {
 	}
 	tmp.Close()
 
-	model, err := resolveAudioModel(modelName)
+	model, err := resolveAudioModel(modelName, hub.TaskASR)
 	if err != nil {
 		jsonError(w, 404, err.Error())
 		return
@@ -191,18 +191,29 @@ func handleOpenAIAudioSpeech(w http.ResponseWriter, r *http.Request) {
 		req.ResponseFormat = "wav"
 	}
 
-	model, err := resolveAudioModel(modelName)
+	model, err := resolveAudioModel(modelName, hub.TaskTTS)
 	if err != nil {
 		jsonError(w, 404, err.Error())
 		return
 	}
 	hw := getHardware()
-	ar := runtime.NewAudioRunner(model, hw)
-
-	data, err := ar.SynthesizeToBytes(req.Input)
+	var data []byte
+	if model.Engine != "" {
+		data, err = runtime.NativeSpeak(r.Context(), model, hw, runtime.SpeechRequest{Text: req.Input, Voice: openAIVoice(model, req.Voice)})
+	} else {
+		data, err = runtime.NewAudioRunner(model, hw).SynthesizeToBytes(req.Input)
+	}
 	if err != nil {
 		jsonError(w, 500, "synthesis failed: "+err.Error())
 		return
+	}
+	// The engines produce WAV; other formats need ffmpeg.
+	if req.ResponseFormat != "wav" && req.ResponseFormat != "pcm" {
+		if conv, cerr := transcodeAudio(r.Context(), data, req.ResponseFormat); cerr == nil {
+			data = conv
+		} else {
+			req.ResponseFormat = "wav"
+		}
 	}
 
 	mimeTypes := map[string]string{
@@ -296,29 +307,49 @@ func handleOpenAIImageGenerations(w http.ResponseWriter, r *http.Request) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-func resolveAudioModel(name string) (*hub.Model, error) {
-	if !strings.Contains(name, "/") {
+// resolveAudioModel finds the model an OpenAI-style request names; when it is
+// not installed (OpenAI clients send "tts-1", "whisper-1"…) or cannot do the
+// task, the best installed model for task is used instead.
+func resolveAudioModel(name, task string) (*hub.Model, error) {
+	if name != "" && !strings.Contains(name, "/") {
 		name = "audio/" + name
 	}
-	ref, err := hub.ParseModelRef(name)
-	if err != nil {
-		return nil, err
+	if ref, err := hub.ParseModelRef(name); err == nil {
+		if m, err := hub.NewModelStore().Resolve(ref); err == nil && (m.Engine == "" || m.HasTask(task)) {
+			return m, nil
+		}
 	}
-	store := hub.NewModelStore()
-	model, err := store.Resolve(ref)
-	if err != nil {
-		// Try fuzzy: any audio model
-		models, lerr := store.List()
-		if lerr == nil {
-			for _, m := range models {
-				if m.Type == "audio" {
-					return m, nil
-				}
+	if m, err := pickAudioModel("", task); err == nil {
+		return m, nil
+	}
+	// Legacy (Python) audio models carry no task list.
+	if models, err := hub.NewModelStore().List(); err == nil {
+		for _, m := range models {
+			if m.Type == "audio" && m.Engine == "" {
+				return m, nil
 			}
 		}
-		return nil, fmt.Errorf("audio model %q not found", name)
 	}
-	return model, nil
+	return nil, fmt.Errorf("no installed audio model can do this — install one from the Audio page")
+}
+
+// openAIVoice maps an OpenAI voice name (alloy, nova…) onto a model's voices.
+func openAIVoice(m *hub.Model, voice string) string {
+	if voice == "" || len(m.Voices) == 0 {
+		return ""
+	}
+	v := strings.ToLower(voice)
+	for _, have := range m.Voices {
+		if strings.ToLower(have) == v {
+			return have
+		}
+	}
+	for _, have := range m.Voices {
+		if strings.HasSuffix(strings.ToLower(have), "_"+v) {
+			return have
+		}
+	}
+	return ""
 }
 
 func resolveImageModel(name string) (*hub.Model, error) {

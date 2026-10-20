@@ -1,11 +1,13 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/vortelio/vortelio/internal/hub"
 )
@@ -147,6 +149,9 @@ func (r *AudioRunner) ensureDeps(pythonBin string) {
 }
 
 func (r *AudioRunner) Run(opts *RunOptions) error {
+	if r.model.Engine != "" {
+		return r.runNative(opts)
+	}
 	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
@@ -164,6 +169,9 @@ func (r *AudioRunner) Run(opts *RunOptions) error {
 }
 
 func (r *AudioRunner) RunCapture(opts *RunOptions) error {
+	if r.model.Engine != "" {
+		return r.runNative(opts)
+	}
 	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
@@ -180,6 +188,19 @@ func (r *AudioRunner) RunCapture(opts *RunOptions) error {
 }
 
 func (r *AudioRunner) RunWithProgress(opts *RunOptions, progress chan<- ProgressEvent) error {
+	if r.model.Engine != "" {
+		if progress != nil {
+			progress <- ProgressEvent{Percent: 5, Message: "Generating audio…"}
+		}
+		err := r.runNative(opts)
+		if progress != nil {
+			if err == nil {
+				progress <- ProgressEvent{Percent: 100, Message: "Done"}
+			}
+			close(progress)
+		}
+		return err
+	}
 	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
@@ -392,6 +413,9 @@ func (r *AudioRunner) buildWhisperScript(opts *RunOptions) string {
 
 // TranscribeText runs Whisper on inputFile and returns the transcribed text.
 func (r *AudioRunner) TranscribeText(inputFile string) (string, error) {
+	if r.model.Engine != "" {
+		return r.transcribeNative(inputFile)
+	}
 	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
@@ -488,6 +512,9 @@ else:
 
 // SynthesizeToBytes runs TTS on text and returns the WAV bytes.
 func (r *AudioRunner) SynthesizeToBytes(text string) ([]byte, error) {
+	if r.model.Engine != "" {
+		return NativeSpeak(context.Background(), r.model, r.hw, SpeechRequest{Text: text})
+	}
 	AcquireGPU("audio") // free VRAM held by a chat model
 	pythonBin := FindPython()
 	if pythonBin == "" {
@@ -642,4 +669,62 @@ func (r *AudioRunner) buildGenericTTSScript(opts *RunOptions) string {
 		`print("Audio saved to: " + output_path)`,
 	}
 	return strings.Join(lines, "\n") + "\n"
+}
+
+// ── native engines (audio.cpp / whisper.cpp) ──────────────────────────────
+
+// transcribeNative converts inputFile to WAV and transcribes it.
+func (r *AudioRunner) transcribeNative(inputFile string) (string, error) {
+	data, err := os.ReadFile(inputFile)
+	if err != nil {
+		return "", err
+	}
+	dir, err := os.MkdirTemp("", "vortelio-stt-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(dir)
+	wav, _, err := PrepareAudioInput(context.Background(), data, dir, 16000, 1)
+	if err != nil {
+		return "", err
+	}
+	return NativeTranscribe(context.Background(), r.model, r.hw, wav, "")
+}
+
+// runNative serves the CLI/run API: an input file is transcribed, otherwise
+// the prompt is spoken (or, for music/effect models, generated as audio).
+func (r *AudioRunner) runNative(opts *RunOptions) error {
+	ctx := context.Background()
+	if opts.InputFile != "" && r.model.HasTask(hub.TaskASR) {
+		text, err := r.transcribeNative(opts.InputFile)
+		if err != nil {
+			return err
+		}
+		fmt.Println(text)
+		if opts.OutputFile != "" {
+			return os.WriteFile(ResolveOutputPath(opts.OutputFile, "transcript.txt"), []byte(text+"\n"), 0o644)
+		}
+		return nil
+	}
+	var wav []byte
+	var err error
+	switch {
+	case r.model.HasTask(hub.TaskMusic) || r.model.HasTask(hub.TaskSFX):
+		wav, err = NativeGenerateAudio(ctx, r.model, r.hw, opts.Prompt, 0, nil)
+	case r.model.HasTask(hub.TaskTTS):
+		wav, err = NativeSpeak(ctx, r.model, r.hw, SpeechRequest{Text: opts.Prompt})
+	case r.model.HasTask(hub.TaskASR):
+		return fmt.Errorf("%s transcribes speech: pass an audio file (--input)", r.model.Name)
+	default:
+		return fmt.Errorf("%s needs inputs this command cannot give (a voice recording or a track): use the Audio page or /api/audio", r.model.Name)
+	}
+	if err != nil {
+		return err
+	}
+	out := ResolveOutputPath(opts.OutputFile, fmt.Sprintf("vortelio-audio-%d.wav", time.Now().Unix()))
+	if err := os.WriteFile(out, wav, 0o644); err != nil {
+		return err
+	}
+	fmt.Println("✅  Saved:", out)
+	return nil
 }

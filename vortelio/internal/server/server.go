@@ -186,6 +186,14 @@ func NewMux() *http.ServeMux {
 	mux.HandleFunc("/api/engines/remove", ca(handleEngineAction("remove")))
 	mux.HandleFunc("/api/hf/token", ca(handleHFToken))
 
+	// Audio studio (native audio.cpp / whisper.cpp)
+	mux.HandleFunc("/api/audio/catalog", ca(handleAudioCatalog))
+	mux.HandleFunc("/api/audio/speech", ca(withRateLimit(generateLimiter, handleAudioSpeech)))
+	mux.HandleFunc("/api/audio/generate", ca(withRateLimit(generateLimiter, handleAudioGenerate)))
+	mux.HandleFunc("/api/audio/edit", ca(withRateLimit(generateLimiter, handleAudioEdit)))
+	mux.HandleFunc("/api/audio/separate", ca(withRateLimit(generateLimiter, handleAudioSeparate)))
+	mux.HandleFunc("/api/audio/transcribe", ca(withRateLimit(generateLimiter, handleAudioTranscribe)))
+
 	// Generate (rate limited)
 	mux.HandleFunc("/api/generate", ca(withRateLimit(generateLimiter, handleGenerate)))
 

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -38,8 +39,10 @@ func (m *mediaProvider) Tools() []rt.ToolDef {
 			`{"type":"object","properties":{"prompt":{"type":"string","description":"What to draw."},"model":{"type":"string","description":"Optional image model name. Defaults to the first installed image model."},"steps":{"type":"integer","description":"Sampling steps. Default 20."}},"required":["prompt"]}`),
 		toolDef("generate_video", "Generate a short video clip from a text prompt using a local video model. Returns the saved file path.",
 			`{"type":"object","properties":{"prompt":{"type":"string","description":"What the video should show."},"model":{"type":"string","description":"Optional video model name."},"steps":{"type":"integer","description":"Sampling steps. Default 20."}},"required":["prompt"]}`),
-		toolDef("text_to_speech", "Synthesize speech audio from text using a local TTS model (e.g. Kokoro/Bark). Returns the saved audio file path.",
-			`{"type":"object","properties":{"text":{"type":"string","description":"Text to speak."},"model":{"type":"string","description":"Optional audio model name."}},"required":["text"]}`),
+		toolDef("text_to_speech", "Synthesize speech audio from text using a local TTS model (e.g. Kokoro). Returns the saved audio file path.",
+			`{"type":"object","properties":{"text":{"type":"string","description":"Text to speak."},"voice":{"type":"string","description":"Optional voice, e.g. if_sara or im_nicola for Italian, af_heart for English."},"model":{"type":"string","description":"Optional audio model name."}},"required":["text"]}`),
+		toolDef("generate_music", "Generate instrumental music or a sound effect from a description using a local model (Stable Audio). Returns the saved audio file path.",
+			`{"type":"object","properties":{"prompt":{"type":"string","description":"Style, instruments, mood, tempo — or the sound effect to make."},"seconds":{"type":"number","description":"Length in seconds (1–120). Default 20."},"kind":{"type":"string","enum":["music","sfx"],"description":"music (default) or sfx."},"model":{"type":"string","description":"Optional model name."}},"required":["prompt"]}`),
 		toolDef("transcribe", "Transcribe an audio file to text using a local speech-to-text model (e.g. Whisper).",
 			`{"type":"object","properties":{"input_file":{"type":"string","description":"Path to the audio file to transcribe."},"model":{"type":"string","description":"Optional audio model name."}},"required":["input_file"]}`),
 		toolDef("generate_3d", "Generate a 3D model (mesh) from a text prompt or an input image using a local 3D model. Returns the saved file path.",
@@ -61,6 +64,8 @@ func (m *mediaProvider) Execute(name, argsJSON string) (string, error) {
 		return m.generateVideo(argsJSON)
 	case "text_to_speech":
 		return m.textToSpeech(argsJSON)
+	case "generate_music":
+		return m.generateMusic(argsJSON)
 	case "transcribe":
 		return m.transcribe(argsJSON)
 	case "generate_3d":
@@ -309,6 +314,7 @@ func (m *mediaProvider) textToSpeech(argsJSON string) (string, error) {
 	var a struct {
 		Text  string `json:"text"`
 		Model string `json:"model"`
+		Voice string `json:"voice"`
 	}
 	json.Unmarshal([]byte(argsJSON), &a)
 	if strings.TrimSpace(a.Text) == "" {
@@ -323,15 +329,53 @@ func (m *mediaProvider) textToSpeech(argsJSON string) (string, error) {
 		}
 		cloudErr = err
 	}
-	mdl, err := findMediaModel("audio", a.Model)
+	mdl, err := pickAudioModel(a.Model, hub.TaskTTS)
+	if err != nil {
+		if legacy, lerr := findMediaModel("audio", a.Model); lerr == nil && legacy.Engine == "" {
+			mdl, err = legacy, nil
+		}
+	}
 	if err != nil {
 		if cloudErr != nil {
 			return "", fmt.Errorf("cloud: %v", cloudErr)
 		}
 		return "", err
 	}
-	runner := rt.NewAudioRunner(mdl, getHardware())
-	data, err := runner.SynthesizeToBytes(a.Text)
+	var data []byte
+	if mdl.Engine != "" {
+		data, err = rt.NativeSpeak(context.Background(), mdl, getHardware(), rt.SpeechRequest{Text: a.Text, Voice: a.Voice})
+	} else {
+		data, err = rt.NewAudioRunner(mdl, getHardware()).SynthesizeToBytes(a.Text)
+	}
+	if err != nil {
+		return "", err
+	}
+	return m.saveArtifact("audio", "wav", "audio/wav", data)
+}
+
+func (m *mediaProvider) generateMusic(argsJSON string) (string, error) {
+	var a struct {
+		Prompt  string  `json:"prompt"`
+		Seconds float64 `json:"seconds"`
+		Kind    string  `json:"kind"`
+		Model   string  `json:"model"`
+	}
+	json.Unmarshal([]byte(argsJSON), &a)
+	if strings.TrimSpace(a.Prompt) == "" {
+		return "", fmt.Errorf("prompt is required")
+	}
+	if a.Seconds <= 0 {
+		a.Seconds = 20
+	}
+	task := hub.TaskMusic
+	if a.Kind == "sfx" {
+		task = hub.TaskSFX
+	}
+	mdl, err := pickAudioModel(a.Model, task)
+	if err != nil {
+		return "", err
+	}
+	data, err := rt.NativeGenerateAudio(context.Background(), mdl, getHardware(), a.Prompt, a.Seconds, nil)
 	if err != nil {
 		return "", err
 	}
@@ -350,7 +394,12 @@ func (m *mediaProvider) transcribe(argsJSON string) (string, error) {
 	if _, err := os.Stat(a.InputFile); err != nil {
 		return "", fmt.Errorf("input file not found: %s", a.InputFile)
 	}
-	mdl, err := findMediaModel("audio", a.Model)
+	mdl, err := pickAudioModel(a.Model, hub.TaskASR)
+	if err != nil {
+		if legacy, lerr := findMediaModel("audio", a.Model); lerr == nil && legacy.Engine == "" {
+			mdl, err = legacy, nil
+		}
+	}
 	if err != nil {
 		return "", err
 	}

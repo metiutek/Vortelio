@@ -2,6 +2,18 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.96] — 2026-10-20
+### Added
+- **Audio studio** (sidebar → Audio & music): Speak, Clone a voice, Edit speech, Music, Sound effects, Separate tracks and Transcribe, each with its own page. Recordings can be uploaded in any format or recorded from the microphone; results play in place and can be downloaded. Models install from the page in one click (Downloads panel).
+- Native audio engines, no Python: audio.cpp for speech (Kokoro: 54 voices including Italian), voice cloning and speech editing (DotTTS-Edit, multilingual; VoxCPM), music and sound effects (Stable Audio 3 Small), stem separation (HT-Demucs: vocals, drums, bass, other) and transcription (Parakeet, 25 languages); whisper.cpp for Whisper models. One audio model is loaded at a time, the GPU is taken from the chat model only while it works, and an idle engine stops after 5 minutes.
+- Curated audio catalog, all tested end to end on a 4 GB GPU. Any audio.cpp GGUF works too: its family, tasks, languages and voices are read from the file.
+- API: `GET /api/audio/catalog`, `POST /api/audio/{speech,generate,edit,separate,transcribe}`. The chat assistant gains a `generate_music` tool, and `text_to_speech` accepts a voice.
+### Changed
+- `/v1/audio/speech`, `/v1/audio/transcriptions` and `/v1/audio/translations` run on the native engines and pick a model that can do the task (an OpenAI name such as `tts-1` or `whisper-1` falls back to the best installed one). OpenAI voice names map to the model's voices (`nova` → `af_nova`). `response_format` mp3/ogg/flac/opus/aac is honoured when ffmpeg is installed; otherwise WAV is returned with the right content type (it was labelled mp3).
+- `audio/kokoro:latest` now installs the native Kokoro model.
+### Fixed
+- Model manifests saved with a UTF-8 BOM (e.g. edited in Notepad) made the model disappear.
+
 ## [0.3.95] — 2026-10-20
 ### Changed
 - Local models are placed on the GPU by llama.cpp's own memory fitting (`--fit` / `llama-fit-params`), measured against the VRAM that is actually free, instead of a guess that assumed every model has 40 layers. The safety margin scales with the card (~8%, 256–1024 MiB) instead of llama.cpp's fixed 1 GiB, which on a 4 GB GPU cost a third of the layers. Measured on a GTX 1650 with qwen3.5:4b: 5.8 → 11–18 tok/s while another app shares the GPU, up to 28 tok/s with the card free.

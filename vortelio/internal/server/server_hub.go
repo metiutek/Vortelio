@@ -28,6 +28,9 @@ func handleModels(w http.ResponseWriter, r *http.Request) {
 	out := make([]ModelWithSize, len(models))
 	for i, m := range models {
 		out[i] = ModelWithSize{Model: m, SizeHuman: m.SizeHuman()}
+		if m.Type == "llm" {
+			out[i].Tools = runtime.ModelSupportsTools(m.Type + "/" + m.Name + ":" + m.Tag)
+		}
 	}
 	respond(w, 200, map[string]interface{}{"models": out})
 }

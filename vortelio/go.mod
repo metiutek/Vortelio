@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/auth v0.20.0
 	cloud.google.com/go/firestore v1.22.0
 	firebase.google.com/go/v4 v4.20.0
+	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
 	github.com/stripe/stripe-go/v76 v76.25.0
 	golang.org/x/net v0.54.0
 	golang.org/x/sys v0.44.0

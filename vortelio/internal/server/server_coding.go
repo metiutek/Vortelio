@@ -16,6 +16,8 @@ import (
 	"time"
 
 	rt "github.com/vortelio/vortelio/internal/runtime"
+
+	"github.com/vortelio/vortelio/internal/docs"
 )
 
 // ── Coding tool provider ───────────────────────────────────────────────────────
@@ -341,8 +343,14 @@ func (c *codingProvider) readFile(argsJSON string) (string, error) {
 	if fi.Size() > 20<<20 {
 		return "", fmt.Errorf("%s is too large (%d bytes); use grep_search or read_file with offset/limit", a.Path, fi.Size())
 	}
-	data, err := os.ReadFile(full)
-	if err != nil {
+	var data []byte
+	if docs.Supported(full) { // PDF, Word, … are read as their text
+		d, err := docs.Extract(full)
+		if err != nil {
+			return "", err
+		}
+		data = []byte(d.Text)
+	} else if data, err = os.ReadFile(full); err != nil {
 		return "", err
 	}
 	if isBinaryData(data) {

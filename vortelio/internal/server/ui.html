@@ -1453,6 +1453,54 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 .row-menu button.danger { color: var(--err); }
 .rm-sep { height: 1px; background: var(--border); margin: 4px 2px; }
 .onb-emoji:empty { display: none; }
+/* Cloud models dialog (connectors) */
+.conn-dialog { max-width: 620px !important; width: 94% !important; text-align: left; max-height: 86vh; overflow-y: auto; padding: 22px 24px !important; }
+.conn-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.conn-title { font-size: 18px; font-weight: 600; }
+.conn-sub { font-size: 13px; color: var(--text3); margin-top: 3px; }
+.conn-sub a { color: var(--accent); }
+.conn-x { border: none; background: transparent; font-size: 22px; line-height: 1; color: var(--text3); cursor: pointer; padding: 0 4px; margin-left: auto; }
+.conn-x:hover { color: var(--text); }
+.conn-back { border: none; background: transparent; color: var(--text2); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 0; }
+.conn-back:hover { color: var(--text); }
+.conn-sec { font-size: 12.5px; font-weight: 600; color: var(--text2); margin: 18px 0 8px; display: flex; gap: 8px; align-items: baseline; }
+.conn-muted { font-weight: 400; color: var(--text3); font-size: 12px; }
+.conn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.conn-card { display: flex; align-items: center; gap: 11px; text-align: left; border: 1px solid var(--border); background: var(--bg); border-radius: 12px; padding: 10px 12px; cursor: pointer; font: inherit; color: var(--text); position: relative; }
+.conn-card:hover { border-color: var(--border2); background: var(--bg2); }
+.conn-card-text { display: flex; flex-direction: column; min-width: 0; }
+.conn-card-name { font-size: 14px; font-weight: 500; }
+.conn-card-sub { font-size: 12px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conn-on { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.conn-tile { width: 34px; height: 34px; border-radius: 9px; background: var(--bg3); color: var(--text2); font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.conn-ptitle { display: flex; gap: 12px; align-items: center; margin: 4px 0 12px; }
+.conn-label { display: block; font-size: 12.5px; font-weight: 500; color: var(--text2); margin: 12px 0 5px; }
+.conn-input { width: 100%; border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13.5px; background: var(--bg); color: var(--text); }
+.conn-input.mono { font-family: var(--mono); font-size: 12.5px; }
+.conn-keyrow { display: flex; gap: 8px; }
+.conn-keyrow .btn { flex-shrink: 0; }
+.conn-more { margin-top: 8px; font-size: 12.5px; color: var(--text3); }
+.conn-more summary { cursor: pointer; margin-bottom: 6px; }
+.conn-err { color: var(--err); font-size: 12.5px; margin-top: 8px; }
+.conn-err:empty { display: none; }
+.conn-models { border: 1px solid var(--border); border-radius: 10px; max-height: 300px; overflow-y: auto; margin-top: 8px; }
+.conn-model { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.conn-model:last-child { border-bottom: none; }
+.conn-model:hover { background: var(--bg2); }
+.conn-model-name { font-size: 13.5px; }
+.conn-model-id { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+.conn-rec { font-size: 10.5px; font-weight: 500; padding: 1px 6px; border-radius: 999px; background: var(--accent-light); color: var(--accent); margin-left: 6px; }
+.conn-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+/* Attachments: name + what was read */
+.attach-chip { align-items: center; gap: 8px; padding: 6px 8px 6px 8px; max-width: 280px; }
+.attach-chip.err { border-color: rgba(220,38,38,.4); }
+.attach-ic { width: 28px; height: 28px; border-radius: 7px; background: var(--bg3); display: inline-flex; align-items: center; justify-content: center; color: var(--text2); flex-shrink: 0; }
+.attach-ic svg { width: 16px; height: 16px; }
+.attach-chip-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.attach-chip-info { font-size: 11px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attach-chip.err .attach-chip-info { color: var(--err); }
+
 /* Audio studio: forms for the recording-based tabs, matching the composer */
 #ws-audio .au-card { border-color: var(--border2); border-radius: 22px; box-shadow: 0 6px 28px rgba(20,20,40,.07); padding: 18px 20px; }
 .dark #ws-audio .au-card { box-shadow: 0 6px 28px rgba(0,0,0,.4); }
@@ -2540,43 +2588,9 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
   </div>
   <div class="settings-body">
 
-    <!-- Manage (hub for everything else) -->
-    <div class="settings-section">
-      <div class="settings-section-title">Manage</div>
-      <div class="set-links">
-        <button class="set-link" id="settings-update-link" onclick="startVortelioUpdate()" style="display:none">
-          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></span><span><div id="settings-update-title">Update Vortelio</div><div class="sl-sub" id="settings-update-sub">Install the latest version</div></span>
-        </button>
-        <button class="set-link" onclick="showPanel('models');closeSettings()">
-          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></span><span><div>My models</div><div class="sl-sub">Manage, load and set defaults</div></span>
-        </button>
-        <button class="set-link" onclick="showPanel('registry');closeSettings()">
-          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></span><span><div>Download models</div><div class="sl-sub">Catalog + HuggingFace</div></span>
-        </button>
-        <button class="set-link" onclick="showPanel('models');closeSettings();setTimeout(openAddCloudModel,150)">
-          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H8a6 6 0 1 1 5.7-7.9A4.5 4.5 0 1 1 17.5 19z"/></svg></span><span><div>Add cloud model</div><div class="sl-sub">Provider, model &amp; API key (BYOK)</div></span>
-        </button>
-        <button class="set-link" onclick="showPanel('agents');closeSettings()">
-          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span><div>AI agents</div><div class="sl-sub">Open WebUI, OpenCode…</div></span>
-        </button>
-        <button class="set-link" onclick="showPanel('crewai');closeSettings()">
-          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M15 20a4 4 0 0 1 6-3.4"/></svg></span><span><div>CrewAI</div><div class="sl-sub">Multi-agent crews</div></span>
-        </button>
-        <button class="set-link" onclick="openMcpManager();closeSettings()">
-          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6"/><path d="M15 2v6"/><path d="M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/></svg></span><span><div>External tools (MCP)</div><div class="sl-sub">Connect MCP servers</div></span>
-        </button>
-        <button class="set-link" onclick="openAgentConfig();closeSettings()">
-          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z"/></svg></span><span><div>Skills &amp; agent</div><div class="sl-sub">Agentic abilities</div></span>
-        </button>
-        <button class="set-link" onclick="showPanel('tools');closeSettings()">
-          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></span><span><div>Advanced tools</div><div class="sl-sub">RAG, Compare, GGUF…</div></span>
-        </button>
-      </div>
-    </div>
-
     <!-- Appearance -->
     <div class="settings-section">
-      <div class="settings-section-title" data-i18n="appearance">Appearance</div>
+      <div class="settings-section-title">General</div>
       <div class="settings-row">
         <div class="settings-row-info">
           <div class="settings-row-label" data-i18n="theme">Theme</div>
@@ -2590,12 +2604,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Language -->
-    <div class="settings-section">
-      <div class="settings-section-title" data-i18n="language">Lingua</div>
-      <div class="settings-row">
+  <div class="settings-row">
         <div class="settings-row-info">
           <div class="settings-row-label" data-i18n="language">Lingua</div>
           <div class="settings-row-sub" data-i18n="languageDesc">Lingua dell'interfaccia</div>
@@ -2605,20 +2614,6 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
             <button class="theme-btn active" id="lang-it" onclick="setLang('it')">IT</button>
             <button class="theme-btn" id="lang-en" onclick="setLang('en')">EN</button>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Updates -->
-    <div class="settings-section">
-      <div class="settings-section-title">Updates</div>
-      <div class="settings-row">
-        <div class="settings-row-info">
-          <div class="settings-row-label">Auto-update</div>
-          <div class="settings-row-sub">Install new Vortelio versions automatically when the server is idle. Vortelio restarts by itself afterwards.</div>
-        </div>
-        <div class="settings-row-ctrl">
-          <label class="switch"><input type="checkbox" id="set-autoupdate" onchange="setAutoUpdate(this.checked)"><span class="sl"></span></label>
         </div>
       </div>
     </div>
@@ -2656,12 +2651,8 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
         </div>
         <textarea id="set-personal" class="tool-input" rows="5" data-i18n="personalInfoPh" placeholder="E.g. My name is Paolo, I build Vortelio. Answer concisely. I use a GTX 1650…" style="width:100%;resize:vertical" oninput="savePersonalInfo(this.value)"></textarea>
       </div>
-    </div>
-
-    <!-- LLM -->
-    <div class="settings-section">
-      <div class="settings-section-title" data-i18n="llmSettings">Modelli LLM</div>
-      <div class="settings-row-info">
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px">
+        <div class="settings-row-info">
         <div class="settings-row-label" data-i18n="contextWindow">Context window</div>
         <div class="settings-row-sub" data-i18n="contextDesc">Context tokens for the LLM. More tokens = more memory but slower and requires more VRAM.</div>
       </div>
@@ -2680,15 +2671,64 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
           <button class="ctx-preset" onclick="setCtx(131072)">128K</button>
         </div>
       </div>
+      </div>
     </div>
 
     <!-- Default per tipo -->
     <div class="settings-section">
-      <div class="settings-section-title" data-i18n="defaultModels">Default model per type</div>
+      <div class="settings-section-title">Default models</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.5" data-i18n="defaultModelsDesc">
         Select a default model for each type. It will be pre-selected on open. Click in the installed models list.
       </div>
       <div id="settings-defaults-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+
+    <!-- Updates -->
+    <div class="settings-section">
+      <div class="settings-section-title">Updates</div>
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">Auto-update</div>
+          <div class="settings-row-sub">Install new Vortelio versions automatically when the server is idle. Vortelio restarts by itself afterwards.</div>
+        </div>
+        <div class="settings-row-ctrl">
+          <label class="switch"><input type="checkbox" id="set-autoupdate" onchange="setAutoUpdate(this.checked)"><span class="sl"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manage (hub for everything else) -->
+    <div class="settings-section">
+      <div class="settings-section-title">Shortcuts</div>
+      <div class="set-links">
+        <button class="set-link" id="settings-update-link" onclick="startVortelioUpdate()" style="display:none">
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></span><span><div id="settings-update-title">Update Vortelio</div><div class="sl-sub" id="settings-update-sub">Install the latest version</div></span>
+        </button>
+        <button class="set-link" onclick="showPanel('models');closeSettings()">
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></span><span><div>My models</div><div class="sl-sub">Manage, load and set defaults</div></span>
+        </button>
+        <button class="set-link" onclick="showPanel('registry');closeSettings()">
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></span><span><div>Download models</div><div class="sl-sub">Catalog + HuggingFace</div></span>
+        </button>
+        <button class="set-link" onclick="showPanel('models');closeSettings();setTimeout(openAddCloudModel,150)">
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H8a6 6 0 1 1 5.7-7.9A4.5 4.5 0 1 1 17.5 19z"/></svg></span><span><div>Add cloud model</div><div class="sl-sub">Provider, model &amp; API key (BYOK)</div></span>
+        </button>
+        <button class="set-link" onclick="showPanel('agents');closeSettings()">
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span><div>AI agents</div><div class="sl-sub">Open WebUI, OpenCode…</div></span>
+        </button>
+        <button class="set-link" onclick="showPanel('crewai');closeSettings()">
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M15 20a4 4 0 0 1 6-3.4"/></svg></span><span><div>CrewAI</div><div class="sl-sub">Multi-agent crews</div></span>
+        </button>
+        <button class="set-link" onclick="openMcpManager();closeSettings()">
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6"/><path d="M15 2v6"/><path d="M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/></svg></span><span><div>External tools (MCP)</div><div class="sl-sub">Connect MCP servers</div></span>
+        </button>
+        <button class="set-link" onclick="openAgentConfig();closeSettings()">
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z"/></svg></span><span><div>Skills &amp; agent</div><div class="sl-sub">Agentic abilities</div></span>
+        </button>
+        <button class="set-link" onclick="showPanel('tools');closeSettings()">
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></span><span><div>Advanced tools</div><div class="sl-sub">RAG, Compare, GGUF…</div></span>
+        </button>
+      </div>
     </div>
 
     <!-- Advanced (hidden by default) -->
@@ -2817,7 +2857,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
         <div class="onb-txt"><div class="onb-h">Use it on this computer</div>
           <div class="onb-d">Private and free. Runs on your device — no internet needed after setup. We'll download a small assistant for you.</div></div>
       </button>
-      <button class="onb-card" onclick="onbShowCloud()">
+      <button class="onb-card" onclick="localStorage.setItem('vortelio_onboarded','1');closeOnboarding();openConnect('')">
         <div class="onb-emoji"></div>
         <div class="onb-txt"><div class="onb-h">Use a cloud assistant</div>
           <div class="onb-d">Fast and powerful, nothing to download. Needs a free API key from a provider (OpenAI, Anthropic or Google).</div></div>
@@ -3072,6 +3112,9 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 </div>
 
 <!-- Add cloud model dialog -->
+<div class="overlay" id="conn-overlay" onclick="if(event.target===this)closeConnect()">
+  <div class="dialog conn-dialog"><div id="conn-body"></div></div>
+</div>
 <div class="overlay" id="addcloud-overlay">
   <div class="dialog" style="max-width:480px;width:92%;text-align:left">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
@@ -3529,7 +3572,7 @@ const LANGS = {
   }
 };
 
-let currentLang = localStorage.getItem('vortelio_lang') || localStorage.getItem('pullai_lang') || (/^it\b/i.test(navigator.language || '') ? 'it' : 'en');
+let currentLang = localStorage.getItem('vortelio_lang') || localStorage.getItem('pullai_lang') || 'en';
 const _EMO_LEAD = /^[\p{Extended_Pictographic}\uFE0F\u200D\s]+/u;
 function t(key) { return String((LANGS[currentLang] || LANGS.en)[key] || key).replace(_EMO_LEAD, ''); }
 
@@ -3544,7 +3587,7 @@ function setLang(lang) {
 // ── Italian for the newer parts of the interface ──────────────────────────
 // Exact English phrases → Italian, applied to the app panels (never to chat
 // messages or model cards) and kept up to date as they re-render.
-const IT_PHRASES = {"Tools": "Strumenti", "Web search": "Ricerca web", "Look things up online": "Cerca informazioni online", "Think first": "Ragiona prima", "Reason step by step before answering": "Ragiona passo passo prima di rispondere", "Files & calculator": "File e calcolatrice", "Read files, do maths": "Legge file, fa calcoli", "Create media": "Crea contenuti", "Images, video, audio and 3D": "Immagini, video, audio e 3D", "Private chat": "Chat privata", "Not saved to history": "Non salvata nella cronologia", "How the agent works": "Come lavora l'agente", "Developer": "Sviluppatore", "Read, edit and run code in a folder": "Legge, modifica ed esegue codice in una cartella", "Autonomous": "Autonomo", "Keeps going until the goal is reached": "Continua finché non raggiunge l'obiettivo", "Skills": "Abilità", "Connectors (MCP)": "Connettori (MCP)", "Add a cloud model": "Aggiungi un modello cloud", "Run on": "Esegui su", "Permissions": "Permessi", "Plan": "Piano", "Ask": "Chiedi", "Auto": "Auto", "Reads and proposes, changes nothing": "Legge e propone, non modifica nulla", "Asks before anything risky": "Chiede prima di ogni azione rischiosa", "Runs without asking": "Agisce senza chiedere", "Web": "Web", "Think": "Ragiona", "Media": "Contenuti", "Private": "Privata", "Connectors": "Connettori", "Choose folder": "Scegli cartella", "Turn off": "Disattiva", "Search models": "Cerca modelli", "On this computer": "Su questo computer", "Hide": "Nascondi", "Show": "Mostra", "Manage models": "Gestisci modelli", "Download more": "Scarica altri", "Eject": "Espelli", "Loaded": "Caricato", "Loading…": "Caricamento…", "No model matches.": "Nessun modello corrisponde.", "No models installed yet.": "Nessun modello installato.", "Download a model": "Scarica un modello", "Loaded and ready": "Caricato e pronto", "Loading the model…": "Caricamento del modello…", "Cloud model": "Modello cloud", "Not loaded — it loads when you pick it or send a message": "Non caricato: si carica quando lo scegli o invii un messaggio", "Model ejected — memory freed": "Modello espulso: memoria liberata", "My models": "I miei modelli", "Chat": "Chat", "Images": "Immagini", "Video": "Video", "Audio & speech": "Audio e voce", "3D": "3D", "Open": "Apri", "More": "Altro", "Details": "Dettagli", "Rename": "Rinomina", "Set as default": "Imposta come predefinito", "Remove as default": "Togli come predefinito", "Compress (quantize)": "Comprimi (quantizza)", "Add vision": "Aggiungi visione", "Remove…": "Rimuovi…", "Default": "Predefinito", "Add cloud model": "Aggiungi modello cloud", "Download models": "Scarica modelli", "Fits in memory": "Entra in memoria", "Recommended": "Consigliati", "Hugging Face": "Hugging Face", "Search recommended models": "Cerca tra i consigliati", "Install from a link": "Installa da un link", "All types": "Tutti i tipi", "Best match": "Più pertinenti", "Most downloaded": "Più scaricati", "Most liked": "Più apprezzati", "Trending": "Di tendenza", "Recently updated": "Aggiornati di recente", "Any size": "Qualsiasi dimensione", "Up to 3B": "Fino a 3B", "Up to 8B": "Fino a 8B", "Up to 14B": "Fino a 14B", "Up to 34B": "Fino a 34B", "Over 34B": "Oltre 34B", "GGUF only": "Solo GGUF", "Fits my PC": "Adatti al mio PC", "Pick a model to see its description and the files you can download.": "Scegli un modello per vederne la descrizione e i file da scaricare.", "Searching Hugging Face…": "Cerco su Hugging Face…", "No model matches these filters.": "Nessun modello con questi filtri.", "Open on Hugging Face": "Apri su Hugging Face", "Download": "Scarica", "Model card": "Scheda del modello", "Installed": "Installato", "Starting…": "Avvio…", "Fits": "Ci sta", "Tight fit": "Al limite", "Too big": "Troppo grande", "Includes a vision projector: it is downloaded too, so the model can read images.": "Include un proiettore visivo: viene scaricato anche lui, così il modello può leggere le immagini.", "This repository has no description.": "Questo repository non ha una descrizione.", "Describe the image you want…": "Descrivi l'immagine che vuoi…", "Describe the video you want…": "Descrivi il video che vuoi…", "Generate": "Genera", "Generating": "Generazione", "Settings": "Impostazioni", "Square": "Quadrato", "Portrait": "Verticale", "Landscape": "Orizzontale", "Wide": "Panoramico", "More image models": "Altri modelli per immagini", "More video models": "Altri modelli video", "Avoid": "Da evitare", "Steps": "Passi", "Guidance": "Guida", "Seed": "Seed", "random": "casuale", "Length": "Durata", "Start from a picture": "Parti da una foto", "Stop": "Ferma", "Remove": "Rimuovi", "Empty fields use the values this model was made for. The same seed and prompt give the same image.": "I campi vuoti usano i valori per cui è stato creato il modello. Stesso seed e stessa descrizione danno la stessa immagine.", "Image studio": "Studio immagini", "Video studio": "Studio video", "Audio studio": "Studio audio", "Speak": "Voce", "Clone a voice": "Clona una voce", "Edit speech": "Modifica parlato", "Music": "Musica", "Sound effects": "Effetti sonori", "Separate tracks": "Separa tracce", "Transcribe": "Trascrivi", "Type what the voice should say…": "Scrivi cosa deve dire la voce…", "Ctrl+Enter to generate.": "Ctrl+Invio per generare.", "More models for this": "Altri modelli per questo", "English descriptions work best. Instrumental only.": "Le descrizioni in inglese funzionano meglio. Solo strumentale.", "English descriptions work best.": "Le descrizioni in inglese funzionano meglio.", "Working": "In corso", "Upload audio": "Carica audio", "● Record": "● Registra", "■ Stop recording": "■ Ferma registrazione", "Keep the model loaded": "Tieni il modello caricato", "The chat model loads when you pick it and stays ready between messages. The image, video and audio studios still borrow the GPU when they need it.": "Il modello della chat si carica quando lo scegli e resta pronto tra un messaggio e l'altro. Gli studi immagini, video e audio usano comunque la GPU quando serve.", "Until I eject it": "Finché non lo espello", "1 hour idle": "1 ora di inattività", "30 minutes idle": "30 minuti di inattività", "5 minutes idle": "5 minuti di inattività", "System": "Sistema", "Follows your system unless you pick one": "Segue il sistema se non ne scegli uno", "Manage, load and set defaults": "Gestisci, carica e imposta i predefiniti", "Reinstall Vortelio": "Reinstalla Vortelio", "Knowledge": "Conoscenza", "Documents (RAG)": "Documenti (RAG)", "Summarize": "Riassumi", "Try models": "Prova i modelli", "Compare side by side": "Confronta affiancati", "Structured output": "Output strutturato", "Reasoning": "Ragionamento", "Model router": "Instradamento modelli", "Manage": "Gestione", "Loaded models": "Modelli caricati", "Inspect a GGUF": "Ispeziona un GGUF", "Import from Ollama": "Importa da Ollama", "Integrations": "Integrazioni", "Webhooks": "Webhook", "Activity log": "Registro attività", "Checking what is installed on this computer…": "Controllo cosa è installato su questo computer…", "Best choice": "Consigliato", "Pictures from a description — generated on your computer, offline.": "Immagini da una descrizione, generate sul tuo computer, offline.", "Short clips from a description or a picture — generated on your computer, offline.": "Brevi clip da una descrizione o da una foto, generate sul tuo computer, offline.", "Voices, music and sound — all generated on your computer, no Python needed.": "Voci, musica e suoni, tutto generato sul tuo computer, senza Python.", "Describe the music — e.g. calm lo-fi piano with soft drums, 80 bpm": "Descrivi la musica, es. piano lo-fi rilassato con batteria leggera, 80 bpm", "Describe the sound — e.g. heavy rain on a tin roof with distant thunder": "Descrivi il suono, es. pioggia forte su un tetto di lamiera con tuoni lontani", "Search Hugging Face — e.g. qwen 3.5, gemma 4, flux": "Cerca su Hugging Face, es. qwen 3.5, gemma 4, flux", "Audio & music": "Audio e musica", "Advanced": "Avanzate", "Skills & agent": "Abilità e agente", "External tools (MCP)": "Strumenti esterni (MCP)", "AI agents": "Agenti IA", "Advanced tools": "Strumenti avanzati", "Downloads": "Download", "Recent chats": "Chat recenti", "Sign out": "Esci", "Assistant": "Assistente", "Agent": "Agente", "Save": "Salva", "Install a model for this. It downloads in the background (Downloads panel) and runs offline afterwards.": "Installa un modello per questa funzione. Si scarica in background (pannello Download) e poi funziona offline.", "Install": "Installa", "Not installed": "Non installato", "Start": "Avvia", "Refresh": "Aggiorna"};
+const IT_PHRASES = {"Tools": "Strumenti", "Web search": "Ricerca web", "Look things up online": "Cerca informazioni online", "Think first": "Ragiona prima", "Reason step by step before answering": "Ragiona passo passo prima di rispondere", "Files & calculator": "File e calcolatrice", "Read files, do maths": "Legge file, fa calcoli", "Create media": "Crea contenuti", "Images, video, audio and 3D": "Immagini, video, audio e 3D", "Private chat": "Chat privata", "Not saved to history": "Non salvata nella cronologia", "How the agent works": "Come lavora l'agente", "Developer": "Sviluppatore", "Read, edit and run code in a folder": "Legge, modifica ed esegue codice in una cartella", "Autonomous": "Autonomo", "Keeps going until the goal is reached": "Continua finché non raggiunge l'obiettivo", "Skills": "Abilità", "Connectors (MCP)": "Connettori (MCP)", "Add a cloud model": "Aggiungi un modello cloud", "Run on": "Esegui su", "Permissions": "Permessi", "Plan": "Piano", "Ask": "Chiedi", "Auto": "Auto", "Reads and proposes, changes nothing": "Legge e propone, non modifica nulla", "Asks before anything risky": "Chiede prima di ogni azione rischiosa", "Runs without asking": "Agisce senza chiedere", "Web": "Web", "Think": "Ragiona", "Media": "Contenuti", "Private": "Privata", "Connectors": "Connettori", "Choose folder": "Scegli cartella", "Turn off": "Disattiva", "Search models": "Cerca modelli", "On this computer": "Su questo computer", "Hide": "Nascondi", "Show": "Mostra", "Manage models": "Gestisci modelli", "Download more": "Scarica altri", "Eject": "Espelli", "Loaded": "Caricato", "Loading…": "Caricamento…", "No model matches.": "Nessun modello corrisponde.", "No models installed yet.": "Nessun modello installato.", "Download a model": "Scarica un modello", "Loaded and ready": "Caricato e pronto", "Loading the model…": "Caricamento del modello…", "Cloud model": "Modello cloud", "Not loaded — it loads when you pick it or send a message": "Non caricato: si carica quando lo scegli o invii un messaggio", "Model ejected — memory freed": "Modello espulso: memoria liberata", "My models": "I miei modelli", "Chat": "Chat", "Images": "Immagini", "Video": "Video", "Audio & speech": "Audio e voce", "3D": "3D", "Open": "Apri", "More": "Altro", "Details": "Dettagli", "Rename": "Rinomina", "Set as default": "Imposta come predefinito", "Remove as default": "Togli come predefinito", "Compress (quantize)": "Comprimi (quantizza)", "Add vision": "Aggiungi visione", "Remove…": "Rimuovi…", "Default": "Predefinito", "Add cloud model": "Aggiungi modello cloud", "Download models": "Scarica modelli", "Fits in memory": "Entra in memoria", "Recommended": "Consigliati", "Hugging Face": "Hugging Face", "Search recommended models": "Cerca tra i consigliati", "Install from a link": "Installa da un link", "All types": "Tutti i tipi", "Best match": "Più pertinenti", "Most downloaded": "Più scaricati", "Most liked": "Più apprezzati", "Trending": "Di tendenza", "Recently updated": "Aggiornati di recente", "Any size": "Qualsiasi dimensione", "Up to 3B": "Fino a 3B", "Up to 8B": "Fino a 8B", "Up to 14B": "Fino a 14B", "Up to 34B": "Fino a 34B", "Over 34B": "Oltre 34B", "GGUF only": "Solo GGUF", "Fits my PC": "Adatti al mio PC", "Pick a model to see its description and the files you can download.": "Scegli un modello per vederne la descrizione e i file da scaricare.", "Searching Hugging Face…": "Cerco su Hugging Face…", "No model matches these filters.": "Nessun modello con questi filtri.", "Open on Hugging Face": "Apri su Hugging Face", "Download": "Scarica", "Model card": "Scheda del modello", "Installed": "Installato", "Starting…": "Avvio…", "Fits": "Ci sta", "Tight fit": "Al limite", "Too big": "Troppo grande", "Includes a vision projector: it is downloaded too, so the model can read images.": "Include un proiettore visivo: viene scaricato anche lui, così il modello può leggere le immagini.", "This repository has no description.": "Questo repository non ha una descrizione.", "Describe the image you want…": "Descrivi l'immagine che vuoi…", "Describe the video you want…": "Descrivi il video che vuoi…", "Generate": "Genera", "Generating": "Generazione", "Settings": "Impostazioni", "Square": "Quadrato", "Portrait": "Verticale", "Landscape": "Orizzontale", "Wide": "Panoramico", "More image models": "Altri modelli per immagini", "More video models": "Altri modelli video", "Avoid": "Da evitare", "Steps": "Passi", "Guidance": "Guida", "Seed": "Seed", "random": "casuale", "Length": "Durata", "Start from a picture": "Parti da una foto", "Stop": "Ferma", "Remove": "Rimuovi", "Empty fields use the values this model was made for. The same seed and prompt give the same image.": "I campi vuoti usano i valori per cui è stato creato il modello. Stesso seed e stessa descrizione danno la stessa immagine.", "Image studio": "Studio immagini", "Video studio": "Studio video", "Audio studio": "Studio audio", "Speak": "Voce", "Clone a voice": "Clona una voce", "Edit speech": "Modifica parlato", "Music": "Musica", "Sound effects": "Effetti sonori", "Separate tracks": "Separa tracce", "Transcribe": "Trascrivi", "Type what the voice should say…": "Scrivi cosa deve dire la voce…", "Ctrl+Enter to generate.": "Ctrl+Invio per generare.", "More models for this": "Altri modelli per questo", "English descriptions work best. Instrumental only.": "Le descrizioni in inglese funzionano meglio. Solo strumentale.", "English descriptions work best.": "Le descrizioni in inglese funzionano meglio.", "Working": "In corso", "Upload audio": "Carica audio", "● Record": "● Registra", "■ Stop recording": "■ Ferma registrazione", "Keep the model loaded": "Tieni il modello caricato", "The chat model loads when you pick it and stays ready between messages. The image, video and audio studios still borrow the GPU when they need it.": "Il modello della chat si carica quando lo scegli e resta pronto tra un messaggio e l'altro. Gli studi immagini, video e audio usano comunque la GPU quando serve.", "Until I eject it": "Finché non lo espello", "1 hour idle": "1 ora di inattività", "30 minutes idle": "30 minuti di inattività", "5 minutes idle": "5 minuti di inattività", "System": "Sistema", "Follows your system unless you pick one": "Segue il sistema se non ne scegli uno", "Manage, load and set defaults": "Gestisci, carica e imposta i predefiniti", "Reinstall Vortelio": "Reinstalla Vortelio", "Knowledge": "Conoscenza", "Documents (RAG)": "Documenti (RAG)", "Summarize": "Riassumi", "Try models": "Prova i modelli", "Compare side by side": "Confronta affiancati", "Structured output": "Output strutturato", "Reasoning": "Ragionamento", "Model router": "Instradamento modelli", "Manage": "Gestione", "Loaded models": "Modelli caricati", "Inspect a GGUF": "Ispeziona un GGUF", "Import from Ollama": "Importa da Ollama", "Integrations": "Integrazioni", "Webhooks": "Webhook", "Activity log": "Registro attività", "Checking what is installed on this computer…": "Controllo cosa è installato su questo computer…", "Best choice": "Consigliato", "Pictures from a description — generated on your computer, offline.": "Immagini da una descrizione, generate sul tuo computer, offline.", "Short clips from a description or a picture — generated on your computer, offline.": "Brevi clip da una descrizione o da una foto, generate sul tuo computer, offline.", "Voices, music and sound — all generated on your computer, no Python needed.": "Voci, musica e suoni, tutto generato sul tuo computer, senza Python.", "Describe the music — e.g. calm lo-fi piano with soft drums, 80 bpm": "Descrivi la musica, es. piano lo-fi rilassato con batteria leggera, 80 bpm", "Describe the sound — e.g. heavy rain on a tin roof with distant thunder": "Descrivi il suono, es. pioggia forte su un tetto di lamiera con tuoni lontani", "Search Hugging Face — e.g. qwen 3.5, gemma 4, flux": "Cerca su Hugging Face, es. qwen 3.5, gemma 4, flux", "Audio & music": "Audio e musica", "Advanced": "Avanzate", "Skills & agent": "Abilità e agente", "External tools (MCP)": "Strumenti esterni (MCP)", "AI agents": "Agenti IA", "Advanced tools": "Strumenti avanzati", "Downloads": "Download", "Recent chats": "Chat recenti", "Sign out": "Esci", "Assistant": "Assistente", "Agent": "Agente", "Save": "Salva", "Install a model for this. It downloads in the background (Downloads panel) and runs offline afterwards.": "Installa un modello per questa funzione. Si scarica in background (pannello Download) e poi funziona offline.", "Install": "Installa", "Not installed": "Non installato", "Start": "Avvia", "Refresh": "Aggiorna", "Cloud models": "Modelli cloud", "‹ All providers": "‹ Tutti i provider", "Use models from providers with your own API key. Keys stay on this computer.": "Usa i modelli dei provider con la tua API key. Le chiavi restano su questo computer.", "Chat models": "Modelli chat", "Your own server": "Il tuo server", "Images, audio and video": "Immagini, audio e video", "Any OpenAI- or Anthropic-compatible endpoint (LM Studio, vLLM, Ollama…)": "Qualsiasi endpoint compatibile OpenAI o Anthropic (LM Studio, vLLM, Ollama…)", "Connected": "Connesso", "Not connected": "Non connesso", "Paste an API key to connect.": "Incolla una API key per connetterti.", "Get a key": "Prendi una chiave", "Replace the key": "Sostituisci la chiave", "API key": "API key", "Connect": "Connetti", "Backup keys": "Chiavi di riserva", "Models in your picker": "Modelli nel tuo selettore", "Disconnect": "Disconnetti", "Checking the key and listing the models…": "Verifico la chiave e carico i modelli…", "Name": "Nome", "Address": "Indirizzo", "API format": "Formato API", "Model ID": "ID modello", "(only if the server asks for one)": "(solo se il server la richiede)", "A model server on your network or rented GPU, speaking the OpenAI or Anthropic API.": "Un server di modelli nella tua rete o su una GPU noleggiata, con API OpenAI o Anthropic.", "General": "Generale", "Shortcuts": "Scorciatoie", "Default models": "Modelli predefiniti", "Updates": "Aggiornamenti", "Theme": "Tema", "Language": "Lingua", "Interface language": "Lingua dell'interfaccia", "Auto-update": "Aggiornamento automatico", "Context window": "Finestra di contesto", "Audio": "Audio", "The assistant couldn't start. It may still be loading the model — wait a few seconds and try again, or pick another assistant.": "L'assistente non è partito. Forse sta ancora caricando il modello: aspetta qualche secondo e riprova, o scegli un altro modello.", "This cloud model needs an API key. Add it in Cloud models (model menu → Cloud models).": "Questo modello cloud ha bisogno di una API key. Aggiungila in Modelli cloud (menu del modello → Modelli cloud).", "This assistant can't use tools. Pick a newer model, or it will just chat normally.": "Questo modello non usa strumenti. Scegline uno più recente, oppure risponderà senza strumenti.", "This model can't run here: it needs a different engine or is too big for this computer. Pick a smaller model, or update llama.cpp in Downloads → Engines.": "Questo modello non può girare qui: serve un altro motore o è troppo grande per questo computer. Scegline uno più piccolo o aggiorna llama.cpp in Download → Motori.", "Can't reach the assistant. Make sure Vortelio is running, then try again.": "Assistente non raggiungibile. Controlla che Vortelio sia in esecuzione e riprova.", "Not enough memory to run this model. Try a smaller assistant, or switch to CPU.": "Memoria insufficiente per questo modello. Prova un modello più piccolo o passa alla CPU.", "That model isn't installed. Download one from Download models.": "Questo modello non è installato. Scaricane uno da Scarica modelli.", "Something went wrong.": "Qualcosa è andato storto.", "Installed — find it in My models": "Installato: lo trovi in I miei modelli"};
 const IT_PATTERNS = [["^(\\d+) models \u00b7 (.+) on disk$", "$1 modelli \u00b7 $2 su disco"], ["^Cloud \u00b7 (\\d+)$", "Cloud \u00b7 $1"], ["^This computer: (\\d+) GB RAM \u00b7 (\\d+) GB GPU$", "Questo computer: $1 GB di RAM \u00b7 $2 GB di GPU"], ["^This computer: (\\d+) GB RAM$", "Questo computer: $1 GB di RAM"]].map(([re, to]) => [new RegExp(re), to]);
 const _trOrig = new WeakMap();
 function tr(en) {
@@ -3587,7 +3630,7 @@ function trTree(root) {
     else if (n.nodeType === 1) { trAttrs(n); if (n.tagName === 'OPTION' || n.tagName === 'OPTGROUP') { if (n.label && n.tagName === 'OPTGROUP') n.label = tr(n.getAttribute('data-en-label') || (n.setAttribute('data-en-label', n.label), n.label)); } }
   }
 }
-const TR_ROOTS = ['plus-wrap', 'codemode-dd', 'model-dd', 'cap-chips', 'ws-btn', 'model-btn', 'private-btn', 'ws-models', 'ws-registry', 'ws-image', 'ws-video', 'ws-audio', 'ws-tools', 'ws-agents', 'settings-panel', 'sidebar-nav', 'sidebar-foot', 'hist-section-lbl', 'mode-assistant', 'mode-developer', 'save-chat-btn'];
+const TR_ROOTS = ['conn-overlay', 'attach-row', 'plus-wrap', 'codemode-dd', 'model-dd', 'cap-chips', 'ws-btn', 'model-btn', 'private-btn', 'ws-models', 'ws-registry', 'ws-image', 'ws-video', 'ws-audio', 'ws-tools', 'ws-agents', 'settings-panel', 'sidebar-nav', 'sidebar-foot', 'hist-section-lbl', 'mode-assistant', 'mode-developer', 'save-chat-btn'];
 let _trPending = new Set(), _trRaf = 0;
 const _trObs = new MutationObserver(muts => {
   if (currentLang !== 'it' && !_trActive) return;
@@ -3758,7 +3801,7 @@ function openSettings() {
         const curDef = defaultModels[t] || '';
         return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
           <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">
-            ${typeIcons[t]||'●'} ${t.toUpperCase()}
+            ${({ llm: 'Chat', image: 'Images', audio: 'Audio', video: 'Video', '3d': '3D' })[t] || t.toUpperCase()}
           </div>
           <select onchange="setDefaultModelDirect('${t}', this.value)"
             style="width:100%;padding:6px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;font-family:var(--sans)">
@@ -4591,9 +4634,10 @@ function updateModelDDForDomain() {
     const seen = {};
     for (const p of (_cloudProviders || [])) {
       if (!p.has_key) continue;
-      for (const cm of (p.models || [])) {
-        const v = `cloud:${p.id}:${cm.id}`; seen[v] = 1;
-        models.push({ v, l: cm.label || cm.id, tag: '' + p.name, meta: p.name, cloud: true });
+      const pinned = getCustomCloudModels().filter(m => m.provider === p.id);
+      for (const cm of (pinned.length ? pinned : (p.models || []))) {
+        const v = `cloud:${p.id}:${cm.id}`; if (seen[v]) continue; seen[v] = 1;
+        models.push({ v, l: cm.label || cm.id, tag: p.name, meta: p.name, cloud: true });
       }
     }
     for (const cm of getCustomCloudModels()) {
@@ -4672,6 +4716,7 @@ function buildModelDD(models) {
     <div class="mp-foot">
       <button onclick="showPanel('models');closeAllDD()">Manage models</button>
       <button onclick="showPanel('registry');closeAllDD()">Download more</button>
+      <button onclick="closeAllDD();openConnect('')">Cloud models</button>
       ${LM.state === 'ready' || LM.state === 'loading' ? '<button class="danger" onclick="ejectModel();closeAllDD()">Eject</button>' : ''}
     </div>`;
   renderModelRows();
@@ -4789,6 +4834,170 @@ async function addCloudKeyInline(providerId) {
   } catch(e) { toast('' + e.message, 'err'); }
 }
 
+
+// ── Cloud models (bring your own key): connect providers like Claude's
+// connectors — pick a provider, paste a key, the key is checked by listing
+// the provider's models, and you choose which ones show in the model picker.
+const CONN = { view: 'list', pid: '', live: null, liveErr: '', q: '', busy: false };
+function openAddCloudModel() { openConnect(''); }
+function editCloudProvider(pid) { openConnect(pid); }
+async function openConnect(pid) {
+  await Promise.all([loadCloudProviders(), loadMediaProviders()]);
+  CONN.view = pid ? (pid === '__custom__' ? 'custom' : 'provider') : 'list';
+  CONN.pid = pid || ''; CONN.live = null; CONN.liveErr = ''; CONN.q = ''; CONN.busy = false;
+  document.getElementById('conn-overlay').classList.add('show');
+  renderConnect();
+  if (CONN.view === 'provider') connLoadModels();
+}
+function closeConnect() { document.getElementById('conn-overlay').classList.remove('show'); }
+function connProv() { return (_cloudProviders || []).find(p => p.id === CONN.pid) || (_mediaProviders || []).find(p => p.id === CONN.pid); }
+function connIsMedia() { return !!(_mediaProviders || []).find(p => p.id === CONN.pid); }
+function connPins(pid) { return getCustomCloudModels().filter(m => m.provider === pid); }
+const CONN_ICON = n => `<div class="conn-tile">${esc(n === '+' ? '+' : (n || '?').replace(/^[^A-Za-z0-9]+/, '').charAt(0).toUpperCase())}</div>`;
+function renderConnect() {
+  const el = document.getElementById('conn-body');
+  if (!el) return;
+  const back = `<button class="conn-back" onclick="CONN.view='list';CONN.pid='';renderConnect()">‹ All providers</button>`;
+  const close = `<button class="conn-x" onclick="closeConnect()" title="Close">×</button>`;
+  if (CONN.view === 'list') {
+    const card = p => `<button class="conn-card" onclick="openConnect('${esc(p.id)}')">${CONN_ICON(p.name)}
+      <span class="conn-card-text"><span class="conn-card-name">${esc(p.name)}</span>
+      <span class="conn-card-sub">${p.has_key ? 'Connected' + (p.models && p.models.length ? ' · ' + connPinsOrCurated(p).length + ' models in the picker' : '') : (p.custom ? esc(p.base_url || '') : 'Not connected')}</span></span>
+      ${p.has_key ? '<span class="conn-on"></span>' : ''}</button>`;
+    const chat = (_cloudProviders || []).filter(p => !p.custom), custom = (_cloudProviders || []).filter(p => p.custom);
+    const media = _mediaProviders || [];
+    el.innerHTML = `<div class="conn-head"><div><div class="conn-title">Cloud models</div>
+        <div class="conn-sub">Use models from providers with your own API key. Keys stay on this computer.</div></div>${close}</div>
+      <div class="conn-sec">Chat models</div><div class="conn-grid">${chat.map(card).join('')}${custom.map(card).join('')}
+        <button class="conn-card" onclick="CONN.view='custom';renderConnect()">${CONN_ICON('+')}<span class="conn-card-text"><span class="conn-card-name">Your own server</span>
+        <span class="conn-card-sub">Any OpenAI- or Anthropic-compatible endpoint (LM Studio, vLLM, Ollama…)</span></span></button></div>
+      ${media.length ? `<div class="conn-sec">Images, audio and video</div><div class="conn-grid">${media.map(p => card({ ...p, models: [] })).join('')}</div>` : ''}`;
+    return;
+  }
+  if (CONN.view === 'custom') {
+    el.innerHTML = `<div class="conn-head">${back}${close}</div><div class="conn-title">Your own server</div>
+      <div class="conn-sub">A model server on your network or rented GPU, speaking the OpenAI or Anthropic API.</div>
+      <label class="conn-label">Name</label><input id="cc-name" class="conn-input" placeholder="e.g. Home server">
+      <label class="conn-label">Address</label><input id="cc-url" class="conn-input" placeholder="http://192.168.1.50:11434 or https://host/v1">
+      <label class="conn-label">API format</label><select id="cc-format" class="conn-input"><option value="openai">OpenAI-compatible (/v1/chat/completions)</option><option value="anthropic">Anthropic-compatible (/v1/messages)</option></select>
+      <label class="conn-label">Model ID</label><input id="cc-model" class="conn-input" placeholder="e.g. llama3.1:8b">
+      <label class="conn-label">API key <span class="conn-muted">(only if the server asks for one)</span></label><input id="cc-key" class="conn-input mono" type="password" autocomplete="off">
+      <div class="conn-err" id="conn-err"></div>
+      <div class="conn-actions"><button class="btn primary" onclick="connSaveCustom(this)">Connect</button></div>`;
+    return;
+  }
+  const p = connProv();
+  if (!p) { CONN.view = 'list'; renderConnect(); return; }
+  const media = connIsMedia();
+  let h = `<div class="conn-head">${back}${close}</div>
+    <div class="conn-ptitle">${CONN_ICON(p.name)}<div><div class="conn-title">${esc(p.name)}</div>
+      <div class="conn-sub">${p.has_key ? 'Connected' + (p.key_count > 1 ? ' · ' + p.key_count + ' keys' : '') : 'Paste an API key to connect.'}
+      ${p.key_hint ? ` · <a href="${esc(p.key_hint)}" target="_blank" rel="noopener">Get a key</a>` : ''}</div></div></div>`;
+  const keyForm = `<label class="conn-label">${p.has_key ? 'Replace the key' : 'API key'}</label>
+    <div class="conn-keyrow"><input id="cc-key" class="conn-input mono" type="password" autocomplete="off" placeholder="${p.has_key ? 'Leave empty to keep the saved key' : 'Paste your API key'}">
+    <button class="btn primary" onclick="connSaveKey(this)">${p.has_key ? 'Save' : 'Connect'}</button></div>
+    ${media ? '' : `<details class="conn-more"><summary>Backup keys</summary><textarea id="cc-keys" class="conn-input mono" rows="3" placeholder="Up to 4 more keys, one per line: if one hits a limit, the next is used."></textarea></details>`}
+    <div class="conn-err" id="conn-err"></div>`;
+  h += keyForm;
+  if (p.has_key && !media) {
+    const pins = new Set(connPins(p.id).map(m => m.id));
+    // Live list from the provider; the curated picks (with prices) first.
+    const curated = new Map((p.models || []).map(m => [m.id, m.label]));
+    const list = (CONN.live || (p.models || []).map(m => ({ id: m.id, label: m.label })))
+      .map(m => ({ id: m.id, label: curated.get(m.id) || m.label, rec: curated.has(m.id) }))
+      .sort((a, b) => b.rec - a.rec);
+    const q = CONN.q.toLowerCase();
+    const shown = list.filter(m => !q || (m.id + ' ' + (m.label || '')).toLowerCase().includes(q));
+    h += `<div class="conn-sec">Models in your picker <span class="conn-muted">${pins.size ? pins.size + ' chosen' : 'none chosen: the recommended ones are shown'}</span></div>
+      <input class="conn-input" id="cc-q" placeholder="Search ${list.length} models" value="${esc(CONN.q)}" oninput="CONN.q=this.value;renderConnect();const i=document.getElementById('cc-q');i.focus();i.setSelectionRange(i.value.length,i.value.length)">
+      ${CONN.liveErr ? `<div class="conn-err">${esc(CONN.liveErr)}</div>` : ''}
+      ${CONN.live === null && !CONN.liveErr ? '<div class="conn-muted" style="padding:6px 2px">Checking the key and listing the models…</div>' : ''}
+      <div class="conn-models">${shown.slice(0, 300).map(m => `<label class="conn-model"><input type="checkbox" ${pins.has(m.id) ? 'checked' : ''} data-id="${esc(m.id)}" data-label="${esc(m.label || m.id)}" onchange="connPin(this)">
+        <span class="conn-model-name">${esc((m.label || m.id).split(' · ')[0])}${m.rec ? ' <span class="conn-rec">Recommended</span>' : ''}</span>
+        <span class="conn-model-id">${esc((m.label || '').includes(' · ') ? m.label.split(' · ').slice(1).join(' · ') : m.id)}</span></label>`).join('') || '<div class="conn-muted" style="padding:8px">No model matches.</div>'}</div>`;
+  }
+  if (p.has_key) h += `<div class="conn-actions"><button class="btn danger" onclick="connDisconnect()">Disconnect</button></div>`;
+  el.innerHTML = h;
+}
+function connPinsOrCurated(p) { const pins = connPins(p.id); return pins.length ? pins : (p.models || []); }
+async function connLoadModels() {
+  const p = connProv();
+  if (!p || !p.has_key || connIsMedia()) return;
+  try {
+    const r = await fetch('/api/cloud/models?provider=' + encodeURIComponent(p.id));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'the provider did not answer');
+    CONN.live = d.models || []; CONN.liveErr = '';
+  } catch (e) { CONN.live = []; CONN.liveErr = 'Could not list the models: ' + e.message + '. Check the key.'; }
+  if (document.getElementById('conn-overlay').classList.contains('show')) renderConnect();
+}
+async function connSaveKey(btn) {
+  const p = connProv(); if (!p) return;
+  const key = document.getElementById('cc-key').value.trim();
+  const more = (document.getElementById('cc-keys')?.value || '').split('\n').map(x => x.trim()).filter(Boolean);
+  const err = document.getElementById('conn-err');
+  if (!key && !more.length) { if (!p.has_key) err.textContent = 'Paste the API key first.'; return; }
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    if (connIsMedia()) {
+      const r = await fetch('/api/media/key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: p.id, key }) });
+      const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'could not save the key');
+      await loadMediaProviders();
+    } else {
+      const keys = [key, ...more].filter(Boolean).slice(0, 5);
+      const r = await fetch('/api/cloud/key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: p.id, keys }) });
+      const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'could not save the key');
+      await loadCloudProviders();
+      CONN.live = null; renderConnect();
+      await connLoadModels();
+      if (CONN.liveErr) throw new Error(CONN.liveErr);
+    }
+    updateModelDDForDomain(); if (typeof loadModels === 'function' && document.getElementById('ws-models')?.classList.contains('on')) loadModels();
+    toast(p.name + ' connected', 'ok');
+    renderConnect();
+  } catch (e) { const er = document.getElementById('conn-err'); if (er) er.textContent = e.message; btn.disabled = false; btn.textContent = 'Connect'; }
+}
+function connPin(cb) {
+  const list = getCustomCloudModels();
+  const i = list.findIndex(m => m.provider === CONN.pid && m.id === cb.dataset.id);
+  if (cb.checked && i < 0) list.push({ provider: CONN.pid, id: cb.dataset.id, label: cb.dataset.label });
+  if (!cb.checked && i >= 0) list.splice(i, 1);
+  localStorage.setItem('vortelio_cloud_models', JSON.stringify(list));
+  updateModelDDForDomain();
+  const sec = document.querySelector('.conn-sec .conn-muted');
+  const n = connPins(CONN.pid).length;
+  if (sec) sec.textContent = n ? n + ' chosen' : 'none chosen: the recommended ones are shown';
+}
+async function connDisconnect() {
+  const p = connProv(); if (!p) return;
+  if (!confirm('Disconnect ' + p.name + '? Its key is deleted from this computer.')) return;
+  const url = connIsMedia() ? '/api/media/key' : p.custom ? '/api/cloud/custom' : '/api/cloud/key';
+  const body = p.custom ? { id: p.id } : { provider: p.id };
+  try { await fetch(url, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); } catch {}
+  localStorage.setItem('vortelio_cloud_models', JSON.stringify(getCustomCloudModels().filter(m => m.provider !== p.id)));
+  await Promise.all([loadCloudProviders(), loadMediaProviders()]);
+  updateModelDDForDomain(); if (document.getElementById('ws-models')?.classList.contains('on')) loadModels();
+  CONN.view = 'list'; CONN.pid = ''; renderConnect();
+  toast(p.name + ' disconnected');
+}
+async function connSaveCustom(btn) {
+  const v = id => document.getElementById(id).value.trim();
+  const err = document.getElementById('conn-err');
+  if (!v('cc-url')) { err.textContent = 'Type the server address.'; return; }
+  if (!v('cc-model')) { err.textContent = 'Type the model ID, e.g. llama3.1:8b.'; return; }
+  btn.disabled = true; btn.textContent = 'Connecting…';
+  try {
+    const r = await fetch('/api/cloud/custom', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: v('cc-name'), base_url: v('cc-url'), format: v('cc-format'), key: v('cc-key'), default_model: v('cc-model') }) });
+    const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'could not add the server');
+    saveCustomCloudModel(d.id, v('cc-model'), v('cc-model'));
+    await loadCloudProviders(); updateModelDDForDomain();
+    selectModel('cloud:' + d.id + ':' + v('cc-model'), v('cc-model'));
+    toast((d.name || 'Server') + ' connected', 'ok');
+    openConnect(d.id);
+  } catch (e) { err.textContent = e.message; btn.disabled = false; btn.textContent = 'Connect'; }
+}
+
 // ── Add cloud model dialog (BYOK) ───────────────────────────────────
 function getCustomCloudModels() {
   try { return JSON.parse(localStorage.getItem('vortelio_cloud_models') || '[]'); } catch { return []; }
@@ -4809,8 +5018,8 @@ function saveCustomCloudModel(provider, id, label) {
     localStorage.setItem('vortelio_cloud_models', JSON.stringify(list));
   }
 }
-function openAddCloudModel() {
-  if (!_cloudProviders || !_cloudProviders.length) { loadCloudProviders().then(openAddCloudModel); return; }
+function openAddCloudModelOld() {
+  if (!_cloudProviders || !_cloudProviders.length) { loadCloudProviders().then(openAddCloudModelOld); return; }
   loadMediaProviders().then(() => {
     document.getElementById('ac-type').value = 'llm';
     acTypeChanged();
@@ -4821,8 +5030,8 @@ function openAddCloudModel() {
 function closeAddCloudModel() { document.getElementById('addcloud-overlay').classList.remove('show'); }
 // Open the add-cloud panel pre-selected on an already-configured provider, so the
 // user can edit it — e.g. replace/add API keys (up to 5, one per line).
-function editCloudProvider(pid) {
-  if (!_cloudProviders || !_cloudProviders.length) { loadCloudProviders().then(() => editCloudProvider(pid)); return; }
+function editCloudProviderOld(pid) {
+  if (!_cloudProviders || !_cloudProviders.length) { loadCloudProviders().then(() => editCloudProviderOld(pid)); return; }
   loadMediaProviders().then(async () => {
     document.getElementById('ac-type').value = 'llm';
     acTypeChanged();
@@ -5780,35 +5989,64 @@ function handleFiles(files) {
   Array.from(files).forEach(f => {
     const id = Date.now() + Math.random();
     const isImg = f.type.startsWith('image/');
-    const att = { id, file: f, dataUrl: '', isImg, textContent: '' };
+    const att = { id, file: f, dataUrl: '', isImg, textContent: '', status: 'reading', info: '' };
     attachments.push(att);
     renderAttachRow();
-    const reader = new FileReader();
-    reader.onload = e => { att.dataUrl = e.target.result; renderAttachRow(); };
-    reader.readAsDataURL(f);
-    // For text-like files, also read the content so ANY model (even cloud) can
-    // see it directly — no tools needed.
-    if (isTextFile(f) && f.size <= 200 * 1024) {
+    if (isImg) {
+      const reader = new FileReader();
+      reader.onload = e => { att.dataUrl = e.target.result; renderAttachRow(); };
+      reader.readAsDataURL(f);
+    }
+    // Text files are read here; documents (PDF, Word, Excel…) by the server.
+    // Either way the text goes into the message, so every model can read it.
+    if (isTextFile(f) && f.size <= 2 * 1024 * 1024) {
       const tr = new FileReader();
       tr.onload = e => { att.textContent = String(e.target.result || ''); };
       tr.readAsText(f);
     }
+    att.upload = uploadAttachment(att);
   });
   document.getElementById('fi').value = '';
+}
+async function uploadAttachment(att) {
+  try {
+    const fd = new FormData();
+    fd.append('file', att.file);
+    const r = await fetch('/api/upload', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'upload failed');
+    att.serverPath = d.path;
+    if (d.text) {
+      att.textContent = d.text;
+      const unit = d.kind === 'pptx' || d.kind === 'odp' ? 'slides' : d.kind === 'xlsx' || d.kind === 'ods' ? 'sheets' : 'pages';
+      att.info = (d.kind || '').toUpperCase() + (d.pages ? ' · ' + d.pages + ' ' + (d.pages === 1 ? unit.slice(0, -1) : unit) : '') + (d.truncated ? ' · long' : '');
+    } else if (d.text_error) att.info = d.text_error;
+    att.status = d.text_error ? 'error' : 'ready';
+  } catch (e) { att.status = 'error'; att.info = e.message; }
+  renderAttachRow();
 }
 // Assemble the attachment context appended to the user's message: inline content
 // for text files (so cloud/Assistant models can read them without tools), path
 // for everything else (so the Agent's read_file can open it).
 function buildAttachContext(files) {
   if (!files || !files.length) return '';
+  // Room for the documents: the model's context minus the answer and the chat
+  // (about 3 characters per token). Cloud models have far larger windows.
+  let budget = selectedModelIsCloud ? 400000 : Math.max(3000, (contextSize - 1500) * 3);
   const parts = [];
   for (const f of files) {
     const name = (f.file && f.file.name) || 'file';
-    if (f.textContent) parts.push('--- File "' + name + '" ---\n' + f.textContent.slice(0, 30000));
-    else if (f.serverPath) parts.push('File allegato "' + name + '" salvato in: ' + f.serverPath + '\n(usa lo strumento read_file con questo percorso per leggerlo).');
-    else parts.push('File allegato: ' + name);
+    if (f.textContent) {
+      let txt = f.textContent;
+      const cut = txt.length > budget;
+      if (cut) txt = txt.slice(0, budget);
+      budget = Math.max(0, budget - txt.length);
+      parts.push('--- File "' + name + '" ---\n' + txt + (cut ? '\n[… the rest of this file was left out to fit the context window: ' +
+        f.textContent.length + ' characters in total' + (f.serverPath ? '; read_file can read it from ' + f.serverPath : '') + ']' : ''));
+    } else if (f.serverPath) parts.push('Attached file "' + name + '" saved at: ' + f.serverPath + '\n(use the read_file tool with this path to read it).');
+    else parts.push('Attached file: ' + name);
   }
-  return '\n\n[ALLEGATI DELL\'UTENTE]\n' + parts.join('\n\n');
+  return '\n\n[ATTACHED FILES]\n' + parts.join('\n\n');
 }
 function isTextFile(f) {
   if (f.type.startsWith('text/')) return true;
@@ -5820,13 +6058,15 @@ function renderAttachRow() {
   if (!attachments.length) { row.style.display = 'none'; return; }
   row.style.display = 'flex';
   row.innerHTML = attachments.map(a =>
-    `<div class="attach-chip">
-      ${a.isImg ? `<img src="${a.dataUrl}">` : `<span style="font-size:14px">📄</span>`}
-      <span class="attach-chip-name">${esc(a.file.name)}</span>
+    `<div class="attach-chip${a.status === 'error' ? ' err' : ''}" title="${esc(a.info || '')}">
+      ${a.isImg ? `<img src="${a.dataUrl}">` : `<span class="attach-ic">${a.status === 'reading' ? '<span class="au-spin"></span>' : FILE_ICON}</span>`}
+      <span class="attach-chip-text"><span class="attach-chip-name">${esc(a.file.name)}</span>
+        <span class="attach-chip-info">${a.status === 'reading' && !a.isImg ? 'Reading…' : esc(a.info || '')}</span></span>
       <span class="attach-chip-rm" onclick="rmAttach(${a.id})">×</span>
     </div>`
   ).join('');
 }
+const FILE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
 function rmAttach(id) { attachments = attachments.filter(a => a.id !== id); renderAttachRow(); }
 
 // ── Input ─────────────────────────────────────────
@@ -6166,13 +6406,8 @@ async function doSend() {
 
   const uploaded = [];
   for (const a of localAttach) {
-    try {
-      const fd = new FormData();
-      fd.append('file', a.file);
-      const up = await fetch('/api/upload', {method:'POST', body:fd, signal});
-      const ud = await up.json();
-      if (ud.path) uploaded.push({...a, serverPath: ud.path});
-    } catch {}
+    try { await a.upload; } catch {}
+    if (a.serverPath) uploaded.push(a);
   }
 
   // Auto-detect file type and warn if unsupported for this domain
@@ -6237,8 +6472,14 @@ const TOOL_FAMILIES = ['llama-3.1','llama3.1','llama-3.2','llama3.2','llama-3.3'
   'qwen2','qwen2.5','qwen3','qwq','mistral','mixtral','ministral','magistral','devstral','codestral',
   'hermes','command-r','command-a','firefunction','functionary','granite-3','granite3','phi-4','phi4',
   'gpt-oss','gpt-4','gpt-3.5','o1','o3','o4','claude','gemini','gemma-3','gemma3','gemma-4','gemma4','deepseek-v3','deepseek-chat','deepseek-r1','smollm2'];
+// The server reads each local model's chat template (tools: true/false); the
+// family list is only the fallback.
 function modelSupportsTools(ref) {
-  const n = String(ref || '').toLowerCase();
+  const r = String(ref || '');
+  if (r.startsWith('cloud:') || r.startsWith('customep:')) return true;
+  const m = (installedModels || []).find(x => `${x.type}/${x.name}:${x.tag}` === r || `${x.name}:${x.tag}` === r);
+  if (m && typeof m.tools === 'boolean') return m.tools;
+  const n = r.toLowerCase();
   return TOOL_FAMILIES.some(f => n.includes(f));
 }
 
@@ -6274,22 +6515,23 @@ function prettyModelName(name, tag) {
 }
 
 // Turn raw backend/runtime errors into plain language a beginner understands.
-function friendlyError(msg) {
+function friendlyError(msg) { return tr(friendlyErrorEn(msg)); }
+function friendlyErrorEn(msg) {
   const m = String(msg || '');
   if (/llama-server not running|EnsureServer|failed to (load|start)|server (start|load)/i.test(m))
     return "The assistant couldn't start. It may still be loading the model — wait a few seconds and try again, or pick another assistant.";
   if (/no API key/i.test(m))
-    return "Questo modello cloud ha bisogno di una API key. Aggiungila da My models → ☁️ Add cloud model.";
+    return "This cloud model needs an API key. Add it in Cloud models (model menu → Cloud models).";
   if (/tools_unsupported|does not support tools/i.test(m))
     return "This assistant can't use tools. Pick a newer model, or it will just chat normally.";
   if (/could not be loaded|architecture|llama\.cpp|wrong number of tensors/i.test(m))
-    return "This model can't run here — it needs a different engine (some Ollama models like Gemma 3n) or is too big for your GPU. Pick a model marked 🛠 that fits, e.g. Qwen2.5 0.5B/7B or Llama 3.2 3B.";
+    return "This model can't run here: it needs a different engine or is too big for this computer. Pick a smaller model, or update llama.cpp in Downloads → Engines.";
   if (/connection|offline|unreachable|fetch failed|ECONNREFUSED|timeout/i.test(m))
     return "Can't reach the assistant. Make sure Vortelio is running, then try again.";
   if (/out of memory|CUDA|VRAM|allocat/i.test(m))
     return "Not enough memory to run this model. Try a smaller assistant, or switch to CPU.";
   if (/not found|no such|404/i.test(m) && /model/i.test(m))
-    return "That model isn't installed. Download one from Settings → Download models.";
+    return "That model isn't installed. Download one from Download models.";
   return m || 'Something went wrong.';
 }
 
@@ -8055,7 +8297,7 @@ function flushRender(node) {
 let _toastTimer = null;
 function toast(msg, type='') {
   const el = document.getElementById('toast');
-  msg = String(msg ?? '').replace(/^[\p{Extended_Pictographic}\u2190-\u21FF\u2600-\u27BF\uFE0F\u200D\s]+/u, '');
+  msg = tr(String(msg ?? '').replace(/^[\p{Extended_Pictographic}\u2190-\u21FF\u2600-\u27BF\uFE0F\u200D\s]+/u, ''));
   el.textContent = msg; el.className = 'toast show' + (type ? ' '+type : '');
   el.title = t('toastClose');
   el.onclick = () => { el.className = 'toast'; };

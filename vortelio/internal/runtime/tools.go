@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/vortelio/vortelio/internal/docs"
 )
 
 // ── Tool definitions (OpenAI-compatible schema) ──────────────────────────────
@@ -671,11 +673,20 @@ func toolReadFile(argsJSON string) (string, error) {
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil || args.Path == "" {
 		return "", fmt.Errorf("path is required")
 	}
-	data, err := os.ReadFile(args.Path)
-	if err != nil {
-		return "", fmt.Errorf("cannot read file %q: %w", args.Path, err)
+	var content string
+	if docs.Supported(args.Path) { // PDF, Word, … → their text
+		d, err := docs.Extract(args.Path)
+		if err != nil {
+			return "", fmt.Errorf("cannot read %q: %w", args.Path, err)
+		}
+		content = d.Text
+	} else {
+		data, err := os.ReadFile(args.Path)
+		if err != nil {
+			return "", fmt.Errorf("cannot read file %q: %w", args.Path, err)
+		}
+		content = string(data)
 	}
-	content := string(data)
 	lines := strings.Split(content, "\n")
 	total := len(lines)
 

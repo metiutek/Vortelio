@@ -2,6 +2,17 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.4.3] — 2026-10-21
+### Added
+- **Documents in the chat**: attach a PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx), OpenDocument, EPUB, RTF or HTML file and every model can read it — also without tools and in Assistant mode. The file is read as soon as you attach it (the chip shows "PDF · 12 pages"), and its text goes into the message within the model's context window (what does not fit is left out with a note). The agent's `read_file` reads these documents too. `/api/upload` returns the extracted text.
+- **Cloud models** dialog, like Claude's connectors: every provider as a card (connected or not), paste a key and it is checked by listing the provider's models live, then choose which models appear in the model picker (the curated ones, with prices, on top). Replace or add backup keys, disconnect, or connect your own OpenAI/Anthropic-compatible server. Image, audio and video providers are in the same place. Reachable from the model menu ("Cloud models"), the Tools menu and My models.
+### Changed
+- Whether a model can use tools is read from its own chat template (the one llama.cpp runs), not guessed from its name: models like LFM2.5 are no longer told they "can't use tools". `/api/models` reports `tools` for chat models.
+- The interface starts in English; Italian stays available in Settings.
+- Settings: General (theme, language) → Chat (keep loaded, memory, context window) → Default models → Updates → Shortcuts → Advanced.
+- First run: "Use a cloud assistant" opens the cloud models dialog.
+- Error messages and notifications are translated when the interface is in Italian.
+
 ## [0.4.2] — 2026-10-21
 ### Added
 - **Hugging Face browser** (Download models → Hugging Face), like LM Studio's Discover: trending models as soon as it opens, search with type/sort/size filters, "GGUF only" and "Fits my PC". Pick a model to see its **model card (README)** with images and links, its stats and licence, and every GGUF quantization with its real size (all parts of split files), whether it fits this computer and a one-click Download; the recommended quant is on top. Gated repositories and repositories without GGUF files say what to do. API: `GET /api/hf/model?id=owner/name`.

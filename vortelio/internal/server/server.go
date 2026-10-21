@@ -19,6 +19,8 @@ import (
 	"github.com/vortelio/vortelio/internal/hub"
 	"github.com/vortelio/vortelio/internal/runtime"
 	"github.com/vortelio/vortelio/internal/version"
+
+	"github.com/vortelio/vortelio/internal/docs"
 )
 
 //go:embed ui.html
@@ -76,6 +78,7 @@ func getHardware() *runtime.Hardware {
 type ModelWithSize struct {
 	*hub.Model
 	SizeHuman string `json:"size_human"`
+	Tools     bool   `json:"tools"` // a chat model that can call tools (from its chat template)
 }
 
 type GenerateRequest struct {
@@ -391,7 +394,17 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, 500, "upload failed: "+err.Error())
 		return
 	}
-	respond(w, 200, map[string]string{"path": tmp.Name()})
+	tmp.Close()
+	out := map[string]any{"path": tmp.Name(), "name": safeName}
+	// Documents come back as text, so any model can read them.
+	if docs.Supported(safeName) {
+		if d, err := docs.Extract(tmp.Name()); err != nil {
+			out["text_error"] = err.Error()
+		} else {
+			out["text"], out["kind"], out["pages"], out["truncated"] = d.Text, d.Kind, d.Pages, d.Truncated
+		}
+	}
+	respond(w, 200, out)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -244,7 +244,7 @@ func handleGenerateLLM(w http.ResponseWriter, r *http.Request, model *hub.Model,
 			w.Header().Set("Content-Type", "application/x-ndjson")
 			notice, _ := json.Marshal(map[string]string{
 				"level": "info",
-				"text":  "This model can't use tools, so I answered without web search or agentic actions. For those, pick a tool-capable model such as Llama 3.2, Qwen2.5/3, or Mistral.",
+				"text":  "This model's chat template has no tool support, so I answered without web search or tools. Pick a model marked 'tools' in the model menu to use them.",
 			})
 			writeNDJSON(map[string]interface{}{
 				"model": modelID, "created_at": time.Now().UTC().Format(time.RFC3339Nano),

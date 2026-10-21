@@ -32,9 +32,9 @@ func (c *RunCommand) Run(args []string) error {
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "Examples:")
 		fmt.Fprintln(os.Stderr, "  vortelio run llm/mistral:7b \"Tell me a joke\"")
-		fmt.Fprintln(os.Stderr, "  vortelio run image/sdxl \"a cat in space\" --output ./cat.png")
-		fmt.Fprintln(os.Stderr, "  vortelio run audio/whisper:large --input ./speech.mp3")
-		fmt.Fprintln(os.Stderr, "  vortelio run video/cogvideo \"a horse running\" --output ./horse.mp4")
+		fmt.Fprintln(os.Stderr, "  vortelio run image/z-image:turbo \"a cat in space\" --output ./cat.png")
+		fmt.Fprintln(os.Stderr, "  vortelio run audio/whisper:large-v3 --input ./speech.mp3")
+		fmt.Fprintln(os.Stderr, "  vortelio run video/wan2.1:1.3b \"a horse running\" --output ./horse.mp4")
 		return nil
 	}
 

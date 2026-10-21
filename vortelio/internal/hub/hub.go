@@ -770,17 +770,13 @@ var hfRegistry = map[string]HFEntry{
 		File:   "ggml-small.bin",
 		Format: "bin", Params: "244M", License: "Apache-2.0",
 	},
-	"audio/kokoro:latest": {
-		Repo:   "hexgrad/Kokoro-82M",
-		File:   "kokoro-v1_0.pth",
-		Format: "pt", Params: "82M", License: "Apache-2.0",
-	},
+	// ── Python models (advanced, CLI only: they need Python with torch and
+	// diffusers/transformers; the GUI lists only the native catalogs) ─────
 	"audio/bark:latest": {
 		Repo:   "suno/bark",
 		File:   "pytorch_model.bin",
 		Format: "pt", Params: "1.2B", License: "MIT",
 	},
-	// ── Video ───────────────────────────────────────────────────────────────
 	"video/cogvideo:5b": {
 		Repo:   "THUDM/CogVideoX-5b",
 		File:   "transformer/diffusion_pytorch_model.safetensors",

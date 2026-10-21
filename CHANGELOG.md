@@ -2,6 +2,15 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.99] — 2026-10-21
+### Changed
+- **Download models** lists the same curated, tested image, audio and video models as the studio pages (Z-Image, SD 1.5, FLUX GGUF, Kokoro, DotTTS, Stable Audio, Parakeet, Whisper, Wan…) instead of an old hand-written list of Python models.
+- Python models (Bark, CogVideoX, AnimateDiff, diffusers folders, TripoSR 3D) stay available from the command line as an advanced option; the GUI only offers models that run natively.
+- CLI help examples use the native models (`image/z-image:turbo`, `audio/kokoro:82m`, `video/wan2.1:1.3b`).
+### Removed
+- The Python fallback for GGUF video models (it needed a `wan` package that does not exist): an unsupported video GGUF now says which models to install.
+- Leftover stable-diffusion.cpp installer code from before the engine manager.
+
 ## [0.3.98] — 2026-10-21
 ### Added
 - **Video studio** (sidebar → Video): describe a clip, pick a shape and a length, and generate it on your computer; Wan 2.2 can also start from a picture. Live step progress, results play in place, download, reuse the seed; clips are saved to the Downloads folder. Models install from the page in one click.

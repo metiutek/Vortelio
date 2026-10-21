@@ -6993,25 +6993,24 @@ const REG = [
   {t:'llm',  n:'qwen3.6:35b-a3b',   d:'Qwen 3.6 35B — big but fast (MoE)',                s:'22 GB',  l:'Apache-2.0', gpu:'≥32GB RAM'},
   {t:'llm',  n:'gemma4:e2b',        d:'Google Gemma 4 E2B — for older or small PCs',      s:'3.1 GB', l:'Apache-2.0', gpu:'CPU OK'},
   {t:'llm',  n:'qwen3.5:0.8b',      d:'Qwen 3.5 0.8B — tiny, runs anywhere',              s:'0.5 GB', l:'Apache-2.0', gpu:'CPU OK'},
-  // ── IMAGE ────────────────────────────────────────────────────────
-  {t:'image',n:'flux:schnell',      d:'FLUX.1 Schnell — top quality, fast',              s:'23 GB',  l:'Apache-2.0', gpu:'≥8GB VRAM'},
-  {t:'image',n:'flux:dev',          d:'FLUX.1 Dev — better quality than Schnell',        s:'24 GB',  l:'NC',         gpu:'≥12GB VRAM'},
-  {t:'image',n:'sdxl:latest',       d:'Stable Diffusion XL 1024px — versatile',          s:'6.9 GB', l:'CreativeML', gpu:'≥6GB VRAM'},
-  {t:'image',n:'openjourney:latest',d:'MidJourney v4 style — ideal 4GB VRAM',           s:'4.2 GB', l:'CreativeML', gpu:'≥4GB VRAM'},
-  // ── AUDIO ────────────────────────────────────────────────────────
-  {t:'audio',n:'whisper:large-v3',  d:'Whisper Large v3 — STT 99 languages, top accuracy', s:'3.1 GB', l:'Apache-2.0'},
-  {t:'audio',n:'whisper:base',      d:'Whisper Base — lightweight and fast STT',         s:'290 MB', l:'Apache-2.0'},
-  {t:'audio',n:'whisper:small',     d:'Whisper Small — good speed/quality ratio',        s:'967 MB', l:'Apache-2.0'},
-  {t:'audio',n:'kokoro:latest',     d:'Kokoro TTS — natural, 82M parameters',            s:'340 MB', l:'Apache-2.0'},
-  {t:'audio',n:'bark:latest',       d:'Bark TTS — expressive and multilingual',          s:'5.5 GB', l:'MIT'},
-  // ── VIDEO ────────────────────────────────────────────────────────
-  {t:'video',n:'wan:1.3b',          d:'Wan 2.1 T2V — lightweight, 4GB VRAM',             s:'0.9 GB', l:'Apache-2.0', gpu:'≥4GB VRAM'},
-  {t:'video',n:'wan:14b',           d:'Wan 2.1 T2V — high quality',                      s:'8.5 GB', l:'Apache-2.0', gpu:'≥8GB VRAM'},
-  {t:'video',n:'cogvideo:5b',       d:'CogVideoX 5B — text→video HD',                   s:'18 GB',  l:'CogVideoX',  gpu:'≥16GB VRAM'},
-  {t:'video',n:'animatediff:v3',    d:'AnimateDiff — stylized animated video',           s:'4.2 GB', l:'Apache-2.0', gpu:'≥6GB VRAM'},
   // ── 3D ──────────────────────────────────────────────────────────
-  {t:'3d',   n:'triposr:latest',    d:'TripoSR — image→3D mesh in seconds',              s:'~2 GB',  l:'MIT'},
+  {t:'3d',   n:'triposr:latest',    d:'TripoSR — image→3D mesh in seconds (needs Python)', s:'~2 GB',  l:'MIT'},
 ];
+// Image, audio and video models come from the native catalogs (the same
+// curated, tested lists as the studio pages), loaded once.
+let _regNative = null;
+function loadNativeReg() {
+  if (_regNative) return _regNative;
+  _regNative = Promise.all(['image', 'audio', 'video'].map(t =>
+    fetch('/api/' + t + '/catalog').then(r => r.ok ? r.json() : {}).catch(() => ({}))
+      .then(d => (d.catalog || []).map(e => ({ t, n: e.ref.slice(t.length + 1), d: e.name + ' — ' + e.description,
+        s: dlFmtBytes(e.size_bytes), l: e.license }))))).then(lists => {
+    const at = REG.findIndex(m => m.t === '3d');
+    REG.splice(at < 0 ? REG.length : at, 0, ...lists.flat());
+    if (document.getElementById('ws-registry')?.classList.contains('on')) renderReg(REG, _regQuery);
+  });
+  return _regNative;
+}
 const tIcon = {llm:'💬',image:'🎨',audio:'🔊',video:'🎬','3d':'🧊'};
 const tClass = {llm:'tp-llm',image:'tp-image',audio:'tp-audio',video:'tp-video','3d':'tp-3d'};
 let regFilter = 'all';
@@ -7059,6 +7058,7 @@ function renderReg(items, query) {
   // Fill the fit badges once the memory budget is known — but only re-render if
   // the fetch actually succeeded (otherwise this looped forever while offline).
   if (!_sysRes && !_sysResPending) loadSysRes().then(res => { if (res) renderReg(items, query); });
+  loadNativeReg();
   const q = String(query || '').toLowerCase();
   const filtered = items.filter(m => (regFilter === 'all' || m.t === regFilter) &&
     (!q || m.n.toLowerCase().includes(q) || m.d.toLowerCase().includes(q)));

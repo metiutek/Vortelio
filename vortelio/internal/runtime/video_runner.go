@@ -65,56 +65,48 @@ func (r *VideoRunner) Run(opts *RunOptions) error {
 		}
 		return r.runNative(opts, nil)
 	}
-	AcquireGPU("video") // free VRAM held by a chat model
-	if opts.Prompt == "" {
-		return fmt.Errorf("a text prompt is required for video generation\n  Example: vortelio run video/wan:1.3b \"a flying cat\"")
+	script, output, err := r.pythonScript(opts)
+	if err != nil {
+		return err
 	}
-
-	output := opts.OutputFile
-	if output == "" {
-		output = "output.mp4"
-	}
-
-	name := strings.ToLower(r.model.Name)
-	fmt2 := strings.ToLower(r.model.Format)
-	local := strings.ToLower(r.model.LocalPath)
-
 	fmt.Printf("🎬  Generating video (%d steps)\n", opts.Steps)
 	fmt.Printf("    Prompt: %q\n", opts.Prompt)
 	fmt.Printf("    Output: %s\n\n", output)
+	return r.runPythonScriptProg(script, nil)
+}
 
-	var script string
+// pythonScript picks the diffusers script for a non-native video model (a
+// Python pipeline folder: CogVideoX, AnimateDiff, Wan/Hunyuan diffusers…).
+// GGUF video models only run natively.
+func (r *VideoRunner) pythonScript(opts *RunOptions) (script, output string, err error) {
+	if opts.Prompt == "" {
+		return "", "", fmt.Errorf("a text prompt is required for video generation\n  Example: vortelio run video/wan2.1:1.3b \"a flying cat\"")
+	}
+	local := strings.ToLower(r.model.LocalPath)
+	if strings.EqualFold(r.model.Format, "gguf") || strings.HasSuffix(local, ".gguf") {
+		return "", "", fmt.Errorf("%s is not a supported video GGUF — install video/wan2.1:1.3b or video/wan2.2:5b", r.model.Name)
+	}
+	AcquireGPU("video") // free VRAM held by a chat model
+	output = opts.OutputFile
+	if output == "" {
+		output = "output.mp4"
+	}
+	name := strings.ToLower(r.model.Name)
 	switch {
-	case strings.Contains(name, "cogvideo") || strings.Contains(name, "cog"):
+	case strings.Contains(name, "cog"):
 		script = r.cogVideoScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-
 	case strings.Contains(name, "wan") || strings.Contains(local, "wan"):
-		// Wan 2.1 — supports both GGUF and safetensors
-		if fmt2 == "gguf" || strings.HasSuffix(local, ".gguf") {
-			script = r.wanGGUFScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-		} else {
-			script = r.wanScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-		}
-
-	case strings.Contains(name, "hunyuan") || strings.Contains(name, "ltx") ||
-		strings.Contains(name, "mochi"):
+		script = r.wanScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
+	case strings.Contains(name, "hunyuan") || strings.Contains(name, "ltx") || strings.Contains(name, "mochi"):
 		script = r.hunyuanScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-
 	case strings.Contains(name, "animatediff") || strings.Contains(name, "animate-diff"):
 		script = r.animateDiffScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-
 	default:
-		// Unknown model: try to detect from format
-		if fmt2 == "gguf" || strings.HasSuffix(local, ".gguf") {
-			script = r.wanGGUFScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-		} else {
-			// Generic diffusers auto-pipeline — works for any installed
-			// text-to-video model with a model_index.json.
-			script = r.genericVideoScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-		}
+		// Generic diffusers auto-pipeline: any text-to-video model with a
+		// model_index.json.
+		script = r.genericVideoScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
 	}
-
-	return r.runPythonScriptProg(script, nil)
+	return script, output, nil
 }
 
 func (r *VideoRunner) cogVideoScript(prompt, output string, steps int, forceCPU bool) string {
@@ -428,38 +420,12 @@ func (r *VideoRunner) RunWithProgress(opts *RunOptions, progress chan<- Progress
 			}
 		})
 	}
-	AcquireGPU("video") // free VRAM held by a chat model
-	if opts.Prompt == "" {
+	script, _, err := r.pythonScript(opts)
+	if err != nil {
 		if progress != nil {
 			close(progress)
 		}
-		return fmt.Errorf("a text prompt is required for video generation")
-	}
-	output := opts.OutputFile
-	if output == "" {
-		output = "output.mp4"
-	}
-	name := strings.ToLower(r.model.Name)
-	local := strings.ToLower(r.model.LocalPath)
-	fmt2 := strings.ToLower(r.model.Format)
-	var script string
-	switch {
-	case strings.Contains(name, "cogvideo") || strings.Contains(name, "cog"):
-		script = r.cogVideoScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-	case strings.Contains(name, "wan") || strings.Contains(local, "wan"):
-		if fmt2 == "gguf" || strings.HasSuffix(local, ".gguf") {
-			script = r.wanGGUFScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-		} else {
-			script = r.wanScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-		}
-	case strings.Contains(name, "hunyuan") || strings.Contains(name, "ltx") || strings.Contains(name, "mochi"):
-		script = r.hunyuanScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-	case strings.Contains(name, "animatediff") || strings.Contains(name, "animate-diff"):
-		script = r.animateDiffScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-	case fmt2 == "gguf" || strings.HasSuffix(local, ".gguf"):
-		script = r.wanGGUFScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
-	default:
-		script = r.genericVideoScript(opts.Prompt, output, opts.Steps, opts.ForceCPU)
+		return err
 	}
 	pythonBin := FindPython()
 	if pythonBin == "" {
@@ -481,109 +447,6 @@ func (r *VideoRunner) RunWithProgress(opts *RunOptions, progress chan<- Progress
 	cmd := HideWindow(exec.Command(pythonBin, tmp.Name()))
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
 	return RunWithProgress(cmd, progress)
-}
-
-// wanGGUFScript runs Wan 2.1 T2V from a GGUF file using the "wan" Python package
-func (r *VideoRunner) wanGGUFScript(prompt, output string, steps int, forceCPU bool) string {
-	// Wan 2.1 GGUF requires diffusers WanPipeline (diffusers >= 0.33.0)
-	// The model directory should contain the pipeline files
-	modelDir := r.modelDir()
-	device := r.deviceString(forceCPU)
-	outputFwd := strings.ReplaceAll(output, `\`, `/`)
-
-	return fmt.Sprintf(`import sys, os, subprocess, shutil
-os.environ["PYTHONIOENCODING"] = "utf-8"
-model_dir = r"""%s"""
-prompt = r"""%s"""
-output_path = r"""%s"""
-device = "%s"
-steps = %d
-
-print("VORTELIO_PROGRESS:5:Checking dependencies...")
-
-def pip_run(*args):
-    """Try multiple pip invocation strategies."""
-    strategies = [
-        [sys.executable, "-m", "pip", "install", "-q"] + list(args),
-        [sys.executable, "-m", "pip", "install", "-q", "--break-system-packages"] + list(args),
-    ]
-    uv = shutil.which("uv")
-    if uv:
-        strategies.append([uv, "pip", "install", "-q"] + list(args))
-    for cmd in strategies:
-        if subprocess.run(cmd, capture_output=True).returncode == 0:
-            return True
-    return False
-
-# Ensure diffusers >= 0.33.0 for WanPipeline
-try:
-    import diffusers
-    from packaging.version import Version
-    if Version(diffusers.__version__) < Version("0.33.0"):
-        print("VORTELIO_PROGRESS:8:Aggiornamento diffusers...")
-        pip_run("diffusers[torch]>=0.33.0", "transformers", "accelerate")
-        import importlib; importlib.reload(diffusers)
-except ImportError:
-    print("VORTELIO_PROGRESS:8:Installing diffusers...")
-    pip_run("diffusers[torch]>=0.33.0", "transformers", "accelerate")
-
-# Check if model_dir has the full diffusers structure
-# If it only contains a .gguf file, auto-download the full model
-model_index = os.path.join(model_dir, "model_index.json")
-if not os.path.exists(model_index):
-    print("VORTELIO_PROGRESS:12:Downloading full Wan 2.1 model (diffusers files missing)...")
-    # Find if there's a .gguf file to determine the size (1.3B vs 14B)
-    gguf_files = [f for f in os.listdir(model_dir) if f.endswith(".gguf")]
-    repo_id = "Wan-AI/Wan2.1-T2V-14B-Diffusers"
-    if any("1.3b" in f.lower() or "1_3b" in f.lower() for f in gguf_files):
-        repo_id = "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
-    print(f"VORTELIO_PROGRESS:13:Download da {repo_id}...")
-    try:
-        import os as _os
-        # Prevent HuggingFace from caching in ~/.cache/huggingface (saves disk space)
-        _os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
-        from huggingface_hub import snapshot_download
-        model_dir = snapshot_download(
-            repo_id=repo_id,
-            local_dir=model_dir,
-            local_dir_use_symlinks=False,  # copy files directly, no symlinks
-            ignore_patterns=["*.gguf", "*.bin", "flax_*", "tf_*", "*.msgpack"],
-        )
-        print(f"VORTELIO_PROGRESS:45:Download complete!")
-    except Exception as e:
-        print(f"VORTELIO_ERROR:Automatic download failed: {e}\nRe-download the model with: vortelio pull video/wan:1.3b")
-        sys.exit(1)
-
-print("VORTELIO_PROGRESS:50:Loading WanPipeline...")
-try:
-    from diffusers import AutoencoderKLWan, WanPipeline
-    from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
-    import torch
-    dtype = torch.bfloat16 if device == "cuda" else torch.float32
-    pipe = WanPipeline.from_pretrained(model_dir, torch_dtype=dtype)
-    if device == "cuda":
-        pipe.enable_model_cpu_offload()
-        pipe.vae.enable_slicing()
-    print("VORTELIO_PROGRESS:50:Generating video...")
-    output_frames = pipe(
-        prompt=prompt,
-        negative_prompt="blurry, low quality, watermark",
-        height=480, width=832,
-        num_frames=49, num_inference_steps=steps,
-        guidance_scale=5.0,
-    ).frames[0]
-    print("VORTELIO_PROGRESS:90:Saving video...")
-    from diffusers.utils import export_to_video
-    export_to_video(output_frames, output_path, fps=16)
-    print("VORTELIO_DONE:" + output_path)
-    print("VORTELIO_PROGRESS:100:Done!")
-except AttributeError:
-    print("VORTELIO_ERROR:WanPipeline not available in this diffusers version.\nRun: pip install diffusers>=0.33.0")
-    sys.exit(1)
-except Exception as e:
-    print(f"VORTELIO_ERROR:{e}")
-    sys.exit(1)
-`, modelDir, escapePy(prompt), outputFwd, device, steps)
 }
 
 // wanScript runs Wan 2.1 from safetensors via diffusers WanPipeline

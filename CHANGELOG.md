@@ -2,6 +2,15 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.4.1] — 2026-10-21
+### Changed
+- **Tools menu** (was "+"): a single "Tools" button with switches, like Claude's "Search and tools". Assistant shows only Web search and Think first; Agent adds Files & calculator, Create media, Private chat, then *How the agent works* (Developer, Autonomous), Skills, Connectors (MCP), Add a cloud model and Run on GPU/CPU. The output-type list, the model shortcuts and the notes are gone from it. Active tools show as chips in both modes.
+- **Image and video studios**: one composer card like the chat — prompt, then model, shape, length (video), a settings button for steps/guidance/seed and Generate on one row; readable model names (`FLUX 1 Schnell` instead of `city96--flux-1-schnell-gguf:q2-k`).
+- **Tools page**: a side list grouped into Knowledge, Try models, Manage and Integrations instead of 11 tabs in a row.
+- Agent permissions menu (Plan · Ask · Auto) with a one-line explanation each.
+- **No more emoji** in buttons, menus, titles, dialogs, settings and notifications (only ✓ ✗ ✕ marks stay). Replies from models are untouched.
+- `vortelio code`: `/model` lists models with readable names and a details line (this computer · quantization · size · tools) instead of emoji and raw file names; the header shows the folder as `~\…` and no longer repeats "(cloud)".
+
 ## [0.4.0] — 2026-10-21
 ### Added
 - **The chat model stays ready** (like LM Studio): picking a local model loads it right away and it stays loaded for the whole conversation — no reload between messages. A dot on the model button shows its state (loading, ready, error) and the model menu has an **Eject** button. Settings → Chat → *Keep the model loaded*: until ejected (default), 1 hour, 30 or 5 minutes idle. Coming back to the chat after the image, video or audio studio (which borrow the GPU) reloads it in the background.

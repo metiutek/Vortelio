@@ -429,7 +429,11 @@ func (s *codeSession) modelLabel() string {
 		return s.cloudModel + " (" + p.Name + ")"
 	}
 	if s.local != nil {
-		return s.local.Name + ":" + s.local.Tag
+		label, quant := prettyModel(s.local.Name, s.local.Tag)
+		if quant != "" {
+			label += " " + quant
+		}
+		return label
 	}
 	return "no model"
 }
@@ -1535,12 +1539,12 @@ func (s *codeSession) printBanner() {
 	title := fmt.Sprintf("✻ Vortelio Code  v%s", version.Version)
 	fmt.Printf("%s│%s %s%s%s%s%s│%s\n", cAccent, cReset, cBold, title, cReset, strings.Repeat(" ", max(0, w-3-len([]rune(title)))), cAccent, cReset)
 	fmt.Printf("%s╰%s╯%s\n", cAccent, line, cReset)
-	fmt.Printf("  %scwd%s    %s\n", cGray, cReset, s.workdir)
-	where := "local"
-	if s.cloudProvider != "" {
-		where = "cloud"
+	fmt.Printf("  %scwd%s    %s\n", cGray, cReset, fitLeft(homePath(s.workdir), termWidth()-12))
+	where := ""
+	if s.cloudProvider == "" && s.local != nil {
+		where = cGray + " (this computer)" + cReset
 	}
-	fmt.Printf("  %smodel%s  %s %s(%s)%s\n", cGray, cReset, s.modelLabel(), cGray, where, cReset)
+	fmt.Printf("  %smodel%s  %s%s\n", cGray, cReset, s.modelLabel(), where)
 	fmt.Printf("  %smode%s   %s\n", cGray, cReset, modeLabel(s.mode))
 	if len(s.instr) > 0 {
 		var names []string

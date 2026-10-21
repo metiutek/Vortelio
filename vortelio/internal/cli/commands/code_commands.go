@@ -358,15 +358,21 @@ func (s *codeSession) pickModel() string {
 			continue
 		}
 		ref := m.Name + ":" + m.Tag
-		tl := ""
+		label, quant := prettyModel(m.Name, m.Tag)
+		meta := []string{"this computer"}
+		for _, v := range []string{m.Parameters, quant, humanSize(m.SizeBytes)} {
+			if v != "" && v != "0 B" {
+				meta = append(meta, v)
+			}
+		}
 		if runtime.ModelSupportsTools(ref) {
-			tl = cGray + " · tools" + cReset
+			meta = append(meta, "tools")
 		}
 		if ref == cur {
 			start = len(items)
 		}
 		refs = append(refs, ref)
-		items = append(items, "💻 "+ref+tl)
+		items = append(items, label+cGray+"  "+strings.Join(meta, " · ")+cReset)
 	}
 	for _, c := range server.CloudModelsForCLI() {
 		ref := "cloud/" + c.Provider + "/" + c.Model
@@ -374,7 +380,7 @@ func (s *codeSession) pickModel() string {
 			start = len(items)
 		}
 		refs = append(refs, ref)
-		items = append(items, "☁  "+c.Label+cGray+" · "+c.ProviderName+cReset)
+		items = append(items, c.Label+cGray+"  "+c.ProviderName+cReset)
 	}
 	// Custom models the user added earlier — only for providers that are still
 	// configured, so an unconfigured provider never shows up.
@@ -390,14 +396,14 @@ func (s *codeSession) pickModel() string {
 			}
 			p, _ := cloud.FindProvider(prov)
 			refs = append(refs, full)
-			items = append(items, "☁  "+model+cGray+" · "+p.Name+" · custom"+cReset)
+			items = append(items, model+cGray+"  "+p.Name+" · custom"+cReset)
 		}
 	}
 	const browseEntry, addEntry = "\x00browse", "\x00add"
 	refs = append(refs, browseEntry, addEntry)
 	items = append(items,
-		cGray+"＋ Browse all models of a provider…"+cReset,
-		cGray+"＋ Add provider / API key (OpenAI, Anthropic, OpenRouter, custom /v1…)"+cReset)
+		cGray+"Browse all models of a provider…"+cReset,
+		cGray+"Add a provider or API key (OpenAI, Anthropic, OpenRouter, custom /v1)…"+cReset)
 	idx := selectList(s.t, "Select a model", items, start)
 	if idx < 0 {
 		return ""
@@ -497,8 +503,8 @@ func (s *codeSession) addProvider() string {
 	}
 	nb, nc := len(builtins), len(cloud.LoadCustomProviders())
 	items = append(items,
-		cAccent+"＋ Custom OpenAI-compatible endpoint (/v1/chat/completions)"+cReset,
-		cAccent+"＋ Custom Anthropic-compatible endpoint (/v1/messages)"+cReset)
+		cAccent+"Custom OpenAI-compatible endpoint (/v1/chat/completions)…"+cReset,
+		cAccent+"Custom Anthropic-compatible endpoint (/v1/messages)…"+cReset)
 	i := searchList(s.t, "Add provider / API key", items, 0)
 	switch {
 	case i < 0:

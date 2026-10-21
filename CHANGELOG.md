@@ -2,6 +2,21 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.4.2] — 2026-10-21
+### Added
+- **Hugging Face browser** (Download models → Hugging Face), like LM Studio's Discover: trending models as soon as it opens, search with type/sort/size filters, "GGUF only" and "Fits my PC". Pick a model to see its **model card (README)** with images and links, its stats and licence, and every GGUF quantization with its real size (all parts of split files), whether it fits this computer and a one-click Download; the recommended quant is on top. Gated repositories and repositories without GGUF files say what to do. API: `GET /api/hf/model?id=owner/name`.
+- Italian for the newer parts of the interface; the language follows the browser on first start.
+### Changed
+- Hugging Face answers are cached for 10 minutes (searching again or reopening a model is instant), the search asks Hugging Face for the selected type, and an empty search lists what is trending.
+- A model downloaded from a file name is named by its quantization (`…:q4-k-m` instead of `…:qwen3-5-4b-q4-k-m-gguf`); readable names handle sizes like `0.8B`.
+- Audio studio: Speak, Music and Sound effects use the same composer as the image and video studios.
+- AI agents open in about 2 s instead of 6–20 s (one shared `npm list`, checks cached for a minute and run in parallel); agents show a lettered tile instead of an emoji.
+- The chat model is no longer loaded when the app opens (only when you pick one, or with the first message), so opening Vortelio for the studios does not fill the memory.
+### Fixed
+- Loading another model could stop the one that was still answering, cutting the reply in half: the switch now waits for the answer to finish.
+- Long inline code in replies and model cards no longer widens the page on phones.
+- The status poll could raise "offline" errors in the browser console when the server was busy.
+
 ## [0.4.1] — 2026-10-21
 ### Changed
 - **Tools menu** (was "+"): a single "Tools" button with switches, like Claude's "Search and tools". Assistant shows only Web search and Think first; Agent adds Files & calculator, Create media, Private chat, then *How the agent works* (Developer, Autonomous), Skills, Connectors (MCP), Add a cloud model and Run on GPU/CPU. The output-type list, the model shortcuts and the notes are gone from it. Active tools show as chips in both modes.

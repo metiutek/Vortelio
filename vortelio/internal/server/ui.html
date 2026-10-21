@@ -667,7 +667,7 @@ textarea.inp::placeholder { color: var(--text3); }
 .agent-badge.installed     { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
 .agent-badge.running       { background: var(--accent-light); color: var(--accent); border: 1px solid #b2ddd4; }
 .agent-badge.starting      { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; animation: pulse 1s infinite; }
-.agent-icon { font-size: 26px; flex-shrink: 0; }
+.agent-icon { width: 38px; height: 38px; border-radius: 10px; color: #fff; font-weight: 600; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .agent-info { flex: 1; min-width: 0; }
 .agent-name { font-weight: 500; font-size: 15px; }
 .agent-desc { font-size: 12px; color: var(--text2); margin-top: 2px; line-height: 1.4; }
@@ -1453,6 +1453,68 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 .row-menu button.danger { color: var(--err); }
 .rm-sep { height: 1px; background: var(--border); margin: 4px 2px; }
 .onb-emoji:empty { display: none; }
+/* Audio studio: forms for the recording-based tabs, matching the composer */
+#ws-audio .au-card { border-color: var(--border2); border-radius: 22px; box-shadow: 0 6px 28px rgba(20,20,40,.07); padding: 18px 20px; }
+.dark #ws-audio .au-card { box-shadow: 0 6px 28px rgba(0,0,0,.4); }
+#ws-audio .st-composer + .st-status, #ws-audio .au-card + * { margin-top: 0; }
+.st-bar .st-select + .st-select { max-width: 200px; }
+
+/* Download models: tabs + Hugging Face browser */
+.reg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.reg-tabs { display: inline-flex; background: var(--bg3); border-radius: 10px; padding: 3px; }
+.reg-tab { border: none; background: transparent; font: inherit; font-size: 13.5px; color: var(--text2); padding: 6px 14px; border-radius: 8px; cursor: pointer; }
+.reg-tab.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+#ws-registry.wide .panel-inner { max-width: 1240px; }
+.hf-layout { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.hf-left { position: sticky; top: 0; display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 150px); }
+.hf-q { margin: 0 !important; }
+.hf-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.hf-filters select { border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12.5px; background: var(--bg); color: var(--text); }
+.hf-check { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--text2); cursor: pointer; }
+.hf-sysinfo { font-size: 12px; color: var(--text3); }
+.hf-list { overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; min-height: 120px; transition: opacity .15s; }
+.hf-list.loading { opacity: .55; }
+.hf-row { padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.hf-row:last-child { border-bottom: none; }
+.hf-row:hover { background: var(--bg2); }
+.hf-row.sel { background: var(--bg3); }
+.hf-row-name { font-size: 13.5px; color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hf-owner { color: var(--text3); font-weight: 400; }
+.hf-row-meta { font-size: 12px; color: var(--text3); margin-top: 2px; display: flex; gap: 6px; flex-wrap: wrap; }
+.hf-fit { font-size: 12px; font-weight: 500; }
+.hf-empty { padding: 18px 14px; font-size: 13px; color: var(--text3); }
+.hf-empty.err { color: var(--err); }
+.hf-detail { border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; min-height: 300px; min-width: 0; }
+.hf-d-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
+.hf-d-owner { font-size: 13px; color: var(--text3); }
+.hf-d-title { font-size: 20px; font-weight: 600; letter-spacing: -.01em; word-break: break-word; }
+.hf-d-stats { font-size: 12.5px; color: var(--text3); margin-top: 4px; }
+.hf-d-sec { font-size: 12.5px; font-weight: 600; color: var(--text2); margin: 20px 0 8px; }
+.hf-files { border: 1px solid var(--border); border-radius: 12px; max-height: 320px; overflow-y: auto; }
+.hf-file { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.hf-file:last-child { border-bottom: none; }
+.hf-file.rec { background: var(--bg2); }
+.hf-f-main { flex: 1; min-width: 0; }
+.hf-f-quant { font-family: var(--mono); font-size: 13px; color: var(--text); }
+.hf-f-rec { font-size: 11px; font-weight: 500; margin-left: 8px; padding: 2px 7px; border-radius: 999px; background: var(--accent-light); color: var(--accent); }
+.hf-f-sub { font-size: 12px; color: var(--text3); margin-top: 2px; display: flex; gap: 6px; }
+.hf-file .btn { padding: 5px 12px; font-size: 12.5px; min-width: 92px; }
+.hf-note { font-size: 12.5px; color: var(--text2); background: var(--bg2); border-radius: 10px; padding: 9px 12px; margin-top: 10px; line-height: 1.5; }
+.hf-note a { color: var(--accent); }
+.hf-readme { white-space: normal; font-size: 14px; line-height: 1.65; color: var(--text); overflow-wrap: anywhere; }
+.hf-readme p { margin: 0 0 .7em; }
+.hf-img { width: auto; max-width: min(100%, 560px); max-height: 220px; border-radius: 8px; display: block; margin: 8px 0; }
+#ws-registry .panel-inner { overflow-x: hidden; }
+.hf-left, .hf-detail, .hf-list { min-width: 0; }
+.hf-readme pre { white-space: pre-wrap; }
+.content .inline-code { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .hf-layout { grid-template-columns: minmax(0, 1fr); }
+  .hf-left { position: static; max-height: none; }
+  .hf-list { max-height: 50vh; }
+  .hf-detail:not(.open) { display: none; }
+}
+
 #models-sub { font-size: 13.5px; color: var(--text3); margin-top: 4px; }
 /* Tools menu (Claude-style): toggles with switches, grouped, no emoji */
 .ctrl-plus { width: auto !important; border-radius: 999px !important; padding: 0 12px 0 10px !important; height: 32px; gap: 6px; display: inline-flex; align-items: center; }
@@ -1609,7 +1671,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
     <!-- populated by JS -->
   </div>
 
-  <div class="sidebar-foot">
+  <div class="sidebar-foot" id="sidebar-foot">
     <!-- Shown when a newer version is available on main -->
     <button class="nav-item nav-update" id="sidebar-update-btn" onclick="startVortelioUpdate()" style="display:none">
       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg> <span id="sidebar-update-lbl" data-i18n="updateVortelio">Update Vortelio</span>
@@ -1877,49 +1939,44 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
   <!-- REGISTRY PANEL -->
   <div class="panel" id="ws-registry">
     <div class="panel-inner">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
+      <div class="reg-head">
         <div class="panel-title" style="margin:0" id="panel-registry-title">Download models</div>
+        <div class="reg-tabs">
+          <button class="reg-tab on" id="regtab-rec" onclick="regTab('rec')">Recommended</button>
+          <button class="reg-tab" id="regtab-hf" onclick="regTab('hf')">Hugging Face</button>
+        </div>
       </div>
+      <div id="reg-view-hf" style="display:none">
+        <div class="hf-layout">
+          <div class="hf-left">
+            <input id="hf-q" class="search-box hf-q" placeholder="Search Hugging Face — e.g. qwen 3.5, gemma 4, flux" autocomplete="off"
+              oninput="hfSearchDebounced()" onkeydown="if(event.key==='Enter')hfSearch()">
+            <div class="hf-filters">
+              <select id="hf-type" onchange="hfSearch()">
+                <option value="">All types</option><option value="llm">Chat</option><option value="image">Images</option>
+                <option value="audio">Audio</option><option value="video">Video</option><option value="3d">3D</option>
+              </select>
+              <select id="hf-sort" onchange="hfSearch()">
+                <option value="">Best match</option><option value="downloads">Most downloaded</option><option value="likes">Most liked</option>
+                <option value="trending">Trending</option><option value="recent">Recently updated</option>
+              </select>
+              <select id="hf-size" onchange="hfRenderResults()">
+                <option value="">Any size</option><option value="3">Up to 3B</option><option value="8">Up to 8B</option>
+                <option value="14">Up to 14B</option><option value="34">Up to 34B</option><option value="big">Over 34B</option>
+              </select>
+              <label class="hf-check"><input type="checkbox" id="hf-gguf" checked onchange="hfSearch()"> GGUF only</label>
+              <label class="hf-check"><input type="checkbox" id="hf-fit-only" onchange="hfRenderResults()"> Fits my PC</label>
+            </div>
+            <div id="hf-sysinfo" class="hf-sysinfo"></div>
+            <div id="hf-results" class="hf-list"></div>
+          </div>
+          <div class="hf-detail" id="hf-detail"><div class="hf-empty">Pick a model to see its description and the files you can download.</div></div>
+        </div>
+      </div>
+      <div id="reg-view-rec">
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <input class="search-box" style="margin:0;flex:1" placeholder="Search catalog..." oninput="filterReg(this.value)">
-        <button class="btn" style="flex-shrink:0;white-space:nowrap" onclick="document.getElementById('hf-search').style.display='block';document.getElementById('hf-q').focus();hfLoadResources()" data-i18n="hfSearchBtn">Search HuggingFace</button>
-        <button class="btn primary" style="flex-shrink:0;white-space:nowrap" onclick="showCustomInstall()" data-i18n="urlInstall">+ HuggingFace URL</button>
-      </div>
-      <div id="hf-search" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px">
-        <div style="font-size:13px;font-weight:500;margin-bottom:8px">Cerca modelli su HuggingFace</div>
-        <div style="display:flex;gap:6px;margin-bottom:10px">
-          <input id="hf-q" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--bg);color:var(--text);font-size:13px;outline:none"
-            placeholder="es. qwen3.5 gguf, gemma 4, flux, whisper…" oninput="hfSearchDebounced()" onkeydown="if(event.key==='Enter')hfSearch()">
-          <button class="btn primary" onclick="hfSearch()">Cerca</button>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px">
-          <select id="hf-type" onchange="hfSearch()" class="hf-filter" style="padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--bg);color:var(--text);font-size:12px;font-family:var(--sans)">
-            <option value="">Tutti i tipi</option>
-            <option value="llm">LLM</option>
-            <option value="image">Immagini</option>
-            <option value="audio">Audio</option>
-            <option value="video">Video</option>
-            <option value="3d">3D</option>
-          </select>
-          <select id="hf-sort" onchange="hfSearch()" class="hf-filter" style="padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--bg);color:var(--text);font-size:12px;font-family:var(--sans)">
-            <option value="downloads">⬇ Più scaricati</option>
-            <option value="likes">Più piaciuti</option>
-            <option value="trending">Trending</option>
-            <option value="recent">Recenti</option>
-          </select>
-          <select id="hf-size" onchange="hfSearch()" class="hf-filter" style="padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--bg);color:var(--text);font-size:12px;font-family:var(--sans)">
-            <option value="">Qualsiasi peso</option>
-            <option value="3">≤ 3B · leggeri</option>
-            <option value="8">≤ 8B</option>
-            <option value="14">≤ 14B</option>
-            <option value="34">≤ 34B</option>
-            <option value="big">&gt; 34B · pesanti</option>
-          </select>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text2)"><input type="checkbox" id="hf-gguf" onchange="hfSearch()" style="margin:0"> GGUF</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text2)"><input type="checkbox" id="hf-fit-only" onchange="hfRenderResults()" style="margin:0"> Solo compatibili</label>
-        </div>
-        <div id="hf-sysinfo" style="font-size:11px;color:var(--text3);margin-bottom:8px"></div>
-        <div id="hf-results" style="max-height:340px;overflow-y:auto"></div>
+        <input class="search-box" id="reg-q" style="margin:0;flex:1" placeholder="Search recommended models" oninput="filterReg(this.value)">
+        <button class="btn" style="flex-shrink:0;white-space:nowrap" onclick="showCustomInstall()" data-i18n="urlInstall">Install from a link</button>
       </div>
       <div id="custom-install" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px">
         <div style="font-size:13px;font-weight:500;margin-bottom:8px" data-i18n="urlInstallTitle">Installa da URL HuggingFace</div>
@@ -1962,6 +2019,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
         <button class="rf-btn" onclick="filterType('3d',this)">3D</button>
       </div>
       <div class="reg-grid" id="reg-grid"></div>
+      </div><!-- /reg-view-rec -->
     </div>
   </div>
 
@@ -3138,7 +3196,7 @@ const LANGS = {
     info2: 'Informazioni',
     // Registry
     searchCatalog: 'Cerca nel catalogo...',
-    urlInstall: '+ URL HuggingFace',
+    urlInstall: 'Installa da un link',
     installFromUrl: 'Installa da URL HuggingFace',
     urlExample: 'Es: https://huggingface.co/owner/repo oppure owner/repo:file.gguf',
     install: 'Installa',
@@ -3324,7 +3382,7 @@ const LANGS = {
     installedCount: 'Installed models',
     info2: 'Information',
     searchCatalog: 'Search catalog...',
-    urlInstall: '+ HuggingFace URL',
+    urlInstall: 'Install from a link',
     installFromUrl: 'Install from HuggingFace URL',
     urlExample: 'E.g.: https://huggingface.co/owner/repo or owner/repo:file.gguf',
     install: 'Install',
@@ -3471,7 +3529,7 @@ const LANGS = {
   }
 };
 
-let currentLang = localStorage.getItem('vortelio_lang') || localStorage.getItem('pullai_lang') || 'en';
+let currentLang = localStorage.getItem('vortelio_lang') || localStorage.getItem('pullai_lang') || (/^it\b/i.test(navigator.language || '') ? 'it' : 'en');
 const _EMO_LEAD = /^[\p{Extended_Pictographic}\uFE0F\u200D\s]+/u;
 function t(key) { return String((LANGS[currentLang] || LANGS.en)[key] || key).replace(_EMO_LEAD, ''); }
 
@@ -3482,9 +3540,73 @@ function setLang(lang) {
   applyLang();
 }
 
+
+// ── Italian for the newer parts of the interface ──────────────────────────
+// Exact English phrases → Italian, applied to the app panels (never to chat
+// messages or model cards) and kept up to date as they re-render.
+const IT_PHRASES = {"Tools": "Strumenti", "Web search": "Ricerca web", "Look things up online": "Cerca informazioni online", "Think first": "Ragiona prima", "Reason step by step before answering": "Ragiona passo passo prima di rispondere", "Files & calculator": "File e calcolatrice", "Read files, do maths": "Legge file, fa calcoli", "Create media": "Crea contenuti", "Images, video, audio and 3D": "Immagini, video, audio e 3D", "Private chat": "Chat privata", "Not saved to history": "Non salvata nella cronologia", "How the agent works": "Come lavora l'agente", "Developer": "Sviluppatore", "Read, edit and run code in a folder": "Legge, modifica ed esegue codice in una cartella", "Autonomous": "Autonomo", "Keeps going until the goal is reached": "Continua finché non raggiunge l'obiettivo", "Skills": "Abilità", "Connectors (MCP)": "Connettori (MCP)", "Add a cloud model": "Aggiungi un modello cloud", "Run on": "Esegui su", "Permissions": "Permessi", "Plan": "Piano", "Ask": "Chiedi", "Auto": "Auto", "Reads and proposes, changes nothing": "Legge e propone, non modifica nulla", "Asks before anything risky": "Chiede prima di ogni azione rischiosa", "Runs without asking": "Agisce senza chiedere", "Web": "Web", "Think": "Ragiona", "Media": "Contenuti", "Private": "Privata", "Connectors": "Connettori", "Choose folder": "Scegli cartella", "Turn off": "Disattiva", "Search models": "Cerca modelli", "On this computer": "Su questo computer", "Hide": "Nascondi", "Show": "Mostra", "Manage models": "Gestisci modelli", "Download more": "Scarica altri", "Eject": "Espelli", "Loaded": "Caricato", "Loading…": "Caricamento…", "No model matches.": "Nessun modello corrisponde.", "No models installed yet.": "Nessun modello installato.", "Download a model": "Scarica un modello", "Loaded and ready": "Caricato e pronto", "Loading the model…": "Caricamento del modello…", "Cloud model": "Modello cloud", "Not loaded — it loads when you pick it or send a message": "Non caricato: si carica quando lo scegli o invii un messaggio", "Model ejected — memory freed": "Modello espulso: memoria liberata", "My models": "I miei modelli", "Chat": "Chat", "Images": "Immagini", "Video": "Video", "Audio & speech": "Audio e voce", "3D": "3D", "Open": "Apri", "More": "Altro", "Details": "Dettagli", "Rename": "Rinomina", "Set as default": "Imposta come predefinito", "Remove as default": "Togli come predefinito", "Compress (quantize)": "Comprimi (quantizza)", "Add vision": "Aggiungi visione", "Remove…": "Rimuovi…", "Default": "Predefinito", "Add cloud model": "Aggiungi modello cloud", "Download models": "Scarica modelli", "Fits in memory": "Entra in memoria", "Recommended": "Consigliati", "Hugging Face": "Hugging Face", "Search recommended models": "Cerca tra i consigliati", "Install from a link": "Installa da un link", "All types": "Tutti i tipi", "Best match": "Più pertinenti", "Most downloaded": "Più scaricati", "Most liked": "Più apprezzati", "Trending": "Di tendenza", "Recently updated": "Aggiornati di recente", "Any size": "Qualsiasi dimensione", "Up to 3B": "Fino a 3B", "Up to 8B": "Fino a 8B", "Up to 14B": "Fino a 14B", "Up to 34B": "Fino a 34B", "Over 34B": "Oltre 34B", "GGUF only": "Solo GGUF", "Fits my PC": "Adatti al mio PC", "Pick a model to see its description and the files you can download.": "Scegli un modello per vederne la descrizione e i file da scaricare.", "Searching Hugging Face…": "Cerco su Hugging Face…", "No model matches these filters.": "Nessun modello con questi filtri.", "Open on Hugging Face": "Apri su Hugging Face", "Download": "Scarica", "Model card": "Scheda del modello", "Installed": "Installato", "Starting…": "Avvio…", "Fits": "Ci sta", "Tight fit": "Al limite", "Too big": "Troppo grande", "Includes a vision projector: it is downloaded too, so the model can read images.": "Include un proiettore visivo: viene scaricato anche lui, così il modello può leggere le immagini.", "This repository has no description.": "Questo repository non ha una descrizione.", "Describe the image you want…": "Descrivi l'immagine che vuoi…", "Describe the video you want…": "Descrivi il video che vuoi…", "Generate": "Genera", "Generating": "Generazione", "Settings": "Impostazioni", "Square": "Quadrato", "Portrait": "Verticale", "Landscape": "Orizzontale", "Wide": "Panoramico", "More image models": "Altri modelli per immagini", "More video models": "Altri modelli video", "Avoid": "Da evitare", "Steps": "Passi", "Guidance": "Guida", "Seed": "Seed", "random": "casuale", "Length": "Durata", "Start from a picture": "Parti da una foto", "Stop": "Ferma", "Remove": "Rimuovi", "Empty fields use the values this model was made for. The same seed and prompt give the same image.": "I campi vuoti usano i valori per cui è stato creato il modello. Stesso seed e stessa descrizione danno la stessa immagine.", "Image studio": "Studio immagini", "Video studio": "Studio video", "Audio studio": "Studio audio", "Speak": "Voce", "Clone a voice": "Clona una voce", "Edit speech": "Modifica parlato", "Music": "Musica", "Sound effects": "Effetti sonori", "Separate tracks": "Separa tracce", "Transcribe": "Trascrivi", "Type what the voice should say…": "Scrivi cosa deve dire la voce…", "Ctrl+Enter to generate.": "Ctrl+Invio per generare.", "More models for this": "Altri modelli per questo", "English descriptions work best. Instrumental only.": "Le descrizioni in inglese funzionano meglio. Solo strumentale.", "English descriptions work best.": "Le descrizioni in inglese funzionano meglio.", "Working": "In corso", "Upload audio": "Carica audio", "● Record": "● Registra", "■ Stop recording": "■ Ferma registrazione", "Keep the model loaded": "Tieni il modello caricato", "The chat model loads when you pick it and stays ready between messages. The image, video and audio studios still borrow the GPU when they need it.": "Il modello della chat si carica quando lo scegli e resta pronto tra un messaggio e l'altro. Gli studi immagini, video e audio usano comunque la GPU quando serve.", "Until I eject it": "Finché non lo espello", "1 hour idle": "1 ora di inattività", "30 minutes idle": "30 minuti di inattività", "5 minutes idle": "5 minuti di inattività", "System": "Sistema", "Follows your system unless you pick one": "Segue il sistema se non ne scegli uno", "Manage, load and set defaults": "Gestisci, carica e imposta i predefiniti", "Reinstall Vortelio": "Reinstalla Vortelio", "Knowledge": "Conoscenza", "Documents (RAG)": "Documenti (RAG)", "Summarize": "Riassumi", "Try models": "Prova i modelli", "Compare side by side": "Confronta affiancati", "Structured output": "Output strutturato", "Reasoning": "Ragionamento", "Model router": "Instradamento modelli", "Manage": "Gestione", "Loaded models": "Modelli caricati", "Inspect a GGUF": "Ispeziona un GGUF", "Import from Ollama": "Importa da Ollama", "Integrations": "Integrazioni", "Webhooks": "Webhook", "Activity log": "Registro attività", "Checking what is installed on this computer…": "Controllo cosa è installato su questo computer…", "Best choice": "Consigliato", "Pictures from a description — generated on your computer, offline.": "Immagini da una descrizione, generate sul tuo computer, offline.", "Short clips from a description or a picture — generated on your computer, offline.": "Brevi clip da una descrizione o da una foto, generate sul tuo computer, offline.", "Voices, music and sound — all generated on your computer, no Python needed.": "Voci, musica e suoni, tutto generato sul tuo computer, senza Python.", "Describe the music — e.g. calm lo-fi piano with soft drums, 80 bpm": "Descrivi la musica, es. piano lo-fi rilassato con batteria leggera, 80 bpm", "Describe the sound — e.g. heavy rain on a tin roof with distant thunder": "Descrivi il suono, es. pioggia forte su un tetto di lamiera con tuoni lontani", "Search Hugging Face — e.g. qwen 3.5, gemma 4, flux": "Cerca su Hugging Face, es. qwen 3.5, gemma 4, flux", "Audio & music": "Audio e musica", "Advanced": "Avanzate", "Skills & agent": "Abilità e agente", "External tools (MCP)": "Strumenti esterni (MCP)", "AI agents": "Agenti IA", "Advanced tools": "Strumenti avanzati", "Downloads": "Download", "Recent chats": "Chat recenti", "Sign out": "Esci", "Assistant": "Assistente", "Agent": "Agente", "Save": "Salva", "Install a model for this. It downloads in the background (Downloads panel) and runs offline afterwards.": "Installa un modello per questa funzione. Si scarica in background (pannello Download) e poi funziona offline.", "Install": "Installa", "Not installed": "Non installato", "Start": "Avvia", "Refresh": "Aggiorna"};
+const IT_PATTERNS = [["^(\\d+) models \u00b7 (.+) on disk$", "$1 modelli \u00b7 $2 su disco"], ["^Cloud \u00b7 (\\d+)$", "Cloud \u00b7 $1"], ["^This computer: (\\d+) GB RAM \u00b7 (\\d+) GB GPU$", "Questo computer: $1 GB di RAM \u00b7 $2 GB di GPU"], ["^This computer: (\\d+) GB RAM$", "Questo computer: $1 GB di RAM"]].map(([re, to]) => [new RegExp(re), to]);
+const _trOrig = new WeakMap();
+function tr(en) {
+  if (currentLang !== 'it') return en;
+  if (IT_PHRASES[en]) return IT_PHRASES[en];
+  for (const [re, to] of IT_PATTERNS) if (re.test(en)) return en.replace(re, to);
+  return en;
+}
+const TR_SKIP = '.msg-group, .content, .hf-readme, .mp-name, .mr-name, .hf-row-name, .hf-d-title, .hf-d-owner, .hf-f-quant, .history-list, .hist-item, code, pre, .au-res, .im-res';
+function trText(el) {
+  const orig = _trOrig.get(el) ?? el.nodeValue;
+  const key = orig.trim();
+  if (!key || key.length > 260) return;
+  const out = tr(key);
+  if (out === key && !_trOrig.has(el)) return;
+  _trOrig.set(el, orig);
+  const next = orig.replace(key, out);
+  if (el.nodeValue !== next) el.nodeValue = next;
+}
+function trAttrs(el) {
+  for (const a of ['placeholder', 'title']) {
+    const v = el.getAttribute(a);
+    if (!v) continue;
+    const k = 'data-en-' + a;
+    const orig = el.getAttribute(k) || v;
+    const out = tr(orig);
+    if (out !== orig || el.hasAttribute(k)) { el.setAttribute(k, orig); if (v !== out) el.setAttribute(a, out); }
+  }
+}
+function trTree(root) {
+  if (!root || (root.closest && root.closest(TR_SKIP))) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+    acceptNode: n => {
+      if (n.nodeType !== 1) return NodeFilter.FILTER_ACCEPT;
+      if (n.tagName === 'TEXTAREA' || n.tagName === 'INPUT') { trAttrs(n); return NodeFilter.FILTER_REJECT; }
+      return n.matches(TR_SKIP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+    } });
+  for (let n = walker.currentNode; n; n = walker.nextNode()) {
+    if (n.nodeType === 3) trText(n);
+    else if (n.nodeType === 1) { trAttrs(n); if (n.tagName === 'OPTION' || n.tagName === 'OPTGROUP') { if (n.label && n.tagName === 'OPTGROUP') n.label = tr(n.getAttribute('data-en-label') || (n.setAttribute('data-en-label', n.label), n.label)); } }
+  }
+}
+const TR_ROOTS = ['plus-wrap', 'codemode-dd', 'model-dd', 'cap-chips', 'ws-btn', 'model-btn', 'private-btn', 'ws-models', 'ws-registry', 'ws-image', 'ws-video', 'ws-audio', 'ws-tools', 'ws-agents', 'settings-panel', 'sidebar-nav', 'sidebar-foot', 'hist-section-lbl', 'mode-assistant', 'mode-developer', 'save-chat-btn'];
+let _trPending = new Set(), _trRaf = 0;
+const _trObs = new MutationObserver(muts => {
+  if (currentLang !== 'it' && !_trActive) return;
+  for (const m of muts) _trPending.add(m.target.nodeType === 3 ? m.target.parentNode : m.target);
+  if (!_trRaf) _trRaf = requestAnimationFrame(() => { _trRaf = 0; const ps = [..._trPending]; _trPending.clear(); _trObs.disconnect(); ps.forEach(trTree); trObserve(); });
+});
+let _trActive = false;
+function trObserve() { TR_ROOTS.forEach(id => { const el = document.getElementById(id); if (el) _trObs.observe(el, { childList: true, subtree: true, characterData: true }); }); }
+function applyPhrases() {
+  _trActive = currentLang === 'it' || _trActive;
+  _trObs.disconnect();
+  TR_ROOTS.forEach(id => trTree(document.getElementById(id)));
+  trObserve();
+}
+
 function applyLang() {
   const s = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key); };
   const p = (id, key) => { const el = document.getElementById(id); if (el) el.placeholder = t(key); };
+  setTimeout(applyPhrases, 0);
 
   // Welcome screen
   s('welcome-title', 'welcomeTitle');
@@ -3524,8 +3646,8 @@ function applyLang() {
   p('save-name-input', 'chatName');
 
   // Search
-  const sb = document.querySelector('.search-box');
-  if (sb) sb.placeholder = t('searchPlaceholder');
+  const sb = document.getElementById('reg-q');
+  if (sb) sb.placeholder = currentLang === 'it' ? 'Cerca tra i consigliati' : 'Search recommended models';
 
   // Registry custom install title
   const rit = document.querySelector('#custom-install > div:first-child');
@@ -4069,7 +4191,7 @@ function init() {
       if (!_connectedOnce) {
         _connectedOnce = true;
         if (_initTimer) { clearInterval(_initTimer); _initTimer = null; }
-        setInterval(loadStatus, 15000); // normal polling once connected
+        setInterval(() => loadStatus().catch(() => {}), 15000); // normal polling once connected
       }
     }).catch(() => {});
   }
@@ -4324,7 +4446,7 @@ function autoSelectModel() {
   const def = getDefaultModel('llm');
   if (def) {
     const m = installedModels.find(x => `${x.type}/${x.name}:${x.tag}` === def);
-    if (m) { selectModel(def, m.display_name || prettyModelName(m.name, m.tag)); return true; }
+    if (m) { autoPick(def, m.display_name || prettyModelName(m.name, m.tag)); return true; }
   }
   const llms = installedModels.filter(x => x.type === 'llm');
   // Prefer a tool-capable model (so web search / agentic features work) and,
@@ -4332,11 +4454,11 @@ function autoSelectModel() {
   const bySize = a => (a.size_bytes || 0);
   const capable = llms.filter(x => modelSupportsTools(`${x.name}:${x.tag}`)).sort((a,b)=>bySize(a)-bySize(b));
   const llm = capable[0] || llms.slice().sort((a,b)=>bySize(a)-bySize(b))[0];
-  if (llm) { selectModel(`${llm.type}/${llm.name}:${llm.tag}`, llm.display_name || prettyModelName(llm.name, llm.tag)); return true; }
+  if (llm) { autoPick(`${llm.type}/${llm.name}:${llm.tag}`, llm.display_name || prettyModelName(llm.name, llm.tag)); return true; }
   for (const p of (_cloudProviders || [])) {
     if (p.has_key && (p.models || []).length) {
       const cm = p.models[0];
-      selectModel(`cloud:${p.id}:${cm.id}`, cm.label || cm.id);
+      autoPick(`cloud:${p.id}:${cm.id}`, cm.label || cm.id);
       return true;
     }
   }
@@ -4458,7 +4580,7 @@ function updateModelDDForDomain() {
   const mine = installedModels.filter(m => m.type === cfg.apiType);
   const models = mine.map(m => {
     const v = `${m.type}/${m.name}:${m.tag}`, q = prettyTag(m.tag);
-    const meta = [m.parameters, /^(I?Q\d|F16|BF16|F32|MXFP4)/.test(q) ? q : '', m.size_human,
+    const meta = [m.parameters, /^(UD_)?(I?Q\d|F16|BF16|F32|MXFP4)/.test(q) ? q : '', m.size_human,
       cfg.apiType === 'llm' && modelSupportsTools(v) ? 'tools' : ''].filter(Boolean).join(' · ');
     return { v, l: m.display_name || prettyModelName(m.name, m.tag), tag: m.size_human || '', meta };
   });
@@ -4491,7 +4613,7 @@ function updateModelDDForDomain() {
   const autoCloud = _modelAutoPicked && mine.length && !mine.some(m => `${m.type}/${m.name}:${m.tag}` === selectedModel);
   if (!models.find(m => m.v === selectedModel) || autoCloud) {
     const first = models[0];
-    if (first) { selectModel(first.v, first.l); _modelAutoPicked = !mine.length; }
+    if (first) { autoPick(first.v, first.l); _modelAutoPicked = !mine.length; }
     else { selectedModel = ''; selectedModelIsCloud = false; document.getElementById('model-lbl').textContent = 'No model'; renderModelState(); }
   }
 }
@@ -4624,7 +4746,7 @@ async function ensureModelLoaded(v, quiet) {
     const d = await r.json().catch(() => ({}));
     if (seq !== LM.seq) return; // another model was picked meanwhile
     if (!r.ok) throw new Error(d.error || 'load failed');
-    LM.state = 'ready';
+    LM.state = 'ready'; LM.wasLoaded = true;
   } catch (e) {
     if (seq !== LM.seq) return;
     LM.state = 'error'; LM.error = friendlyError(e.message);
@@ -4636,14 +4758,14 @@ async function refreshModelState() {
     const d = await (await fetch('/api/models/loaded')).json();
     const loaded = (d.models || []).map(m => m.model);
     if (LM.state !== 'loading') {
-      if (loaded.includes(selectedModel)) { LM.model = selectedModel; LM.state = 'ready'; }
+      if (loaded.includes(selectedModel)) { LM.model = selectedModel; LM.state = 'ready'; LM.wasLoaded = true; }
       else if (LM.state === 'ready') LM.state = 'idle';
     }
   } catch {}
   renderModelState();
 }
 async function ejectModel() {
-  LM.seq++; LM.state = 'idle';
+  LM.seq++; LM.state = 'idle'; LM.wasLoaded = false;
   renderModelState();
   try { await fetch('/api/models/eject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } catch {}
   toast('Model ejected — memory freed');
@@ -4901,8 +5023,12 @@ function selectModel(v, l) {
   document.getElementById('model-lbl').textContent = String(l || '').split(' · ')[0]; // cloud labels end with the price
   closeAllDD();
   renderModelState();
-  if (isLocalChatModel(v) && document.getElementById('ws-chat')?.classList.contains('on')) ensureModelLoaded(v);
+  // Load on a user's pick, not on the automatic one at start-up (that would
+  // fill the memory even when the app is opened for the studios).
+  if (!_autoPicking && isLocalChatModel(v) && document.getElementById('ws-chat')?.classList.contains('on')) ensureModelLoaded(v);
 }
+var _autoPicking = false;
+function autoPick(v, l) { _autoPicking = true; try { selectModel(v, l); } finally { _autoPicking = false; } }
 
 function toggleThink() {
   thinkOn = !thinkOn;
@@ -6124,12 +6250,13 @@ const _BRANDS = { lfm: 'LFM', glm: 'GLM', gpt: 'GPT', oss: 'OSS', qwen: 'Qwen', 
 function prettyTag(tag) {
   const v = String(tag || '');
   if (!v || v === 'latest') return '';
-  if (/^(i?q\d|f16|bf16|f32|mxfp4)/i.test(v)) return v.toUpperCase().replace(/-/g, '_');
+  if (/^(ud-)?(i?q\d|f16|bf16|f32|mxfp4)/i.test(v)) return v.toUpperCase().replace(/-/g, '_');
   return v.replace(/\b(\d+(?:\.\d+)?)([bm])\b/gi, (m, n, u) => n + u.toUpperCase());
 }
 function prettyBase(name) {
   let base = String(name || '').split('/').pop().replace(/^[^-]+--/, '').replace(/[-_.]gguf$/i, '');
   base = base.replace(/(\D)(\d)-(\d)(?=-|$)/g, '$1$2.$3'); // lfm2-5 → lfm2.5
+  base = base.replace(/(^|-)(\d+)-(\d+)([bm])(?=-|$)/gi, '$1$2.$3$4'); // 0-8b → 0.8b
   return base.split(/[-_ ]+/).filter(Boolean).map(w => {
     const k = w.toLowerCase(), m = k.match(/^([a-z]+)(.*)$/);
     if (_BRANDS[k]) return _BRANDS[k];
@@ -6143,7 +6270,7 @@ function prettyModelName(name, tag) {
   if (!variant && base.includes(':')) { const parts = base.split(':'); base = parts[0]; variant = parts.slice(1).join(':'); }
   const b = prettyBase(base), t2 = prettyTag(variant);
   if (!t2) return b;
-  return /^(I?Q\d|F16|BF16|F32|MXFP4)/.test(t2) ? b : b + ' ' + t2; // the quant goes in the meta line
+  return /^(UD_)?(I?Q\d|F16|BF16|F32|MXFP4)/.test(t2) ? b : b + ' ' + t2; // the quant goes in the meta line
 }
 
 // Turn raw backend/runtime errors into plain language a beginner understands.
@@ -7014,7 +7141,7 @@ function _showPanel(name) {
   if (name === 'audio')    auEnter();
   if (name === 'image')    imEnter();
   if (name === 'video')    viEnter();
-  if (name === 'chat')     refreshModelState().then(() => { if (LM.state !== 'ready' && isLocalChatModel(selectedModel)) ensureModelLoaded(selectedModel); });
+  if (name === 'chat')     refreshModelState().then(() => { if (LM.state !== 'ready' && LM.model === selectedModel && LM.wasLoaded && isLocalChatModel(selectedModel)) ensureModelLoaded(selectedModel); });
   // Update topbar context
   const titles = {chat:'Chat', models:'My models', registry:'Download models', agents:'AI agents', agent:'Agent chat', cloud:'Cloud models', tools:'Tools', crewai:'CrewAI', audio:'Audio studio', image:'Image studio', video:'Video studio'};
   const ttEl = document.getElementById('topbar-title');
@@ -7050,7 +7177,7 @@ async function loadModels() {
     const row = m => {
       const ref = `${m.type}/${m.name}:${m.tag}`, q = prettyTag(m.tag);
       total += m.size_bytes || 0;
-      const meta = [m.parameters, /^(I?Q\d|F16|BF16|F32|MXFP4)/.test(q) ? q : '', m.size_human,
+      const meta = [m.parameters, /^(UD_)?(I?Q\d|F16|BF16|F32|MXFP4)/.test(q) ? q : '', m.size_human,
         m.type === 'llm' && modelSupportsTools(ref) ? 'tools' : '', m.mmproj_path || m.vision ? 'vision' : ''].filter(Boolean).join(' · ');
       const badges = (loaded.includes(ref) ? '<span class="mp-badge">Loaded</span>' : '') +
         (defaultModels[m.type] === ref ? '<span class="mr-default">Default</span>' : '');
@@ -7442,7 +7569,7 @@ function hfSearchDebounced() {
   clearTimeout(_hfTimer);
   const q = document.getElementById('hf-q').value.trim();
   const box = document.getElementById('hf-results');
-  if (q.length < 2) { if (box) box.innerHTML = ''; return; }
+  if (q.length === 1) return;
   _hfTimer = setTimeout(hfSearch, 300);
 }
 
@@ -7452,11 +7579,40 @@ let _hfModels = [], _hfSys = null;
 
 // fit badge metadata: label, color, and one-line guidance shown on hover.
 const HF_FIT = {
-  ok:      { lbl: 'Entra in RAM',  col: '#16a34a', tip: 'Entra comodamente nella memoria della tua macchina.' },
-  tight:   { lbl: 'Al limite',     col: '#d97706', tip: 'Ci sta ma vicino al limite: chiudi altre app, potrebbe andare lento.' },
-  over:    { lbl: 'Troppo grande', col: '#dc2626', tip: 'Stimato più grande della tua memoria: rischio crash o estrema lentezza. Scegli un modello più piccolo o una quant più aggressiva.' },
-  unknown: { lbl: 'Peso ignoto',   col: 'var(--text3)', tip: 'Impossibile stimare la dimensione dal nome del modello.' },
+  ok:      { lbl: 'Fits',          col: 'var(--ok)',   tip: 'Fits comfortably in the memory of this computer.' },
+  tight:   { lbl: 'Tight fit',     col: 'var(--warn)', tip: 'Fits, but close to the limit: close other apps; it may be slow.' },
+  over:    { lbl: 'Too big',       col: 'var(--err)',  tip: 'Larger than the memory of this computer: pick a smaller model or quantization.' },
+  unknown: { lbl: '',              col: 'var(--text3)', tip: '' },
 };
+function hfFitBadge(fit) {
+  const f = HF_FIT[fit] || HF_FIT.unknown;
+  return f.lbl ? `<span class="hf-fit" style="color:${f.col}" title="${esc(f.tip)}">${f.lbl}</span>` : '';
+}
+function hfNum(n) { return n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n || 0); }
+function hfAgo(iso) {
+  const d = (Date.now() - Date.parse(iso)) / 86400000;
+  if (!iso || isNaN(d)) return '';
+  const it = currentLang === 'it';
+  if (d < 1) return it ? 'oggi' : 'today';
+  if (d < 30) return Math.round(d) + (it ? ' giorni fa' : ' days ago');
+  if (d < 365) return Math.round(d / 30) + (it ? ' mesi fa' : ' months ago');
+  return Math.round(d / 365) + (it ? ' anni fa' : ' years ago');
+}
+function hfBytes(b) { return b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.round(b / 1e6) + ' MB'; }
+
+// Download models: Recommended (curated catalogs) | Hugging Face (search).
+function regTab(tab) {
+  document.getElementById('regtab-rec')?.classList.toggle('on', tab === 'rec');
+  document.getElementById('regtab-hf')?.classList.toggle('on', tab === 'hf');
+  document.getElementById('reg-view-rec').style.display = tab === 'rec' ? '' : 'none';
+  document.getElementById('reg-view-hf').style.display = tab === 'hf' ? '' : 'none';
+  document.getElementById('ws-registry')?.classList.toggle('wide', tab === 'hf');
+  if (tab === 'hf') {
+    hfLoadResources();
+    if (!_hfModels.length) hfSearch();
+    setTimeout(() => document.getElementById('hf-q')?.focus(), 30);
+  }
+}
 
 // Fetch the machine's memory budget once and show it, even before searching.
 async function hfLoadResources() {
@@ -7467,20 +7623,14 @@ async function hfLoadResources() {
     hfRenderSysInfo();
   } catch {}
 }
-
-// Render the machine's memory budget so the user knows the basis for "fits".
 function hfRenderSysInfo() {
   const el = document.getElementById('hf-sysinfo');
   if (!el || !_hfSys) return;
-  const ram = (_hfSys.ram_total_gb || 0).toFixed(1);
-  const vram = (_hfSys.vram_gb || 0);
-  let s = `La tua RAM: <b>${ram} GB</b>`;
-  if (vram > 0.1) s += ` · 🎮 VRAM GPU: <b>${vram.toFixed(1)} GB</b>`;
-  s += ' — i modelli sono valutati su questa capacità.';
-  el.innerHTML = s;
+  const ram = (_hfSys.ram_total_gb || 0).toFixed(0), vram = _hfSys.vram_gb || 0;
+  el.textContent = `This computer: ${ram} GB RAM` + (vram > 0.1 ? ` · ${vram.toFixed(0)} GB GPU` : '');
 }
 
-// Re-render the stored results applying the type / weight / compatibility filters.
+// Results list (client-side filters re-render without asking Hugging Face).
 function hfRenderResults() {
   const box = document.getElementById('hf-results');
   if (!box) return;
@@ -7491,65 +7641,154 @@ function hfRenderResults() {
   if (sizeF === 'big') models = models.filter(m => m.params > 34);
   else if (sizeF) { const max = parseFloat(sizeF); models = models.filter(m => m.params > 0 && m.params <= max); }
   if (document.getElementById('hf-fit-only').checked) models = models.filter(m => m.fit === 'ok' || m.fit === 'tight');
-  if (!models.length) { box.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px">Nessun risultato con questi filtri</div>'; return; }
-  // Compatible models first, then by downloads — most intuitive ordering.
-  const rank = { ok: 0, tight: 1, unknown: 2, over: 3 };
-  models.sort((a, b) => (rank[a.fit] - rank[b.fit]) || (b.downloads - a.downloads));
-  const ico = { llm: '💬', image: '🎨', audio: '🔊', video: '🎬', '3d': '🧊' };
+  if (!models.length) { box.innerHTML = '<div class="hf-empty">No model matches these filters.</div>'; return; }
   box.innerHTML = models.map(m => {
-    const dl = m.downloads >= 1000 ? Math.round(m.downloads / 1000) + 'k' : m.downloads;
-    const pB = m.params ? ' · ' + (Number.isInteger(m.params) ? m.params : m.params.toFixed(1)) + 'B' : '';
-    const sz = m.est_gb ? ' · ~' + (m.est_gb >= 1 ? m.est_gb.toFixed(1) + ' GB' : Math.round(m.est_gb * 1000) + ' MB') : '';
-    const f = HF_FIT[m.fit] || HF_FIT.unknown;
-    const badge = `<span title="${esc(f.tip)}" style="font-size:10px;font-weight:600;color:${f.col};white-space:nowrap">${f.lbl}</span>`;
-    return `<div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border)">
-      <span>${ico[m.type] || '📦'}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.id)}${m.gguf ? ' <span style="font-size:10px;color:var(--accent);font-weight:600">GGUF</span>' : ''}</div>
-        <div style="font-size:11px;color:var(--text3)">${badge} · ⬇ ${dl} · ♥ ${m.likes}${pB}${sz} · ${esc(m.task || m.type)}</div>
-      </div>
-      <a href="https://huggingface.co/${esc(m.id)}" target="_blank" class="btn" style="padding:4px 8px;font-size:11px;flex-shrink:0">↗</a>
-      <button class="btn primary" style="padding:4px 10px;font-size:12px;flex-shrink:0" onclick="hfDownload('${esc(m.id)}','${m.type}')">⬇ Scarica</button>
-    </div>`;
+    const [owner, name] = m.id.includes('/') ? [m.id.split('/')[0], m.id.slice(m.id.indexOf('/') + 1)] : ['', m.id];
+    const meta = [m.params ? (Number.isInteger(m.params) ? m.params : m.params.toFixed(1)) + 'B' : '', hfNum(m.downloads) + ' download',
+      m.updated ? hfAgo(m.updated) : ''].filter(Boolean).join(' · ');
+    return `<div class="hf-row${_hfOpen === m.id ? ' sel' : ''}" data-id="${esc(m.id)}" onclick="hfOpen(this.dataset.id)">
+      <div class="hf-row-name"><span class="hf-owner">${esc(owner)}/</span>${esc(name)}</div>
+      <div class="hf-row-meta">${esc(meta)} ${hfFitBadge(m.fit)}</div></div>`;
   }).join('');
 }
 
-// Search HuggingFace and offer one-click download of a found model.
+// Search Hugging Face (empty query: what is trending).
 async function hfSearch() {
   clearTimeout(_hfTimer);
   const q = document.getElementById('hf-q').value.trim();
   const box = document.getElementById('hf-results');
-  if (!q) { if (box) box.innerHTML = ''; return; }
-  // Cancel any in-flight search so a slower older response can't overwrite a newer one.
   if (_hfAbort) { try { _hfAbort.abort(); } catch {} }
   _hfAbort = new AbortController();
   const seq = ++_hfSeq;
-  // Server-side filters (real HuggingFace params): sort + GGUF.
   const sort = document.getElementById('hf-sort').value;
-  const ggufOnly = document.getElementById('hf-gguf').checked;
+  const type = document.getElementById('hf-type').value;
   let url = '/api/hf/search?q=' + encodeURIComponent(q);
-  if (sort && sort !== 'downloads') url += '&sort=' + sort;
-  if (ggufOnly) url += '&gguf=true';
-  box.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px">Cerco su HuggingFace…</div>';
+  if (sort) url += '&sort=' + sort;
+  if (type) url += '&type=' + type;
+  if (document.getElementById('hf-gguf').checked) url += '&gguf=true';
+  if (!_hfModels.length) box.innerHTML = '<div class="hf-empty">Searching Hugging Face…</div>';
+  box.classList.add('loading');
   try {
     const r = await fetch(url, { signal: _hfAbort.signal });
-    if (seq !== _hfSeq) return; // a newer search started — ignore this stale result
     const d = await r.json();
     if (seq !== _hfSeq) return;
+    if (!r.ok) throw new Error(d.error || 'search failed');
     _hfModels = d.models || [];
-    if (d.system) { _hfSys = d.system; hfRenderSysInfo(); }
+    if (d.system) { _hfSys = Object.assign(_hfSys || {}, d.system); hfRenderSysInfo(); }
     hfRenderResults();
   } catch (e) {
-    if (e.name === 'AbortError' || seq !== _hfSeq) return; // cancelled / superseded — ignore
-    box.innerHTML = '<div style="color:#dc2626;font-size:12px;padding:8px">Errore: ' + esc(e.message) + '</div>';
+    if (e.name === 'AbortError' || seq !== _hfSeq) return;
+    box.innerHTML = '<div class="hf-empty err">' + esc(e.message) + '</div>';
+  } finally { if (seq === _hfSeq) box.classList.remove('loading'); }
+}
+
+// Model card + downloadable files of one repository.
+let _hfOpen = '', _hfDetailSeq = 0;
+async function hfOpen(id) {
+  _hfOpen = id;
+  document.querySelectorAll('.hf-row').forEach(r => r.classList.toggle('sel', r.dataset.id === id));
+  const el = document.getElementById('hf-detail');
+  const seq = ++_hfDetailSeq;
+  el.innerHTML = `<div class="hf-d-head"><div class="hf-d-title">${esc(id)}</div></div><div class="hf-empty">Loading…</div>`;
+  el.classList.add('open');
+  if (innerWidth <= 900) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  try {
+    const r = await fetch('/api/hf/model?id=' + encodeURIComponent(id));
+    const d = await r.json();
+    if (seq !== _hfDetailSeq) return;
+    if (!r.ok) throw new Error(d.error || 'could not load the model');
+    el.innerHTML = hfDetailHTML(d);
+  } catch (e) {
+    if (seq !== _hfDetailSeq) return;
+    el.innerHTML = `<div class="hf-d-head"><div class="hf-d-title">${esc(id)}</div></div><div class="hf-empty err">${esc(e.message)}</div>`;
   }
 }
-function hfDownload(id, type) {
-  showCustomInstall();
-  const el = document.getElementById('custom-install'); if (el) el.style.display = 'block';
-  document.getElementById('custom-type').value = type || 'llm';
-  document.getElementById('custom-url').value = id;
-  installCustom();
+function hfDetailHTML(d) {
+  const rp = d.repo, files = d.files || [], type = d.type || 'llm';
+  const owner = rp.id.split('/')[0], name = rp.id.slice(owner.length + 1);
+  const it = currentLang === 'it';
+  const stats = [hfNum(rp.downloads) + ' download', hfNum(rp.likes) + (it ? ' mi piace' : ' likes'), rp.last_modified ? (it ? 'aggiornato ' : 'updated ') + hfAgo(rp.last_modified) : '',
+    rp.license ? (it ? 'licenza ' : 'license ') + rp.license : ''].filter(Boolean).join(' · ');
+  // Recommended quant: Q4_K_M when it fits, else the largest file that fits comfortably.
+  const fits = files.filter(f => f.fit === 'ok');
+  const rec = files.find(f => /^Q4_K_M$/i.test(f.quant) && f.fit === 'ok') || fits[fits.length - 1];
+  if (rec) files.sort((a, b) => (b === rec) - (a === rec)); // recommended first, then smallest
+  let h = `<div class="hf-d-head">
+      <div><div class="hf-d-owner">${esc(owner)}</div><div class="hf-d-title">${esc(name)}</div><div class="hf-d-stats">${esc(stats)}</div></div>
+      <a class="btn" href="https://huggingface.co/${esc(rp.id)}" target="_blank" rel="noopener">Open on Hugging Face</a></div>`;
+  if (rp.gated) h += '<div class="hf-note">Gated model: accept its terms on huggingface.co and add your token in Downloads → Hugging Face token.</div>';
+  if (files.length) {
+    h += `<div class="hf-d-sec">Download</div><div class="hf-files">` + files.map(f => {
+      const ref = `${type}/hf.co/${rp.id}:${f.hint}`;
+      const isRec = rec && f.path === rec.path;
+      return `<div class="hf-file${isRec ? ' rec' : ''}">
+        <div class="hf-f-main"><span class="hf-f-quant">${esc(f.quant || f.hint)}</span>${isRec ? '<span class="hf-f-rec">Best choice</span>' : ''}
+          <div class="hf-f-sub">${esc(hfBytes(f.size))}${f.shards > 1 ? ' · ' + f.shards + ' parts' : ''} ${hfFitBadge(f.fit)}</div></div>
+        <button class="btn${isRec ? ' primary' : ''}" data-ref="${esc(ref)}" onclick="hfGet(this)">Download</button></div>`;
+    }).join('') + '</div>';
+    if (rp.vision) h += '<div class="hf-note">Includes a vision projector: it is downloaded too, so the model can read images.</div>';
+  } else {
+    const q = name.replace(/[-_]?gguf$/i, '');
+    h += `<div class="hf-note">This repository has no GGUF files${rp.weights ? ' (only ' + rp.weights + ' PyTorch/safetensors weight files)' : ''}. Vortelio runs GGUF models:
+      <a href="#" onclick="document.getElementById('hf-q').value=${esc(JSON.stringify(q + ' gguf'))};document.getElementById('hf-gguf').checked=true;hfSearch();return false">look for a GGUF version</a>.</div>`;
+  }
+  h += '<div class="hf-d-sec">Model card</div>';
+  h += rp.readme ? `<div class="hf-readme content">${hfReadmeHTML(rp.readme, rp.id)}</div>`
+    : `<div class="hf-empty">${rp.gated ? 'The model card of a gated model is visible after you accept its terms and add your token.' : 'This repository has no description.'}</div>`;
+  return h;
+}
+// The model card is Markdown with some HTML: keep text, links and images
+// (https only), drop the rest. Relative paths point into the repository.
+function hfReadmeHTML(md, id) {
+  const abs = (u, kind) => {
+    u = String(u || '').trim().replace(/^<|>$/g, '');
+    if (/^https?:\/\//i.test(u)) return u;
+    if (/^(data|javascript):/i.test(u) || u.startsWith('#')) return '';
+    return 'https://huggingface.co/' + id + (kind === 'img' ? '/resolve/main/' : '/blob/main/') + u.replace(/^\.?\//, '');
+  };
+  const imgs = [];
+  const img = (src, alt) => { const u = abs(src, 'img'); if (!/^https:/i.test(u)) return ''; imgs.push([u, alt || '']); return '\n@@HFIMG' + (imgs.length - 1) + '@@\n'; };
+  let t = String(md)
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<img\b[^>]*?src=["']([^"']+)["'][^>]*>/gi, (_, src) => img(src, ''))
+    .replace(/<a\b[^>]*?href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, href, txt) => { const u = abs(href); const tx = txt.replace(/<[^>]+>/g, '').trim(); return u && tx ? `[${tx}](${u})` : tx; })
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(p|div|center|h\d|table|tr|thead|tbody|details|summary|section|span|sup|sub|b|i|strong|em|font|picture|source|video|li|ul|ol|td|th)\b[^>]*>/gi, '\n')
+    .replace(/<[^>\n]{1,200}>/g, '')
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_, alt, src) => img(src, alt))
+    .replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (m, txt, href) => { const u = abs(href); return u ? `[${txt}](${u})` : txt; })
+    .replace(/\n{3,}/g, '\n\n');
+  let html = renderMessage(t, true);
+  html = html.replace(/(?:<p>)?@@HFIMG(\d+)@@(?:<\/p>)?/g, (_, n) => { const [u, alt] = imgs[+n]; return `<img class="hf-img" src="${u.replace(/"/g, '&quot;')}" alt="${esc(alt)}" loading="lazy" referrerpolicy="no-referrer">`; });
+  return html;
+}
+// Download one quant in the background (it also shows in the Downloads panel).
+async function hfGet(btn) {
+  const ref = btn.dataset.ref;
+  btn.disabled = true; btn.textContent = 'Starting…';
+  try {
+    const r = await fetch('/api/pull', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' }, body: JSON.stringify({ model: ref }) });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'download failed'); }
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { done, value } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const chunks = buf.split('\n\n'); buf = chunks.pop();
+      for (const c of chunks) {
+        const ev = (c.match(/^event: (.*)$/m) || [])[1], data = (c.match(/^data: (.*)$/m) || [])[1];
+        if (!data) continue;
+        let d; try { d = JSON.parse(data); } catch { continue; }
+        if (ev === 'progress') btn.textContent = Math.min(100, Math.round(d.pct || 0)) + '%';
+        else if (ev === 'error') throw new Error(d.error || 'download failed');
+        else if (ev === 'done') { btn.textContent = 'Installed'; btn.classList.remove('primary'); toast('Installed — find it in My models', 'ok'); refreshModels(); return; }
+      }
+    }
+    btn.textContent = 'Installed';
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Download';
+    toast(friendlyError(e.message), 'err');
+  }
 }
 
 async function installCustom() {
@@ -8513,7 +8752,9 @@ async function refreshAgentCatalog() {
   }
 }
 
-const AGENT_ICONS = { openclaw: '🦞', opencode: '💻', 'open-webui': '🌐', flowise: '🔀', crewai: '🤖' };
+// Agent tiles: the first letter on a colour of its own (no emoji).
+const AGENT_COLORS = { openclaw: '#e5484d', opencode: '#3e63dd', 'open-webui': '#12a594', flowise: '#8e4ec6', crewai: '#f76b15' };
+function agentTile(a) { return `<div class="agent-icon" style="background:${AGENT_COLORS[a.id] || 'var(--accent)'}">${esc((a.name || a.id || '?').charAt(0).toUpperCase())}</div>`; }
 
 function renderAgentCatalog() {
   const el = document.getElementById('agent-catalog');
@@ -8603,7 +8844,7 @@ function renderAgentCatalog() {
 
     return `<div class="agent-card ${st.running?'running':''}" id="acard-${a.id}">
       <div class="agent-card-head">
-        <div class="agent-icon">${AGENT_ICONS[a.id] || '🤖'}</div>
+        ${agentTile(a)}
         <div class="agent-info">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <div class="agent-name">${esc(a.name)}</div>
@@ -8857,7 +9098,7 @@ function agentAppendMsg(role, html, id) {
   if (role === 'user') {
     div.innerHTML = `<div class="msg-inner"><div class="bubble">${html}</div></div>`;
   } else {
-    div.innerHTML = `<div class="msg-inner"><div class="ai-avatar">${AGENT_ICONS[currentAgent?.id] || 'AI'}</div><div class="content" id="${id}-content">${html}</div></div>`;
+    div.innerHTML = `<div class="msg-inner"><div class="ai-avatar">AI</div><div class="content" id="${id}-content">${html}</div></div>`;
   }
   msgs.appendChild(div);
   scrollBottom(document.getElementById('agent-canvas'));
@@ -10624,6 +10865,14 @@ function auModelSelect(task) {
   return `<div class="au-field"><label class="au-label">Model</label><select id="au-model" onchange="try{localStorage.setItem('${key}',this.value)}catch{};auRender()">` +
     ms.map(m => `<option value="${esc(m.ref)}"${m.ref === sel ? ' selected' : ''}>${esc(m.name)}</option>`).join('') + '</select></div>';
 }
+function auModelPill(task) {
+  const ms = auModelsFor(task);
+  const key = 'au-model-' + task;
+  let saved = ''; try { saved = localStorage.getItem(key) || ''; } catch {}
+  const sel = ms.find(m => m.ref === saved) ? saved : (ms[0] && ms[0].ref);
+  return `<select id="au-model" class="st-select" onchange="try{localStorage.setItem('${key}',this.value)}catch{};auRender()">` +
+    ms.map(m => `<option value="${esc(m.ref)}"${m.ref === sel ? ' selected' : ''}>${esc(m.name)}</option>`).join('') + '</select>';
+}
 function auCurrentModel() {
   const id = document.getElementById('au-model')?.value;
   return AU.models.find(m => m.ref === id);
@@ -10682,7 +10931,9 @@ function auRender() {
     html += `<div class="au-hint">Install a model for this. It downloads in the background (Downloads panel) and runs offline afterwards.</div>` + auInstallHTML(task) + '</div>';
     body.innerHTML = html; auRenderResults(); return;
   }
-  html += `<div class="au-row">${auModelSelect(task)}</div>`;
+  const composer = ['speak', 'music', 'sfx'].includes(AU.tab);
+  if (composer) html = '<div class="st-composer">';
+  else html += `<div class="au-row">${auModelSelect(task)}</div>`;
   const m = (() => { const saved = (() => { try { return localStorage.getItem('au-model-' + task); } catch { return null; } })(); return ms.find(x => x.ref === saved) || ms[0]; })();
   switch (AU.tab) {
     case 'speak': {
@@ -10692,10 +10943,11 @@ function auRender() {
       let vsaved = ''; try { vsaved = localStorage.getItem('au-voice') || ''; } catch {}
       const vsel = voices.includes(vsaved) ? vsaved : (m.default_voice || voices[0] || '');
       const vname = v => v.slice(3).replace(/^\w/, c => c.toUpperCase()) + (v[1] === 'f' ? ' (female)' : v[1] === 'm' ? ' (male)' : '');
-      html += `<div class="au-field"><label class="au-label">Text</label><textarea id="au-text" placeholder="Type what the voice should say…">${esc(AU.draft?.speak || '')}</textarea></div>`;
-      if (voices.length) html += `<div class="au-row"><div class="au-field"><label class="au-label">Voice</label><select id="au-voice" onchange="try{localStorage.setItem('au-voice',this.value)}catch{}">` +
-        Object.entries(groups).map(([g, vs]) => `<optgroup label="${g}">` + vs.map(v => `<option value="${v}"${v === vsel ? ' selected' : ''}>${esc(vname(v))}</option>`).join('') + '</optgroup>').join('') + '</select></div></div>';
-      html += auGoButton('Generate speech');
+      html += `<textarea id="au-text" class="st-prompt" placeholder="Type what the voice should say…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();auGo()}">${esc(AU.draft?.speak || '')}</textarea>`;
+      html += '<div class="st-bar">' + auModelPill(task);
+      if (voices.length) html += `<select id="au-voice" class="st-select" title="Voice" onchange="try{localStorage.setItem('au-voice',this.value)}catch{}">` +
+        Object.entries(groups).map(([g, vs]) => `<optgroup label="${g}">` + vs.map(v => `<option value="${v}"${v === vsel ? ' selected' : ''}>${esc(vname(v))}</option>`).join('') + '</optgroup>').join('') + '</select>';
+      html += auComposerGo('Generate') + '</div>';
       break;
     }
     case 'clone':
@@ -10713,10 +10965,11 @@ function auRender() {
       break;
     case 'music': case 'sfx': {
       const isMusic = AU.tab === 'music';
-      html += `<div class="au-field"><label class="au-label">${isMusic ? 'Describe the music' : 'Describe the sound'}</label><textarea id="au-text" placeholder="${isMusic ? 'e.g. calm lo-fi piano with soft drums, 80 bpm' : 'e.g. heavy rain on a tin roof with distant thunder'}"></textarea></div>`;
+      html += `<textarea id="au-text" class="st-prompt" placeholder="${isMusic ? 'Describe the music — e.g. calm lo-fi piano with soft drums, 80 bpm' : 'Describe the sound — e.g. heavy rain on a tin roof with distant thunder'}" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();auGo()}"></textarea>`;
       const def = isMusic ? 30 : 8;
-      html += `<div class="au-field"><label class="au-label">Length</label><div class="au-range"><input type="range" id="au-secs" min="2" max="120" value="${def}" oninput="document.getElementById('au-secs-v').textContent=this.value+' s'"><span id="au-secs-v">${def} s</span></div></div>`;
-      html += `<div class="au-hint">English descriptions work best. Instrumental only.</div>` + auGoButton(isMusic ? 'Generate music' : 'Generate sound');
+      html += '<div class="st-bar">' + auModelPill(task);
+      html += `<div class="st-len" title="Length"><input type="range" id="au-secs" min="2" max="120" value="${def}" oninput="document.getElementById('au-secs-v').textContent=this.value+' s'"><span id="au-secs-v">${def} s</span></div>`;
+      html += auComposerGo('Generate') + '</div>';
       break;
     }
     case 'separate':
@@ -10730,10 +10983,16 @@ function auRender() {
       break;
   }
   const extra = auInstallHTML(task);
-  if (extra) html += `<details><summary class="au-hint" style="cursor:pointer">More models for this</summary><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${extra}</div></details>`;
-  html += '</div>';
+  const more = extra ? `<details class="st-more"><summary>More models for this</summary><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${extra}</div></details>` : '';
+  if (composer) {
+    const hint = { speak: 'Ctrl+Enter to generate.', music: 'English descriptions work best. Instrumental only.', sfx: 'English descriptions work best.' }[AU.tab];
+    html += `</div><div class="st-status"><span class="au-hint" id="au-status">${AU.busy ? 'The first run loads the model and can take a minute.' : hint}</span></div><div class="au-err" id="au-err"></div>` + more;
+  } else html += more + '</div>';
   body.innerHTML = html;
   auRenderResults();
+}
+function auComposerGo(label) {
+  return `<button class="au-btn primary st-go" id="au-go" onclick="auGo()" ${AU.busy ? 'disabled' : ''}>${AU.busy ? '<span class="au-spin"></span> Working' : label}</button>`;
 }
 function auGoButton(label) {
   return `<div class="au-row"><button class="au-btn primary" id="au-go" onclick="auGo()" ${AU.busy ? 'disabled' : ''}>${AU.busy ? '<span class="au-spin"></span> Working…' : label}</button>

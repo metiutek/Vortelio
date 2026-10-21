@@ -170,7 +170,12 @@ func ParseModelRef(raw string) (*ModelRef, error) {
 		// Normalized local name: owner__repo (lowercase, safe for filesystem)
 		localName := strings.ToLower(owner + "__" + repo)
 		localName = strings.NewReplacer(" ", "-", ".", "-", "_", "-").Replace(localName)
-		tag := strings.NewReplacer(" ", "-", ".", "-", "_", "-").Replace(strings.ToLower(fileHint))
+		// A file name ("Qwen3.5-4B-Q4_K_M.gguf") is named by its quantization.
+		tagSrc := fileHint
+		if q := QuantOf(fileHint); q != "" && isGGUF(fileHint) {
+			tagSrc = q
+		}
+		tag := strings.NewReplacer(" ", "-", ".", "-", "_", "-").Replace(strings.ToLower(tagSrc))
 		if tag == "" {
 			tag = "latest"
 		}

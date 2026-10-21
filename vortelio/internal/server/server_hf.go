@@ -1,14 +1,17 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/vortelio/vortelio/internal/hub"
 	"github.com/vortelio/vortelio/internal/runtime"
 )
 
@@ -86,16 +89,60 @@ func hfParamsB(id string) float64 {
 	return 0
 }
 
-// handleHFSearch searches HuggingFace for models (GGUF-focused) so users can find
-// and download them straight from Vortelio.
-// GET /api/hf/search?q=...&sort=downloads|likes|recent|trending&gguf=true
+// hfCache keeps Hugging Face answers for a few minutes: typing, switching
+// filters and reopening a model are instant and do not hit the rate limit.
+var hfCache = struct {
+	sync.Mutex
+	m map[string]hfCached
+}{m: map[string]hfCached{}}
+
+type hfCached struct {
+	at time.Time
+	v  any
+}
+
+func hfCacheGet(key string) (any, bool) {
+	hfCache.Lock()
+	defer hfCache.Unlock()
+	c, ok := hfCache.m[key]
+	if !ok || time.Since(c.at) > 10*time.Minute {
+		return nil, false
+	}
+	return c.v, true
+}
+
+func hfCachePut(key string, v any) {
+	hfCache.Lock()
+	defer hfCache.Unlock()
+	if len(hfCache.m) > 300 {
+		hfCache.m = map[string]hfCached{}
+	}
+	hfCache.m[key] = hfCached{time.Now(), v}
+}
+
+// hfPipelines maps a Vortelio type to the Hugging Face pipeline tag searched.
+var hfPipelines = map[string]string{"llm": "text-generation", "image": "text-to-image", "video": "text-to-video", "3d": "image-to-3d"}
+
+type hfSearchModel struct {
+	ID        string  `json:"id"`
+	Author    string  `json:"author"`
+	Downloads int     `json:"downloads"`
+	Likes     int     `json:"likes"`
+	Task      string  `json:"task"`
+	GGUF      bool    `json:"gguf"`
+	Type      string  `json:"type"`
+	Params    float64 `json:"params"` // approx. parameter count in billions (0 = unknown)
+	EstGB     float64 `json:"est_gb"` // estimated memory footprint in GB (0 = unknown)
+	Fit       string  `json:"fit"`    // ok | tight | over | unknown — fits this machine's RAM/VRAM
+	Updated   string  `json:"updated"`
+}
+
+// handleHFSearch searches Hugging Face so users can find and download models
+// from Vortelio. Without a query it lists what is trending.
+// GET /api/hf/search?q=...&sort=downloads|likes|recent|trending&gguf=true&type=llm
 func handleHFSearch(w http.ResponseWriter, r *http.Request) {
 	qv := r.URL.Query()
 	q := strings.TrimSpace(qv.Get("q"))
-	if q == "" {
-		respond(w, 200, map[string]interface{}{"models": []interface{}{}})
-		return
-	}
 	sortParam := "downloads"
 	switch qv.Get("sort") {
 	case "likes":
@@ -105,65 +152,83 @@ func handleHFSearch(w http.ResponseWriter, r *http.Request) {
 	case "trending":
 		sortParam = "trendingScore"
 	}
-	api := "https://huggingface.co/api/models?limit=40&full=false&direction=-1&sort=" + sortParam + "&search=" + url.QueryEscape(q)
+	if q == "" && qv.Get("sort") == "" {
+		sortParam = "trendingScore"
+	}
+	api := "https://huggingface.co/api/models?limit=50&full=false&direction=-1&sort=" + sortParam
+	if q != "" {
+		api += "&search=" + url.QueryEscape(q)
+	}
 	if qv.Get("gguf") == "true" {
 		api += "&filter=gguf"
 	}
-	client := &http.Client{Timeout: 15 * time.Second}
-	req, _ := http.NewRequest("GET", api, nil)
-	req.Header.Set("User-Agent", "Vortelio")
-	resp, err := client.Do(req)
-	if err != nil {
-		jsonError(w, 502, "HuggingFace non raggiungibile: "+err.Error())
-		return
+	if p := hfPipelines[qv.Get("type")]; p != "" {
+		api += "&pipeline_tag=" + p
 	}
-	defer resp.Body.Close()
-
-	var raw []struct {
-		ID          string   `json:"id"`
-		Likes       int      `json:"likes"`
-		Downloads   int      `json:"downloads"`
-		PipelineTag string   `json:"pipeline_tag"`
-		Tags        []string `json:"tags"`
-		LibraryName string   `json:"library_name"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		jsonError(w, 502, "risposta HuggingFace non valida")
-		return
+	for _, f := range []string{"author", "downloads", "likes", "pipeline_tag", "tags", "library_name", "lastModified"} {
+		api += "&expand[]=" + f
 	}
 
-	type modelOut struct {
-		ID        string  `json:"id"`
-		Downloads int     `json:"downloads"`
-		Likes     int     `json:"likes"`
-		Task      string  `json:"task"`
-		GGUF      bool    `json:"gguf"`
-		Type      string  `json:"type"`
-		Params    float64 `json:"params"` // approx. parameter count in billions (0 = unknown)
-		EstGB     float64 `json:"est_gb"` // estimated memory footprint in GB (0 = unknown)
-		Fit       string  `json:"fit"`    // ok | tight | over | unknown — fits this machine's RAM/VRAM
-	}
-	out := make([]modelOut, 0, len(raw))
-	for _, m := range raw {
-		gguf := strings.EqualFold(m.LibraryName, "gguf")
-		for _, t := range m.Tags {
-			if strings.EqualFold(t, "gguf") {
-				gguf = true
-			}
+	var out []hfSearchModel
+	if v, ok := hfCacheGet(api); ok {
+		out = v.([]hfSearchModel)
+	} else {
+		var raw []struct {
+			ID           string   `json:"id"`
+			Author       string   `json:"author"`
+			Likes        int      `json:"likes"`
+			Downloads    int      `json:"downloads"`
+			PipelineTag  string   `json:"pipeline_tag"`
+			Tags         []string `json:"tags"`
+			LibraryName  string   `json:"library_name"`
+			LastModified string   `json:"lastModified"`
 		}
-		paramsB := hfParamsB(m.ID)
-		estBytes := estModelBytes(paramsB, gguf)
-		out = append(out, modelOut{
-			ID:        m.ID,
-			Downloads: m.Downloads,
-			Likes:     m.Likes,
-			Task:      m.PipelineTag,
-			GGUF:      gguf,
-			Type:      hfTypeFor(m.PipelineTag, m.Tags),
-			Params:    paramsB,
-			EstGB:     float64(estBytes) / 1e9,
-			Fit:       fitVerdict(estBytes),
-		})
+		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+		defer cancel()
+		req, _ := http.NewRequestWithContext(ctx, "GET", api, nil)
+		req.Header.Set("User-Agent", "Vortelio")
+		if t := hub.HFToken(); t != "" {
+			req.Header.Set("Authorization", "Bearer "+t)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			jsonError(w, 502, "Hugging Face is not reachable: "+err.Error())
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			jsonError(w, 502, "Hugging Face: "+resp.Status)
+			return
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+			jsonError(w, 502, "invalid answer from Hugging Face")
+			return
+		}
+		out = make([]hfSearchModel, 0, len(raw))
+		for _, m := range raw {
+			gguf := strings.EqualFold(m.LibraryName, "gguf")
+			for _, t := range m.Tags {
+				if strings.EqualFold(t, "gguf") {
+					gguf = true
+				}
+			}
+			author := m.Author
+			if author == "" {
+				author, _, _ = strings.Cut(m.ID, "/")
+			}
+			paramsB := hfParamsB(m.ID)
+			estBytes := estModelBytes(paramsB, gguf)
+			out = append(out, hfSearchModel{
+				ID: m.ID, Author: author, Downloads: m.Downloads, Likes: m.Likes, Task: m.PipelineTag, GGUF: gguf,
+				Type: hfTypeFor(m.PipelineTag, m.Tags), Params: paramsB, EstGB: float64(estBytes) / 1e9,
+				Updated: m.LastModified,
+			})
+		}
+		hfCachePut(api, out)
+	}
+	// The verdict depends on this machine (and on what is free right now).
+	for i := range out {
+		out[i].Fit = fitVerdict(int64(out[i].EstGB * 1e9))
 	}
 	total, avail := runtime.SystemRAM()
 	var vram int64
@@ -178,6 +243,36 @@ func handleHFSearch(w http.ResponseWriter, r *http.Request) {
 			"vram_gb":      float64(vram) / 1e9,
 		},
 	})
+}
+
+// handleHFModel returns one repository: model card (README), GGUF quants with
+// their real size and whether each fits this machine, licence and stats.
+// GET /api/hf/model?id=owner/name
+func handleHFModel(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.URL.Query().Get("id"))
+	key := "repo:" + id
+	var repo *hub.HFRepo
+	if v, ok := hfCacheGet(key); ok {
+		repo = v.(*hub.HFRepo)
+	} else {
+		var err error
+		repo, err = hub.FetchHFRepo(r.Context(), id)
+		if err != nil {
+			jsonError(w, 502, err.Error())
+			return
+		}
+		hfCachePut(key, repo)
+	}
+	type fileOut struct {
+		hub.HFRepoFile
+		Fit string `json:"fit"`
+	}
+	files := make([]fileOut, 0, len(repo.Files))
+	for _, f := range repo.Files {
+		// Running a GGUF needs about its size plus the context cache.
+		files = append(files, fileOut{f, fitVerdict(f.Size + f.Size/8)})
+	}
+	respond(w, 200, map[string]any{"repo": repo, "files": files, "type": hfTypeFor(repo.Pipeline, repo.Tags)})
 }
 
 // handleSystemResources reports the machine's memory budget so the UI can tell
@@ -201,19 +296,29 @@ func handleSystemResources(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// hfTypeFor maps a HF pipeline tag to a Vortelio model type prefix.
+// hfTypeFor maps a HF pipeline tag to a Vortelio model type prefix. Chat
+// models that also read images ("image-text-to-text") are LLMs.
 func hfTypeFor(task string, tags []string) string {
-	t := strings.ToLower(task)
-	switch {
-	case strings.Contains(t, "text-to-image") || strings.Contains(t, "image"):
+	switch strings.ToLower(task) {
+	case "text-to-image", "image-to-image", "unconditional-image-generation":
 		return "image"
-	case strings.Contains(t, "text-to-video") || strings.Contains(t, "video"):
+	case "text-to-video", "image-to-video", "video-to-video":
 		return "video"
-	case strings.Contains(t, "text-to-speech") || strings.Contains(t, "audio") || strings.Contains(t, "automatic-speech"):
+	case "text-to-speech", "text-to-audio", "automatic-speech-recognition", "audio-to-audio", "audio-classification":
 		return "audio"
-	case strings.Contains(t, "to-3d") || strings.Contains(t, "3d"):
+	case "image-to-3d", "text-to-3d":
 		return "3d"
-	default:
-		return "llm"
+	case "":
+		for _, t := range tags {
+			switch strings.ToLower(t) {
+			case "text-to-image", "diffusers", "stable-diffusion", "flux":
+				return "image"
+			case "text-to-speech", "tts", "whisper":
+				return "audio"
+			case "text-to-video":
+				return "video"
+			}
+		}
 	}
+	return "llm"
 }

@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"text/template"
 	"time"
@@ -50,7 +51,13 @@ type LLMRunner struct {
 	// abort, when closed, stops a load in progress (another model was
 	// picked meanwhile).
 	abort chan struct{}
+	// active counts the requests streaming from this server: a newer model
+	// waits for them instead of cutting a reply in half.
+	active atomic.Int32
 }
+
+// Busy reports whether a request is streaming from this runner.
+func (r *LLMRunner) Busy() bool { return r.active.Load() > 0 }
 
 // ErrLoadAborted is returned by EnsureServer when the load was superseded.
 var ErrLoadAborted = errors.New("loading was cancelled: another model was requested")
@@ -1496,6 +1503,8 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 	if r.apiURL == "" {
 		return fmt.Errorf("llama-server not running; call EnsureServer first")
 	}
+	r.active.Add(1)
+	defer r.active.Add(-1)
 
 	modelExt := strings.ToLower(filepath.Ext(r.model.LocalPath))
 	modelFmt := strings.ToLower(r.model.Format)

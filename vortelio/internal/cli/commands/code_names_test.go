@@ -9,6 +9,7 @@ func TestPrettyModel(t *testing.T) {
 		{"paolonesborracchione--emma-6-gguf", "q8-0", "Emma 6", "Q8_0"},
 		{"gpt-oss", "20b", "GPT OSS 20B", ""},
 		{"gemma4", "latest", "Gemma4", ""},
+		{"unsloth--qwen3-5-0-8b-gguf", "ud-iq2-xxs", "Qwen3.5 0.8B", "UD_IQ2_XXS"},
 		{"unsloth--qwen3-coder-30b-a3b-instruct-gguf", "q4-k-m", "Qwen3 Coder 30B A3B Instruct", "Q4_K_M"},
 	}
 	for _, c := range cases {

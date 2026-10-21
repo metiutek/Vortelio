@@ -3,7 +3,9 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
+	goruntime "runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -116,6 +118,7 @@ func (m *ModelManager) getOrLoad(model *hub.Model, hw *Hardware, keepAlive time.
 				return r, nil
 			}
 			// Crashed, or asked for another context size: reload.
+			log.Printf("[models] reloading %s: alive=%v ctx %d -> %d", key, e.runner.Alive(), e.ctxSize, ctxSize)
 			e.runner.stopServer()
 			delete(m.entries, key)
 		}
@@ -140,6 +143,7 @@ func (m *ModelManager) getOrLoad(model *hub.Model, hw *Hardware, keepAlive time.
 		m.loading[key] = call
 		m.mu.Unlock()
 
+		log.Printf("[models] loading %s (ctx %d) for %s", key, ctxSize, callerName())
 		r, err := m.load(model, hw, ctxSize, embed, call)
 
 		m.mu.Lock()
@@ -195,9 +199,11 @@ func (m *ModelManager) load(model *hub.Model, hw *Hardware, ctxSize int, embed b
 }
 
 // makeRoom stops the least recently used models until at most keep remain.
+// A model answering a request is stopped only once the answer is complete
+// (at most a few minutes), so switching models never cuts a reply in half.
 func (m *ModelManager) makeRoom(keep int) {
+	var victims []*LLMRunner
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	for len(m.entries) > keep && len(m.entries) > 0 {
 		var oldKey string
 		var old *managedEntry
@@ -206,8 +212,15 @@ func (m *ModelManager) makeRoom(keep int) {
 				oldKey, old = k, e
 			}
 		}
-		old.runner.stopServer()
+		victims = append(victims, old.runner)
 		delete(m.entries, oldKey)
+	}
+	m.mu.Unlock()
+	for _, r := range victims {
+		for deadline := time.Now().Add(5 * time.Minute); r.Busy() && time.Now().Before(deadline); {
+			time.Sleep(200 * time.Millisecond)
+		}
+		r.stopServer()
 	}
 }
 
@@ -314,5 +327,22 @@ func (m *ModelManager) evictLoop() {
 			}
 		}
 		m.mu.Unlock()
+	}
+}
+
+// callerName names the code outside this file that asked for a model (for the
+// log: which endpoint loaded what).
+func callerName() string {
+	pcs := make([]uintptr, 8)
+	n := goruntime.Callers(3, pcs)
+	frames := goruntime.CallersFrames(pcs[:n])
+	for {
+		f, more := frames.Next()
+		if !strings.HasSuffix(f.File, "model_manager.go") {
+			return f.Function[strings.LastIndex(f.Function, "/")+1:]
+		}
+		if !more {
+			return "?"
+		}
 	}
 }

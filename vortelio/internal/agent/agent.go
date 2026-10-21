@@ -272,6 +272,61 @@ func uvVenvPython(id string) string {
 	return filepath.Join(venvDir, "bin", "python")
 }
 
+// installedCache remembers isBinInstalled for a minute: the checks spawn
+// npm and python, and the catalog asks for every agent at once.
+var installedCache = struct {
+	sync.Mutex
+	m map[string]installedAt
+}{m: map[string]installedAt{}}
+
+type installedAt struct {
+	ok bool
+	at time.Time
+}
+
+func isInstalledCached(entry CatalogEntry) bool {
+	installedCache.Lock()
+	c, hit := installedCache.m[entry.ID]
+	installedCache.Unlock()
+	if hit && time.Since(c.at) < time.Minute {
+		return c.ok
+	}
+	ok := isBinInstalled(entry)
+	installedCache.Lock()
+	installedCache.m[entry.ID] = installedAt{ok, time.Now()}
+	installedCache.Unlock()
+	return ok
+}
+
+// forgetInstalled drops the cached checks after an install or removal.
+func forgetInstalled(id string) {
+	installedCache.Lock()
+	delete(installedCache.m, id)
+	installedCache.Unlock()
+	npmList.Lock()
+	npmList.at = time.Time{}
+	npmList.Unlock()
+}
+
+// npmList caches `npm list -g` (one node process instead of one per agent).
+var npmList struct {
+	sync.Mutex
+	out []byte
+	err error
+	at  time.Time
+}
+
+func npmGlobalList(npmCmd string) ([]byte, error) {
+	npmList.Lock()
+	defer npmList.Unlock()
+	if time.Since(npmList.at) < time.Minute {
+		return npmList.out, npmList.err
+	}
+	npmList.out, npmList.err = exec.Command(npmCmd, "list", "-g", "--depth=0", "--parseable").Output()
+	npmList.at = time.Now()
+	return npmList.out, npmList.err
+}
+
 // isBinInstalled checks if the agent binary is available.
 func isBinInstalled(entry CatalogEntry) bool {
 	if entry.InstallMethod == MethodUV {
@@ -316,9 +371,8 @@ func isBinInstalled(entry CatalogEntry) bool {
 	if runtime.GOOS == "windows" {
 		npmCmd = "npm.cmd"
 	}
-	// Primary: npm list -g --depth=0 (most reliable)
-	cmd := exec.Command(npmCmd, "list", "-g", "--depth=0", "--parseable")
-	out, err := cmd.Output()
+	// Primary: npm list -g --depth=0 (most reliable), shared by all agents.
+	out, err := npmGlobalList(npmCmd)
 	if err == nil {
 		lines := strings.Split(string(out), "\n")
 		for _, line := range lines {
@@ -345,7 +399,7 @@ func GetState(id string) AgentState {
 	if !ok {
 		return AgentState{ID: id, Error: "unknown agent"}
 	}
-	installed := isBinInstalled(entry)
+	installed := isInstalledCached(entry)
 
 	mu.Lock()
 	cmd, running := procMap[id]
@@ -385,6 +439,7 @@ func Install(ctx context.Context, id string, progress func(line string)) error {
 	if !validAgentID.MatchString(id) {
 		return fmt.Errorf("invalid agent id: %q", id)
 	}
+	defer forgetInstalled(id)
 	entry, ok := findEntry(id)
 	if !ok {
 		return fmt.Errorf("unknown agent: %s", id)
@@ -933,6 +988,7 @@ func Uninstall(id string) error {
 	if !validAgentID.MatchString(id) {
 		return fmt.Errorf("invalid agent id: %q", id)
 	}
+	defer forgetInstalled(id)
 	Stop(id)
 	entry, ok := findEntry(id)
 	if !ok {
@@ -1000,9 +1056,15 @@ func CatalogJSON() []byte {
 		State AgentState `json:"state"`
 	}
 	out := make([]entry, len(Catalog))
+	var wg sync.WaitGroup
 	for i, e := range Catalog {
-		out[i] = entry{CatalogEntry: e, State: GetState(e.ID)}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			out[i] = entry{CatalogEntry: e, State: GetState(e.ID)}
+		}()
 	}
+	wg.Wait()
 	b, _ := json.Marshal(out)
 	return b
 }

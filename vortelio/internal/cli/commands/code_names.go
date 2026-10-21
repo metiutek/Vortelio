@@ -14,9 +14,10 @@ var (
 	modelBrands = map[string]string{"lfm": "LFM", "glm": "GLM", "gpt": "GPT", "oss": "OSS", "qwen": "Qwen", "llama": "Llama",
 		"gemma": "Gemma", "phi": "Phi", "mistral": "Mistral", "deepseek": "DeepSeek", "smollm": "SmolLM", "granite": "Granite",
 		"olmo": "OLMo", "moe": "MoE", "it": "IT", "vl": "VL", "coder": "Coder", "instruct": "Instruct"}
-	quantTagRe   = regexp.MustCompile(`(?i)^(i?q\d|f16|bf16|f32|mxfp4)`)
+	quantTagRe   = regexp.MustCompile(`(?i)^(ud-)?(i?q\d|f16|bf16|f32|mxfp4)`)
 	sizeWordRe   = regexp.MustCompile(`^a?\d+(\.\d+)?[bm]$`)
 	dashVerRe    = regexp.MustCompile(`(\D)(\d)-(\d)(-|$)`)
+	dashSizeRe   = regexp.MustCompile(`(?i)(^|-)(\d+)-(\d+)([bm])(-|$)`)
 	brandPrefRe  = regexp.MustCompile(`^([a-z]+)(.*)$`)
 	sizeInTagRe  = regexp.MustCompile(`(?i)\b(\d+(?:\.\d+)?)([bm])\b`)
 	modelWordsRe = regexp.MustCompile(`[-_ ]+`)
@@ -34,6 +35,7 @@ func prettyModel(name, tag string) (label, quant string) {
 	}
 	base = strings.TrimSuffix(strings.TrimSuffix(strings.TrimSuffix(base, "-gguf"), "_gguf"), ".gguf")
 	base = dashVerRe.ReplaceAllString(base, "$1$2.$3$4")
+	base = dashSizeRe.ReplaceAllString(base, "$1$2.$3$4$5")
 	var words []string
 	for _, w := range modelWordsRe.Split(base, -1) {
 		if w == "" {

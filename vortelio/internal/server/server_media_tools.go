@@ -37,8 +37,8 @@ func (m *mediaProvider) Tools() []rt.ToolDef {
 	return []rt.ToolDef{
 		toolDef("generate_image", "Generate an image from a text prompt using a local image model (Z-Image, Stable Diffusion, FLUX). Write the prompt in English, describing subject, style and lighting. Returns the saved file path.",
 			`{"type":"object","properties":{"prompt":{"type":"string","description":"What to draw, in English."},"negative_prompt":{"type":"string","description":"Optional: what to avoid (only Stable Diffusion models use it)."},"width":{"type":"integer","description":"Optional width in pixels (multiple of 64). Default: the model's native size."},"height":{"type":"integer","description":"Optional height in pixels (multiple of 64)."},"model":{"type":"string","description":"Optional image model name. Defaults to the best installed image model."},"steps":{"type":"integer","description":"Optional sampling steps. Default: the model's recommended value."}},"required":["prompt"]}`),
-		toolDef("generate_video", "Generate a short video clip from a text prompt using a local video model. Returns the saved file path.",
-			`{"type":"object","properties":{"prompt":{"type":"string","description":"What the video should show."},"model":{"type":"string","description":"Optional video model name."},"steps":{"type":"integer","description":"Sampling steps. Default 20."}},"required":["prompt"]}`),
+		toolDef("generate_video", "Generate a short video clip (a few seconds) from a text prompt using a local video model (Wan). Write the prompt in English: subject, action, camera, style. Slow: can take several minutes. Returns the saved file path.",
+			`{"type":"object","properties":{"prompt":{"type":"string","description":"What the video should show, in English."},"seconds":{"type":"number","description":"Optional length in seconds (0.5–5). Default 1; each second takes several minutes on a small GPU."},"model":{"type":"string","description":"Optional video model name."},"steps":{"type":"integer","description":"Optional sampling steps. Default: the model's recommended value."}},"required":["prompt"]}`),
 		toolDef("text_to_speech", "Synthesize speech audio from text using a local TTS model (e.g. Kokoro). Returns the saved audio file path.",
 			`{"type":"object","properties":{"text":{"type":"string","description":"Text to speak."},"voice":{"type":"string","description":"Optional voice, e.g. if_sara or im_nicola for Italian, af_heart for English."},"model":{"type":"string","description":"Optional audio model name."}},"required":["text"]}`),
 		toolDef("generate_music", "Generate instrumental music or a sound effect from a description using a local model (Stable Audio). Returns the saved audio file path.",
@@ -128,6 +128,7 @@ func (m *mediaProvider) listModels() (string, error) {
 		{"ref": "image/sd1.5", "note": "Stable Diffusion 1.5 — light and fast"},
 		{"ref": "image/sdxl", "note": "Stable Diffusion XL — 1024px, needs more VRAM"},
 		{"ref": "image/flux:schnell", "note": "FLUX.1 Schnell — top prompt following, large (8GB+)"},
+		{"ref": "video/wan2.1:1.3b", "note": "Wan 2.1 1.3B — short video clips, runs on 4GB GPUs"},
 		{"ref": "audio/whisper:base", "note": "Whisper — speech-to-text"},
 		{"ref": "audio/kokoro", "note": "Kokoro — text-to-speech"},
 		{"ref": "llm/qwen3.5:9b", "note": "Qwen 3.5 9B — capable chat/coding"},
@@ -225,6 +226,11 @@ func (m *mediaProvider) installModel(argsJSON string) (string, error) {
 func findMediaModel(typ, name string) (*hub.Model, error) {
 	if typ == "image" {
 		if m, err := pickImageModel(name); err == nil {
+			return m, nil
+		}
+	}
+	if typ == "video" {
+		if m, err := pickVideoModel(name); err == nil {
 			return m, nil
 		}
 	}
@@ -439,16 +445,14 @@ func (m *mediaProvider) transcribe(argsJSON string) (string, error) {
 
 func (m *mediaProvider) generateVideo(argsJSON string) (string, error) {
 	var a struct {
-		Prompt string `json:"prompt"`
-		Model  string `json:"model"`
-		Steps  int    `json:"steps"`
+		Prompt  string  `json:"prompt"`
+		Model   string  `json:"model"`
+		Steps   int     `json:"steps"`
+		Seconds float64 `json:"seconds"`
 	}
 	json.Unmarshal([]byte(argsJSON), &a)
 	if strings.TrimSpace(a.Prompt) == "" {
 		return "", fmt.Errorf("prompt is required")
-	}
-	if a.Steps <= 0 {
-		a.Steps = 20
 	}
 	// Prefer a configured cloud video provider (BYOK: fal.ai).
 	var cloudErr error
@@ -466,12 +470,31 @@ func (m *mediaProvider) generateVideo(argsJSON string) (string, error) {
 		}
 		return "", err
 	}
-	runner := rt.NewVideoRunner(mdl, getHardware())
-	data, err := m.runToFile(runner, &rt.RunOptions{Prompt: a.Prompt, Steps: a.Steps}, "mp4")
+	if !nativeVideoModel(mdl) {
+		// Diffusers folder: the Python runner.
+		runner := rt.NewVideoRunner(mdl, getHardware())
+		data, err := m.runToFile(runner, &rt.RunOptions{Prompt: a.Prompt, Steps: a.Steps}, "mp4")
+		if err != nil {
+			return "", err
+		}
+		return m.saveArtifact("video", "mp4", "video/mp4", data)
+	}
+	vr := rt.VideoRequest{Prompt: a.Prompt, Steps: a.Steps}
+	if a.Seconds > 0 {
+		fps := hub.ImageFamilyOf(mdl).FPS
+		vr.Frames = int(min(a.Seconds, 5)*float64(fps)) + 1
+	}
+	last := -10
+	res, err := rt.NativeGenerateVideo(context.Background(), mdl, getHardware(), vr, func(pct int, msg string) {
+		if m.emit != nil && pct-last >= 10 {
+			last = pct
+			m.emit("tool_progress", map[string]string{"text": fmt.Sprintf("Generating video — %s (%d%%)", msg, pct)})
+		}
+	})
 	if err != nil {
 		return "", err
 	}
-	return m.saveArtifact("video", "mp4", "video/mp4", data)
+	return m.saveArtifact("video", res.Ext, res.Mime, res.Data)
 }
 
 func (m *mediaProvider) generate3D(argsJSON string) (string, error) {

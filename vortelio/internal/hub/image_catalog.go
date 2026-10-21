@@ -34,6 +34,7 @@ type ImageComponent struct {
 	Repo string `json:"repo"`
 	File string `json:"file"`
 	Size int64  `json:"size"`
+	Kind string `json:"kind,omitempty"` // "video": stored under models/video/_shared
 }
 
 // ImageFamily describes how a family of image models is run.
@@ -54,6 +55,12 @@ type ImageFamily struct {
 	Negative  bool    `json:"negative"` // the negative prompt has an effect (real CFG)
 	// VAETiling decodes in tiles: needed at high resolution on small GPUs.
 	VAETiling bool `json:"vae_tiling,omitempty"`
+	// Video families (Kind "video").
+	Kind            string `json:"kind,omitempty"`
+	Frames          int    `json:"frames,omitempty"` // 4n+1
+	FPS             int    `json:"fps,omitempty"`
+	ImageInput      bool   `json:"image_input,omitempty"` // can start from a picture
+	DefaultNegative string `json:"default_negative,omitempty"`
 }
 
 var (
@@ -165,14 +172,26 @@ func DetectImageFamily(file string) string {
 	return "sd1"
 }
 
-// ImageFamilyOf returns the family of an installed image model, or nil.
+// ImageFamilyOf returns the family of an installed image or video model
+// that stable-diffusion.cpp runs, or nil.
 func ImageFamilyOf(m *Model) *ImageFamily {
 	if m.Family != "" {
 		if f := ImageFamilies[m.Family]; f != nil {
 			return f
 		}
 	}
+	if m.Type == "video" {
+		return ImageFamilies[DetectVideoFamily(m.LocalPath)]
+	}
 	return ImageFamilies[DetectImageFamily(m.LocalPath)]
+}
+
+// detectFamily guesses the family of a model file of type typ.
+func detectFamily(typ, file string) string {
+	if typ == "video" {
+		return DetectVideoFamily(file)
+	}
+	return DetectImageFamily(file)
 }
 
 // sharedComponentPath is where a component lives on disk, shared by every
@@ -181,32 +200,42 @@ func sharedComponentPath(c ImageComponent) string {
 	owner, repo, _ := strings.Cut(c.Repo, "/")
 	norm := strings.NewReplacer(".", "-", "_", "-")
 	dir := norm.Replace(strings.ToLower(owner)) + "__" + norm.Replace(strings.ToLower(repo))
-	return filepath.Join(config.HomeDir(), "models", "image", "_shared", dir, path.Base(c.File))
+	kind := "image"
+	if c.Kind == "video" {
+		kind = "video"
+	}
+	return filepath.Join(config.HomeDir(), "models", kind, "_shared", dir, path.Base(c.File))
 }
 
 // describeImageModel fills the engine, family and component paths of an
-// image GGUF. Non-GGUF image models (diffusers folders) are left alone.
-func describeImageModel(m *Model, catalog *ImageCatalogEntry) {
-	if m.Type != "image" || !isGGUF(m.LocalPath) {
+// image or video GGUF (fam "" = detect it from the file name). Non-GGUF
+// models (diffusers folders) are left alone.
+func describeImageModel(m *Model, fam, description string) {
+	if (m.Type != "image" && m.Type != "video") || !isGGUF(m.LocalPath) {
 		return
 	}
-	fam := ""
-	if catalog != nil {
-		fam = catalog.Family
-		if m.Description == "" {
-			m.Description = catalog.Description
-		}
-	} else {
-		fam = DetectImageFamily(m.LocalPath)
+	if fam == "" {
+		fam = detectFamily(m.Type, m.LocalPath)
+	}
+	if m.Description == "" {
+		m.Description = description
+	}
+	f := ImageFamilies[fam]
+	if f == nil {
+		return
 	}
 	m.Engine = "sdcpp"
 	m.Family = fam
 	m.Capabilities = []string{"text-to-image"}
-	if f := ImageFamilies[fam]; f != nil {
-		m.Components = map[string]string{}
-		for _, c := range f.Components {
-			m.Components[c.Role] = sharedComponentPath(c)
+	if f.Kind == "video" {
+		m.Capabilities = []string{"text-to-video"}
+		if f.ImageInput {
+			m.Capabilities = append(m.Capabilities, "image-to-video")
 		}
+	}
+	m.Components = map[string]string{}
+	for _, c := range f.Components {
+		m.Components[c.Role] = sharedComponentPath(c)
 	}
 }
 
@@ -232,8 +261,8 @@ func MissingImageComponents(m *Model) []ImageComponent {
 func EnsureImageComponents(ctx context.Context, m *Model, progress ProgressCallback) error {
 	f := ImageFamilyOf(m)
 	if f == nil {
-		if m.Type == "image" && isGGUF(m.LocalPath) {
-			return fmt.Errorf("Vortelio does not know which extra files %s needs — use a model from the Images catalog", filepath.Base(m.LocalPath))
+		if (m.Type == "image" || m.Type == "video") && isGGUF(m.LocalPath) {
+			return fmt.Errorf("Vortelio does not know which extra files %s needs — use a model from the catalog", filepath.Base(m.LocalPath))
 		}
 		return nil
 	}

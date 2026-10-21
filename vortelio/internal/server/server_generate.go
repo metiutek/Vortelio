@@ -523,6 +523,11 @@ func handleGenerateMedia(w http.ResponseWriter, r *http.Request, model *hub.Mode
 		sseEvent("error", string(errJSON))
 		return
 	}
+	// The native video engine falls back to an animated GIF without ffmpeg.
+	mime := mediaMime[model.Type]
+	if model.Type == "video" && bytes.HasPrefix(data, []byte("GIF8")) {
+		ext, mime = "gif", "image/gif"
+	}
 	// Keep every generation: a fixed name would overwrite the previous result.
 	dlDir := runtime.DefaultOutputDir()
 	dlPath := filepath.Join(dlDir, fmt.Sprintf("vortelio-%s-%s.%s", model.Type, time.Now().Format("20060102-150405"), ext))
@@ -532,7 +537,7 @@ func handleGenerateMedia(w http.ResponseWriter, r *http.Request, model *hub.Mode
 
 	resultJSON, _ := json.Marshal(map[string]interface{}{
 		"model": req.Model, "status": "done", "type": model.Type,
-		"mime":     mediaMime[model.Type],
+		"mime":     mime,
 		"data":     base64.StdEncoding.EncodeToString(data),
 		"saved_to": dlPath,
 	})

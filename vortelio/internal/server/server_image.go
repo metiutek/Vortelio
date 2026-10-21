@@ -202,6 +202,32 @@ func handleImageGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	streamGeneration(w, r, func(ctx context.Context, progress runtime.ImageProgress) (any, error) {
+		started := time.Now()
+		res, err := runtime.NativeGenerateImage(ctx, m, getHardware(), req.native(), progress)
+		if err != nil {
+			return nil, err
+		}
+		var paths []string
+		if req.Save == nil || *req.Save {
+			paths = saveImages(res.Images)
+		}
+		imgs := make([]string, len(res.Images))
+		for i, b := range res.Images {
+			imgs[i] = base64.StdEncoding.EncodeToString(b)
+		}
+		return map[string]any{
+			"model": m.Type + "/" + m.Name + ":" + m.Tag, "images": imgs, "paths": paths,
+			"seed": res.Seed, "width": res.Width, "height": res.Height, "steps": res.Steps,
+			"elapsed": time.Since(started).Seconds(),
+		}, nil
+	})
+}
+
+// streamGeneration runs gen and streams it as server-sent events:
+// "progress" {pct, msg} (never going backwards), then "done" with gen's
+// result or "error" {error}. A closed connection cancels the context.
+func streamGeneration(w http.ResponseWriter, r *http.Request, gen func(context.Context, runtime.ImageProgress) (any, error)) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
@@ -214,18 +240,16 @@ func handleImageGenerate(w http.ResponseWriter, r *http.Request) {
 		default: // never block generation on a slow client
 		}
 	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Minute)
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Minute)
 	defer cancel()
-	started := time.Now()
 	type outcome struct {
-		res *runtime.ImageResult
+		res any
 		err error
 	}
 	fin := make(chan outcome, 1)
 	go func() {
 		last := -1
-		res, err := runtime.NativeGenerateImage(ctx, m, getHardware(), req.native(), func(pct int, msg string) {
+		res, err := gen(ctx, func(pct int, msg string) {
 			if pct < last {
 				pct = last
 			}
@@ -262,19 +286,7 @@ func handleImageGenerate(w http.ResponseWriter, r *http.Request) {
 				write("error", string(b))
 				return
 			}
-			var paths []string
-			if req.Save == nil || *req.Save {
-				paths = saveImages(o.res.Images)
-			}
-			imgs := make([]string, len(o.res.Images))
-			for i, b := range o.res.Images {
-				imgs[i] = base64.StdEncoding.EncodeToString(b)
-			}
-			b, _ := json.Marshal(map[string]any{
-				"model": m.Type + "/" + m.Name + ":" + m.Tag, "images": imgs, "paths": paths,
-				"seed": o.res.Seed, "width": o.res.Width, "height": o.res.Height, "steps": o.res.Steps,
-				"elapsed": time.Since(started).Seconds(),
-			})
+			b, _ := json.Marshal(o.res)
 			write("done", string(b))
 			return
 		}

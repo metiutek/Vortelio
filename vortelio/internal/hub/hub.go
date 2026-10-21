@@ -781,18 +781,6 @@ var hfRegistry = map[string]HFEntry{
 		Format: "pt", Params: "1.2B", License: "MIT",
 	},
 	// ── Video ───────────────────────────────────────────────────────────────
-	"video/wan:1.3b": {
-		Repo:   "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
-		File:   "",
-		Format: "diffusers", Params: "1.3B", License: "Apache-2.0",
-		FullRepo: true,
-	},
-	"video/wan:14b": {
-		Repo:   "Wan-AI/Wan2.1-T2V-14B-Diffusers",
-		File:   "",
-		Format: "diffusers", Params: "14B", License: "Apache-2.0",
-		FullRepo: true,
-	},
 	"video/cogvideo:5b": {
 		Repo:   "THUDM/CogVideoX-5b",
 		File:   "transformer/diffusion_pytorch_model.safetensors",
@@ -1367,12 +1355,9 @@ func (d *Downloader) pullGGUFPlan(ref *ModelRef, owner, repo string, plan ggufPl
 	// Image models also need their family's VAE and text encoders: report
 	// progress over all the files.
 	var comps []ImageComponent
-	if ref.Type == "image" {
-		fam := DetectImageFamily(plan.Shards[0].Rfilename)
-		if e, ok := ImageCatalogFor(ref); ok {
-			fam = e.Family
-		}
-		comps = MissingImageComponents(&Model{Type: "image", Family: fam, LocalPath: plan.Shards[0].Rfilename})
+	if ref.Type == "image" || ref.Type == "video" {
+		fam, _ := diffusionCatalogFor(ref)
+		comps = MissingImageComponents(&Model{Type: ref.Type, Family: fam, LocalPath: plan.Shards[0].Rfilename})
 	}
 	mainProgress := progress
 	if len(comps) > 0 && progress != nil {
@@ -1485,11 +1470,8 @@ func (d *Downloader) saveManifest(ref *ModelRef, dir, localPath, format, params,
 	} else {
 		describeAudioModel(m, nil)
 	}
-	if e, ok := ImageCatalogFor(ref); ok {
-		describeImageModel(m, &e)
-	} else {
-		describeImageModel(m, nil)
-	}
+	fam, desc := diffusionCatalogFor(ref)
+	describeImageModel(m, fam, desc)
 	return d.store.Save(m)
 }
 

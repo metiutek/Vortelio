@@ -1258,6 +1258,11 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 .im-res .au-btn { font-size: 12.5px; padding: 6px 10px; }
 .im-view { position: fixed; inset: 0; background: rgba(0,0,0,.82); z-index: 950; display: flex; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; }
 .im-view img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+#ws-video .panel-inner { max-width: 980px; }
+.im-res video { width: 100%; display: block; background: #000; }
+.vi-start { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.vi-start img { height: 64px; border-radius: 8px; border: 1px solid var(--border); }
+@media (max-width: 600px) { #ws-video .panel-inner { padding: 20px 16px; } }
 @media (max-width: 600px) { #ws-image .panel-inner { padding: 20px 16px; } .im-grid { grid-template-columns: 1fr; } }
 
 /* ── Downloads panel (background jobs: models + engines) ─────────────── */
@@ -1395,7 +1400,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
   <div class="sidebar-nav" id="sidebar-nav">
     <button class="nav-item active" id="nav-chat" onclick="studio('chat')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.8 7.2L3 20l1.4-4.6A8.4 8.4 0 1 1 21 11.5z"/></svg> Chat</button>
     <button class="nav-item" id="nav-image" onclick="imageStudio()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/></svg> Images</button>
-    <button class="nav-item" id="nav-video" onclick="studio('video')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="3"/><path d="m16 10.5 6-3.5v10l-6-3.5"/></svg> Video</button>
+    <button class="nav-item" id="nav-video" onclick="videoStudio()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="3"/><path d="m16 10.5 6-3.5v10l-6-3.5"/></svg> Video</button>
     <button class="nav-item" id="nav-audio" onclick="audioStudio()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Audio &amp; music</button>
     <button class="nav-item" id="nav-threed" onclick="studio('threed')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg> 3D</button>
 
@@ -1670,6 +1675,16 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
         </div>
       </div>
       <div id="mlist"></div>
+    </div>
+  </div>
+
+  <!-- VIDEO STUDIO PANEL -->
+  <div class="panel" id="ws-video">
+    <div class="panel-inner">
+      <div class="panel-title">Video studio</div>
+      <div class="au-sub">Short clips from a description or a picture — generated on your computer, offline.</div>
+      <div id="vi-body"></div>
+      <div class="im-grid" id="vi-results"></div>
     </div>
   </div>
 
@@ -6711,8 +6726,9 @@ function _showPanel(name) {
   if (name === 'crewai')   crewRefreshList();
   if (name === 'audio')    auEnter();
   if (name === 'image')    imEnter();
+  if (name === 'video')    viEnter();
   // Update topbar context
-  const titles = {chat:'Chat', models:'Installed models', registry:'Download models', agents:'AI Agents', agent:'Agent chat', cloud:'☁️ Cloud Models', tools:'🔧 Advanced Tools', crewai:'🤖 CrewAI', audio:'Audio studio', image:'Image studio'};
+  const titles = {chat:'Chat', models:'Installed models', registry:'Download models', agents:'AI Agents', agent:'Agent chat', cloud:'☁️ Cloud Models', tools:'🔧 Advanced Tools', crewai:'🤖 CrewAI', audio:'Audio studio', image:'Image studio', video:'Video studio'};
   const ttEl = document.getElementById('topbar-title');
   if (ttEl) ttEl.textContent = titles[name] || 'Vortelio';
   // Save button only visible in chat panel when there are messages
@@ -10723,6 +10739,187 @@ function imReuse(i) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 try { IM.size = localStorage.getItem('im-size') || 'square'; } catch {}
+
+// ── Video studio ─────────────────────────────────────────────────────────
+// Native Wan video (/api/video/*) on the same engine as the images.
+const VI = { cat: null, models: [], ffmpeg: true, busy: false, ctrl: null, results: [], size: 'landscape', start: null, timer: null, started: 0 };
+const VI_SIZES = IM_SIZES.filter(z => z.id !== 'wide').map(z => z.id === 'landscape' ? { ...z, r: 16 / 9 } : z.id === 'portrait' ? { ...z, r: 9 / 16 } : z);
+
+function videoStudio() {
+  if (appMode === 'agent') setAppMode('assistant');
+  showPanel('video');
+  clearNavActive();
+  document.getElementById('nav-video')?.classList.add('active');
+}
+async function viEnter() { viRender(); await viLoad(); }
+async function viLoad() {
+  try {
+    const d = await (await fetch('/api/video/catalog')).json();
+    VI.cat = d.catalog || []; VI.models = d.models || []; VI.ffmpeg = d.ffmpeg;
+  } catch { VI.cat = VI.cat || []; }
+  if (!VI.busy) viRender();
+}
+function viPref(k, v) {
+  try { if (v === undefined) return localStorage.getItem('vi-' + k) || ''; localStorage.setItem('vi-' + k, v); } catch {}
+  return '';
+}
+function viModel() {
+  const id = document.getElementById('vi-model')?.value || viPref('model');
+  return VI.models.find(m => m.ref === id) || VI.models[0];
+}
+function viDims(m, sizeId) {
+  const d = (m && m.defaults) || { width: 480, height: 288 };
+  const area = d.width * d.height, r = (VI_SIZES.find(x => x.id === sizeId) || VI_SIZES[0]).r;
+  const snap = v => Math.max(256, Math.round(v / 32) * 32);
+  return [snap(Math.sqrt(area * r)), snap(Math.sqrt(area / r))];
+}
+function viInstallsHTML() {
+  const rows = (VI.cat || []).filter(e => !e.installed);
+  const job = ref => Object.values(DL.jobs).find(j => j.meta && j.meta.model === ref && dlActive(j));
+  return rows.map(e => {
+    const j = job(e.ref);
+    const btn = j ? `<button class="au-btn" disabled><span class="au-spin"></span> ${j.total ? Math.floor(j.done * 100 / j.total) + '%' : 'Starting…'}</button>`
+                  : `<button class="au-btn primary" onclick="viInstall('${e.ref}')">Install · ${dlFmtBytes(e.size_bytes)}</button>`;
+    return `<div class="au-install"><div style="flex:1;min-width:200px"><div class="au-iname">${esc(e.name)}${e.recommended ? ' <span class="dl-state ok" style="margin-left:6px">Recommended</span>' : ''}</div>
+      <div class="au-idesc">${esc(e.description)}</div><div class="au-hint">License: ${esc(e.license)}</div></div>${btn}</div>`;
+  }).join('');
+}
+function viRenderInstalls() { const el = document.getElementById('vi-installs'); if (el) el.innerHTML = viInstallsHTML(); else viRender(); }
+async function viInstall(ref) {
+  try { await dlPost('/api/downloads/start', { model: ref }); toast('Downloading… it keeps going even if you leave this page'); }
+  catch (e) { toast('❌ ' + e.message, 'err'); }
+  setTimeout(viRenderInstalls, 400);
+}
+
+function viRender() {
+  const body = document.getElementById('vi-body');
+  if (!body) return;
+  const keep = {};
+  body.querySelectorAll('textarea[id], input[id]').forEach(e => { if (e.type !== 'file') keep[e.id] = e.value; });
+  if (!VI.cat) { body.innerHTML = '<div class="au-card"><div class="au-hint">Loading…</div></div>'; return; }
+  if (!VI.models.length) {
+    body.innerHTML = `<div class="au-card"><div class="au-hint">Install a video model. It downloads in the background (Downloads panel) and runs offline afterwards.</div><div id="vi-installs" style="display:flex;flex-direction:column;gap:8px">${viInstallsHTML()}</div></div>`;
+    viRenderResults(); return;
+  }
+  const m = viModel(), d = m.defaults || {};
+  const sizeBtns = VI_SIZES.map(z => {
+    const [w, h] = viDims(m, z.id), k = 14 / Math.max(w, h);
+    return `<button class="im-size${z.id === VI.size ? ' active' : ''}" onclick="VI.size='${z.id}';viPref('size','${z.id}');viRender()" title="${w}×${h}"><i style="width:${Math.round(w * k)}px;height:${Math.round(h * k)}px"></i>${z.label}</button>`;
+  }).join('');
+  const [w, h] = viDims(m, VI.size);
+  const secs = Number(keep['vi-secs'] || ((d.frames || 17) - 1) / (d.fps || 16)).toFixed(1);
+  let html = '<div class="au-card">';
+  html += `<div class="au-row"><div class="au-field"><label class="au-label">Model</label><select id="vi-model" onchange="viPref('model',this.value);viRender()">` +
+    VI.models.map(x => `<option value="${esc(x.ref)}"${x.ref === m.ref ? ' selected' : ''}>${esc(x.name)}</option>`).join('') + '</select></div></div>';
+  if (m.description) html += `<div class="au-hint" style="margin-top:-6px">${esc(m.description)}</div>`;
+  html += `<div class="au-field"><label class="au-label">Describe the video</label><textarea id="vi-prompt" placeholder="e.g. a red fox running through fresh snow, slow motion, cinematic" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();viGo()}"></textarea></div>`;
+  if (d.image_input) html += `<div class="au-field"><label class="au-label">Start from a picture <span class="au-hint">(optional)</span></label><div class="vi-start">
+      ${VI.start ? `<img src="${VI.start}" alt=""><button class="au-btn" onclick="VI.start=null;viRender()">Remove</button>` : `<button class="au-btn" onclick="viPickStart()">Choose picture</button><span class="au-hint">The video begins with this image.</span>`}</div></div>`;
+  html += `<div class="au-row" style="justify-content:space-between"><div class="im-sizes">${sizeBtns}</div><span class="au-hint">${w} × ${h}</span></div>`;
+  html += `<div class="au-field"><label class="au-label">Length</label><div class="au-range"><input type="range" id="vi-secs" min="0.5" max="5" step="0.5" value="${secs}" oninput="document.getElementById('vi-secs-v').textContent=this.value+' s'"><span id="vi-secs-v">${secs} s</span></div></div>`;
+  html += `<details${viPref('adv') === '1' ? ' open' : ''} ontoggle="viPref('adv',this.open?'1':'0')"><summary class="au-hint" style="cursor:pointer">Advanced</summary><div class="im-adv">`;
+  html += `<div class="au-field" style="grid-column:1/-1"><label class="au-label">Avoid</label><input type="text" id="vi-neg" placeholder="Leave empty for the model's recommended list"></div>`;
+  html += `<div class="au-field"><label class="au-label">Steps</label><input type="number" id="vi-steps" min="1" max="100" placeholder="${d.steps || 20}"></div>`;
+  html += `<div class="au-field"><label class="au-label">Guidance (CFG)</label><input type="number" id="vi-cfg" min="1" max="15" step="0.5" placeholder="${d.cfg || 6}"></div>`;
+  html += `<div class="au-field"><label class="au-label">Seed</label><input type="number" id="vi-seed" min="0" placeholder="random"></div>`;
+  html += `</div></details>`;
+  html += `<div class="au-hint">Video is slow on small GPUs: a 1-second clip takes 5–10 minutes on a 4 GB card. Longer clips and bigger sizes take longer.${VI.ffmpeg ? '' : ' Install ffmpeg to get MP4 files; without it clips are saved as GIF.'}</div>`;
+  html += `<div class="au-row"><button class="au-btn primary" id="vi-go" onclick="viGo()" ${VI.busy ? 'disabled' : ''}>${VI.busy ? '<span class="au-spin"></span> Generating…' : 'Generate video'}</button>
+    ${VI.busy ? '<button class="au-btn" onclick="viStop()">Stop</button><div class="im-prog"><div id="vi-bar"></div></div>' : ''}
+    <span class="au-hint" id="vi-status">${VI.busy ? 'Loading the model…' : ''}</span></div><div class="au-err" id="vi-err"></div>`;
+  html += `<details><summary class="au-hint" style="cursor:pointer">More models</summary><div id="vi-installs" style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${viInstallsHTML()}</div></details>`;
+  html += '</div>';
+  body.innerHTML = html;
+  for (const [id, v] of Object.entries(keep)) { const e = document.getElementById(id); if (e && v !== '') e.value = v; }
+  viRenderResults();
+}
+function viPickStart() {
+  const f = document.createElement('input');
+  f.type = 'file'; f.accept = 'image/png,image/jpeg';
+  f.onchange = () => {
+    const file = f.files[0]; if (!file) return;
+    const rd = new FileReader();
+    rd.onload = () => { VI.start = rd.result; viRender(); };
+    rd.readAsDataURL(file);
+  };
+  f.click();
+}
+function viNum(id) { const v = document.getElementById(id)?.value; return v === '' || v == null ? 0 : Number(v); }
+
+async function viGo() {
+  if (VI.busy) return;
+  const prompt = (document.getElementById('vi-prompt')?.value || '').trim();
+  const err = document.getElementById('vi-err');
+  if (!prompt) { if (err) err.textContent = 'Describe the video you want.'; return; }
+  const m = viModel(), d = m.defaults || {};
+  const [width, height] = viDims(m, VI.size);
+  const secs = Number(document.getElementById('vi-secs')?.value || 2);
+  const req = { model: m.ref, prompt, width, height, frames: Math.round(secs * (d.fps || 16)) + 1, steps: viNum('vi-steps'), cfg: viNum('vi-cfg'),
+                negative_prompt: document.getElementById('vi-neg')?.value || '' };
+  const seedV = document.getElementById('vi-seed')?.value;
+  if (seedV !== '' && seedV != null) req.seed = Number(seedV);
+  if (VI.start && d.image_input) req.image = VI.start;
+  VI.busy = true; VI.started = Date.now(); VI.ctrl = new AbortController();
+  viRender();
+  const bar = document.getElementById('vi-bar');
+  let msg = 'Loading the model…';
+  const tick = () => { const s = document.getElementById('vi-status'); if (s) { const t = Math.round((Date.now() - VI.started) / 1000); s.textContent = msg + ' · ' + (t >= 60 ? Math.floor(t / 60) + ' min ' + (t % 60) + ' s' : t + ' s'); } };
+  VI.timer = setInterval(tick, 1000);
+  try {
+    const r = await fetch('/api/video/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req), signal: VI.ctrl.signal });
+    if (!r.ok) { let e = 'HTTP ' + r.status; try { e = (await r.json()).error || e; } catch {} throw new Error(e); }
+    const rd = r.body.getReader(), dec = new TextDecoder();
+    let buf = '', done = null;
+    for (;;) {
+      const { value, done: end } = await rd.read();
+      if (end) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const block = buf.slice(0, i); buf = buf.slice(i + 2);
+        let ev = 'message', data = '';
+        block.split('\n').forEach(l => { if (l.startsWith('event: ')) ev = l.slice(7); else if (l.startsWith('data: ')) data += l.slice(6); });
+        if (!data) continue;
+        const o = JSON.parse(data);
+        if (ev === 'progress') { msg = o.msg || msg; if (bar) bar.style.width = (o.pct || 0) + '%'; tick(); }
+        else if (ev === 'error') throw new Error(o.error || 'generation failed');
+        else if (ev === 'done') done = o;
+      }
+    }
+    if (!done) throw new Error('the connection closed before the video was ready');
+    const bin = atob(done.video), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    VI.results.unshift({ url: URL.createObjectURL(new Blob([bytes], { type: done.mime })), mime: done.mime, ext: done.ext, prompt,
+      model: (VI.models.find(x => x.ref === done.model) || {}).name || done.model, w: done.width, h: done.height,
+      frames: done.frames, fps: done.fps, seed: done.seed, secs: done.elapsed, at: new Date() });
+  } catch (e) {
+    VI.busy = false; clearInterval(VI.timer); viRender();
+    if (e.name !== 'AbortError') { const el = document.getElementById('vi-err'); if (el) el.textContent = typeof friendlyError === 'function' ? friendlyError(e.message) : e.message; }
+    return;
+  }
+  VI.busy = false; clearInterval(VI.timer); viRender();
+}
+function viStop() { try { VI.ctrl && VI.ctrl.abort(); } catch {} }
+function viRenderResults() {
+  const el = document.getElementById('vi-results'); if (!el) return;
+  el.innerHTML = VI.results.map((r, i) => {
+    const fname = 'vortelio-video-' + r.at.toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.' + r.ext;
+    const media = r.mime.startsWith('video/') ? `<video src="${r.url}" controls loop autoplay muted playsinline></video>` : `<img src="${r.url}" alt="">`;
+    const mins = r.secs >= 60 ? Math.round(r.secs / 60) + ' min' : Math.round(r.secs) + ' s';
+    return `<div class="im-res">${media}
+      <div class="im-res-meta"><b title="${esc(r.prompt)}">${esc(r.prompt)}</b>${esc(r.model)} · ${r.w}×${r.h} · ${(r.frames / r.fps).toFixed(1)} s · seed ${r.seed} · made in ${mins}</div>
+      <div class="au-row"><a class="au-btn" href="${r.url}" download="${fname}">Download</a>
+      <button class="au-btn" onclick="viReuse(${i})" title="Same prompt and seed">Reuse</button></div></div>`;
+  }).join('');
+}
+function viReuse(i) {
+  const r = VI.results[i];
+  const p = document.getElementById('vi-prompt'); if (p) { p.value = r.prompt; p.focus(); }
+  const det = document.querySelector('#vi-body details'); if (det) det.open = true;
+  const s = document.getElementById('vi-seed'); if (s) s.value = r.seed;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+try { VI.size = localStorage.getItem('vi-size') || 'landscape'; } catch {}
 </script>
 <div class="dl-panel" id="dl-panel" role="dialog" aria-label="Downloads">
   <div class="dl-head">
@@ -10773,6 +10970,8 @@ function dlConnect() {
         document.getElementById('ws-audio')?.classList.contains('on') && !auModelsFor(auTask()).length) auRender();
     if (j.kind === 'model' && j.meta && j.meta.type === 'image' && typeof imRender === 'function' &&
         document.getElementById('ws-image')?.classList.contains('on') && !IM.busy) imRenderInstalls();
+    if (j.kind === 'model' && j.meta && j.meta.type === 'video' && typeof viRenderInstalls === 'function' &&
+        document.getElementById('ws-video')?.classList.contains('on') && !VI.busy) viRenderInstalls();
     if (prev && dlActive(prev) && j.state === 'failed') toast('❌ ' + j.title + ': ' + (j.error || 'download failed'), 'err');
     dlRender(); dlSyncCards(j);
   });
@@ -10789,6 +10988,7 @@ async function dlOnDone(j) {
     try { await refreshModels(); } catch {}
     if (j.meta && j.meta.type === 'audio' && typeof auLoad === 'function') auLoad();
     if (j.meta && j.meta.type === 'image' && typeof imLoad === 'function') imLoad();
+    if (j.meta && j.meta.type === 'video' && typeof viLoad === 'function') viLoad();
   } else if (j.kind === 'engine') {
     toast('✅ ' + j.title + ' ready', 'ok');
     dlLoadEngines();

@@ -190,6 +190,8 @@ func NewMux() *http.ServeMux {
 	mux.HandleFunc("/api/image/catalog", ca(handleImageCatalog))
 	mux.HandleFunc("/api/image/generate", ca(withRateLimit(generateLimiter, handleImageGenerate)))
 	mux.HandleFunc("/api/image/unload", ca(handleImageUnload))
+	mux.HandleFunc("/api/video/catalog", ca(handleVideoCatalog))
+	mux.HandleFunc("/api/video/generate", ca(withRateLimit(generateLimiter, handleVideoGenerate)))
 	mux.HandleFunc("/api/audio/catalog", ca(handleAudioCatalog))
 	mux.HandleFunc("/api/audio/speech", ca(withRateLimit(generateLimiter, handleAudioSpeech)))
 	mux.HandleFunc("/api/audio/generate", ca(withRateLimit(generateLimiter, handleAudioGenerate)))

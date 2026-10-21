@@ -423,19 +423,37 @@ func NativeGenerateImage(ctx context.Context, m *hub.Model, hw *Hardware, r Imag
 		"width": r.Width, "height": r.Height, "seed": *r.Seed,
 		"batch_count": r.Count, "output_format": "png", "sample_params": sample,
 	}
-	images, err := p.runJob(ctx, body)
+	raw, err := p.runJob(ctx, "/sdcpp/v1/img_gen", body)
 	if err != nil {
 		return nil, err
+	}
+	var res struct {
+		Images []struct {
+			Index int    `json:"index"`
+			B64   string `json:"b64_json"`
+		} `json:"images"`
+	}
+	json.Unmarshal(raw, &res)
+	sort.Slice(res.Images, func(i, j int) bool { return res.Images[i].Index < res.Images[j].Index })
+	var images [][]byte
+	for _, im := range res.Images {
+		if b, err := base64.StdEncoding.DecodeString(im.B64); err == nil && len(b) > 0 {
+			images = append(images, b)
+		}
+	}
+	if len(images) == 0 {
+		return nil, errors.New("the image engine returned no image")
 	}
 	return &ImageResult{Images: images, Seed: *r.Seed, Width: r.Width, Height: r.Height, Steps: r.Steps}, nil
 }
 
 var imageHTTP = &http.Client{Timeout: 30 * time.Second}
 
-// runJob submits an img_gen job and waits for its images.
-func (p *imageProc) runJob(ctx context.Context, body map[string]any) ([][]byte, error) {
+// runJob submits a generation job (path: /sdcpp/v1/img_gen or vid_gen),
+// waits for it and returns its "result" object.
+func (p *imageProc) runJob(ctx context.Context, path string, body map[string]any) (json.RawMessage, error) {
 	data, _ := json.Marshal(body)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.url+"/sdcpp/v1/img_gen", bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.url+path, bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
@@ -487,29 +505,14 @@ func (p *imageProc) runJob(ctx context.Context, body map[string]any) ([][]byte, 
 				Code    string `json:"code"`
 				Message string `json:"message"`
 			} `json:"error"`
-			Result struct {
-				Images []struct {
-					Index int    `json:"index"`
-					B64   string `json:"b64_json"`
-				} `json:"images"`
-			} `json:"result"`
+			Result json.RawMessage `json:"result"`
 		}
 		if json.Unmarshal(raw, &st) != nil {
 			continue
 		}
 		switch st.Status {
 		case "completed":
-			sort.Slice(st.Result.Images, func(i, j int) bool { return st.Result.Images[i].Index < st.Result.Images[j].Index })
-			var imgs [][]byte
-			for _, im := range st.Result.Images {
-				if b, err := base64.StdEncoding.DecodeString(im.B64); err == nil && len(b) > 0 {
-					imgs = append(imgs, b)
-				}
-			}
-			if len(imgs) == 0 {
-				return nil, errors.New("the image engine returned no image")
-			}
-			return imgs, nil
+			return st.Result, nil
 		case "failed":
 			msg := "generation failed"
 			if st.Error != nil && st.Error.Message != "" {
@@ -529,7 +532,7 @@ func (p *imageProc) failure(err error) error {
 	if !p.alive() {
 		tail := lastSDLines(p.log.String(), 4)
 		if isOOM(errors.New(tail)) {
-			return fmt.Errorf("not enough memory for this image size — try a smaller size: %s", tail)
+			return fmt.Errorf("not enough memory for this size — try a smaller one: %s", tail)
 		}
 		return fmt.Errorf("the image engine stopped: %s", tail)
 	}

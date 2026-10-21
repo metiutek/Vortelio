@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,7 +21,50 @@ func NewVideoRunner(model *hub.Model, hw *Hardware) *VideoRunner {
 	return &VideoRunner{model: model, hw: hw}
 }
 
+// native reports whether the model runs on stable-diffusion.cpp.
+func (r *VideoRunner) native() bool {
+	f := hub.ImageFamilyOf(r.model)
+	return f != nil && f.Kind == "video" && strings.HasSuffix(strings.ToLower(r.model.LocalPath), ".gguf")
+}
+
+// runNative generates with stable-diffusion.cpp and writes opts.OutputFile
+// (its extension follows the result: .mp4, or .gif without ffmpeg).
+func (r *VideoRunner) runNative(opts *RunOptions, emit func(int, string)) error {
+	res, err := NativeGenerateVideo(context.Background(), r.model, r.hw, VideoRequest{
+		Prompt: opts.Prompt, Steps: opts.Steps, ForceCPU: opts.ForceCPU,
+	}, func(pct int, msg string) {
+		if emit != nil {
+			emit(pct, msg)
+		} else {
+			fmt.Printf("\r    %3d%%  %-40s", pct, msg)
+		}
+	})
+	if emit == nil {
+		fmt.Println()
+	}
+	if err != nil {
+		return err
+	}
+	out := ResolveOutputPath(opts.OutputFile, "output."+res.Ext)
+	if ext := filepath.Ext(out); !strings.EqualFold(ext, "."+res.Ext) && emit == nil {
+		out = strings.TrimSuffix(out, ext) + "." + res.Ext
+	}
+	if err := os.WriteFile(out, res.Data, 0o644); err != nil {
+		return err
+	}
+	if emit == nil {
+		fmt.Printf("✅  Video saved: %s (%d frames, seed %d)\n", out, res.Frames, res.Seed)
+	}
+	return nil
+}
+
 func (r *VideoRunner) Run(opts *RunOptions) error {
+	if r.native() {
+		if opts.Prompt == "" {
+			return fmt.Errorf("a text prompt is required for video generation\n  Example: vortelio run video/wan2.1:1.3b \"a flying cat\"")
+		}
+		return r.runNative(opts, nil)
+	}
 	AcquireGPU("video") // free VRAM held by a chat model
 	if opts.Prompt == "" {
 		return fmt.Errorf("a text prompt is required for video generation\n  Example: vortelio run video/wan:1.3b \"a flying cat\"")
@@ -372,6 +416,18 @@ func (r *VideoRunner) runPythonScriptProg(script string, onProgress func(Progres
 
 // RunWithProgress for video — streams VORTELIO_PROGRESS lines as channel events
 func (r *VideoRunner) RunWithProgress(opts *RunOptions, progress chan<- ProgressEvent) error {
+	if r.native() && progress != nil {
+		defer close(progress)
+		if opts.Prompt == "" {
+			return fmt.Errorf("a text prompt is required for video generation")
+		}
+		return r.runNative(opts, func(pct int, msg string) {
+			select {
+			case progress <- ProgressEvent{Percent: pct, Message: msg}:
+			default:
+			}
+		})
+	}
 	AcquireGPU("video") // free VRAM held by a chat model
 	if opts.Prompt == "" {
 		if progress != nil {

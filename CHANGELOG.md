@@ -2,6 +2,17 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.3.98] — 2026-10-21
+### Added
+- **Video studio** (sidebar → Video): describe a clip, pick a shape and a length, and generate it on your computer; Wan 2.2 can also start from a picture. Live step progress, results play in place, download, reuse the seed; clips are saved to the Downloads folder. Models install from the page in one click.
+- Video runs natively on the same stable-diffusion.cpp server as the images (no Python): **Wan 2.1 1.3B** (recommended, runs on a 4 GB GPU: a 1-second clip takes about 5–10 minutes on a GTX 1650) and **Wan 2.2 5B** text/image-to-video (experimental on 4 GB: very slow). Downloading a model fetches its VAE and the UMT5 text encoder too.
+- The engine writes MJPEG AVI: it is converted to H.264 MP4 when ffmpeg is installed, otherwise to an animated GIF.
+- API: `GET /api/video/catalog`, `POST /api/video/generate` (server-sent progress, base64 result). The `generate_video` chat tool accepts `seconds`.
+### Changed
+- `video/wan:1.3b` and `video/wan:14b` (Python diffusers) are replaced by `video/wan2.1:1.3b` and `video/wan2.2:5b`.
+### Fixed
+- A video generated from the chat without ffmpeg was a GIF saved and labelled as MP4.
+
 ## [0.3.97] — 2026-10-20
 ### Added
 - **Image studio** (sidebar → Images): describe a picture, pick a shape (square, portrait, landscape, wide) and generate one or more images; advanced settings for steps, guidance, seed and what to avoid. Results show in a gallery (click to enlarge, download, reuse the seed) and are saved to the Downloads folder. Models install from the page in one click.

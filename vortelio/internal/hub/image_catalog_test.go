@@ -51,7 +51,7 @@ func TestSharedComponentPath(t *testing.T) {
 func TestDescribeImageModel(t *testing.T) {
 	e, _ := ImageCatalogFor(&ModelRef{Type: "image", Name: "z-image", Tag: "turbo"})
 	m := &Model{Type: "image", LocalPath: "/x/z_image_turbo-Q3_K.gguf"}
-	describeImageModel(m, &e)
+	describeImageModel(m, e.Family, e.Description)
 	if m.Engine != "sdcpp" || m.Family != "z-image" {
 		t.Fatalf("engine/family = %s/%s", m.Engine, m.Family)
 	}
@@ -59,7 +59,7 @@ func TestDescribeImageModel(t *testing.T) {
 		t.Errorf("components = %v", m.Components)
 	}
 	sd := &Model{Type: "image", LocalPath: "/x/stable-diffusion-v1-5-Q4_1.gguf"}
-	describeImageModel(sd, nil)
+	describeImageModel(sd, "", "")
 	if sd.Family != "sd1" || len(sd.Components) != 0 {
 		t.Errorf("sd1: family %s components %v", sd.Family, sd.Components)
 	}

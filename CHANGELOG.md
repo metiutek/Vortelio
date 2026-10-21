@@ -2,6 +2,23 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.4.0] — 2026-10-21
+### Added
+- **The chat model stays ready** (like LM Studio): picking a local model loads it right away and it stays loaded for the whole conversation — no reload between messages. A dot on the model button shows its state (loading, ready, error) and the model menu has an **Eject** button. Settings → Chat → *Keep the model loaded*: until ejected (default), 1 hour, 30 or 5 minutes idle. Coming back to the chat after the image, video or audio studio (which borrow the GPU) reloads it in the background.
+- API: `POST /api/models/load`, `POST /api/models/eject`, `GET /api/models/loaded`.
+- Theme follows the system (new "System" option, now the default).
+### Changed
+- New model picker: search, readable names (`LFM2.5 8B A1B` instead of `Liquidai Lfm2 5 8b A1b Gguf (q8-0)`), a details line (parameters · quantization · size · tools), a "Loaded" badge, cloud models folded away with their price under the name.
+- Chat restyled: no avatar, proper paragraphs instead of line breaks, quieter reasoning block, copy/regenerate icons and the stats (time · tokens · tok/s) on one discreet row under each reply.
+- *My models*: grouped by type with readable names, a "Loaded"/"Default" badge, one main action (Chat, or open the studio) and a "⋯" menu for the rest; total disk use in the header.
+- Settings icons, wording and a single Update button.
+### Fixed
+- From the second message on, the chat sent the history **without the new question**: the model answered with one empty token, and the next message got the answer to the previous one. The system prompt (and the personal info) was also dropped from the second message on.
+- Two models could load at once (picking a model while another was still loading): the newer choice now cancels the older load.
+- Every chat message without a keep-alive reset the model's lifetime to 5 minutes.
+- "Use CPU" changed the detected hardware for all later requests.
+- The shadow of the closed settings and side panels showed along the right edge of every page.
+
 ## [0.3.99] — 2026-10-21
 ### Changed
 - **Download models** lists the same curated, tested image, audio and video models as the studio pages (Z-Image, SD 1.5, FLUX GGUF, Kokoro, DotTTS, Stable Audio, Parakeet, Whisper, Wan…) instead of an old hand-written list of Python models.

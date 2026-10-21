@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -46,6 +47,21 @@ type LLMRunner struct {
 	ctxSize     int
 	nativeThink bool
 	log         *tailBuf
+	// abort, when closed, stops a load in progress (another model was
+	// picked meanwhile).
+	abort chan struct{}
+}
+
+// ErrLoadAborted is returned by EnsureServer when the load was superseded.
+var ErrLoadAborted = errors.New("loading was cancelled: another model was requested")
+
+func (r *LLMRunner) aborted() bool {
+	select {
+	case <-r.abort:
+		return true
+	default:
+		return false
+	}
 }
 
 // Alive reports whether this runner's llama-server is still running.
@@ -220,6 +236,9 @@ func (r *LLMRunner) ensureServer() error {
 	// it kills the process and returns an error so the caller can retry with a
 	// safer configuration.
 	attempt := func(cpuOnly bool, deadlineSecs int) error {
+		if r.aborted() {
+			return ErrLoadAborted
+		}
 		port, err := freePort()
 		if err != nil {
 			return fmt.Errorf("could not find a free port: %w", err)
@@ -331,6 +350,10 @@ func (r *LLMRunner) ensureServer() error {
 		client := &http.Client{Timeout: 2 * time.Second}
 		for time.Now().Before(deadline) {
 			select {
+			case <-r.abort:
+				cmd.Process.Kill()
+				<-exited
+				return ErrLoadAborted
 			case <-exited:
 				if reason := classifyLoadError(sb.String()); reason != "" {
 					return loadError{reason: reason, fatal: isFatalLoadError(sb.String())}
@@ -388,6 +411,9 @@ func (r *LLMRunner) ensureServer() error {
 	// a GPU-layer count.
 	if le, ok := err.(loadError); ok && le.fatal {
 		return fmt.Errorf("%s", le.reason)
+	}
+	if err == ErrLoadAborted {
+		return err
 	}
 	if !cpuFirst && !forcedGL {
 		fmt.Printf("⚠️  GPU load failed (%v).\n    Retrying on CPU — slower, but it will work…\n", err)
@@ -1240,8 +1266,8 @@ func (r *LLMRunner) EmbedBatch(inputs []string) ([][]float64, error) {
 // Thread-safe: does not mutate runner state.
 type StreamOpts struct {
 	Prompt        string
-	Messages      []map[string]interface{} // nil = use Prompt with default system prompt
-	System        string                   // system prompt override (used when Messages is nil)
+	Messages      []map[string]interface{} // full conversation; with Prompt set, the turns before it
+	System        string                   // system prompt override (used with Prompt)
 	Images        []string                 // base64-encoded images for multimodal input
 	Raw           bool                     // skip system/chat-template wrapping
 	Think         bool
@@ -1500,7 +1526,8 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 				map[string]string{"role": "user", "content": sopts.Prompt},
 			}
 		}
-	} else if sopts.Messages != nil {
+	} else if sopts.Messages != nil && sopts.Prompt == "" {
+		// A complete conversation (Ollama/OpenAI clients, vortelio code).
 		for _, m := range sopts.Messages {
 			messages = append(messages, m)
 		}
@@ -1532,10 +1559,21 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 		} else {
 			userContent = sopts.Prompt
 		}
-		messages = []interface{}{
-			map[string]string{"role": "system", "content": sysPrompt},
-			map[string]interface{}{"role": "user", "content": userContent},
+		// Earlier turns sit between the system prompt and the new question.
+		// Chat templates (Qwen…) accept a single system message, first: the
+		// caller's leading system messages are merged into ours.
+		history := sopts.Messages
+		for len(history) > 0 && history[0]["role"] == "system" {
+			if c, ok := history[0]["content"].(string); ok && strings.TrimSpace(c) != "" {
+				sysPrompt += "\n\n" + c
+			}
+			history = history[1:]
 		}
+		messages = []interface{}{map[string]string{"role": "system", "content": sysPrompt}}
+		for _, m := range history {
+			messages = append(messages, m)
+		}
+		messages = append(messages, map[string]interface{}{"role": "user", "content": userContent})
 	}
 
 	temp := 0.7

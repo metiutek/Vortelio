@@ -1379,6 +1379,110 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
   .welcome-title { font-size: 24px; }
   .panel-inner { padding: 20px 14px; }
 }
+
+/* ══ Design v2 (0.4): calmer, denser, Claude/ChatGPT-like ══════════════ */
+:root:not(.dark) {
+  --bg2: #f8f8f9; --bg3: #f1f1f3; --border: #e7e7ea; --border2: #d6d6db;
+  --text: #18181b; --text2: #4f4f57; --text3: #8b8b94;
+}
+:root {
+  --ok: #16a34a; --warn: #d97706; --err: #dc2626;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Inter, Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+/* Closed drawers sit off-screen: their shadow must not bleed into the page. */
+.settings-panel:not(.open), #side-panel:not(.open) { box-shadow: none !important; }
+#sidebar-update-btn { display: none !important; }
+
+/* Sidebar */
+.sidebar { background: var(--bg2); }
+.nav-item { font-size: 14px; border-radius: 9px; }
+.hist-item { font-size: 13.5px; border-radius: 9px; }
+.hist-item:hover, .hist-item.active { background: var(--bg3); }
+
+/* Messages */
+.msg-group { padding: 6px 0; }
+.msg-group + .msg-group { margin-top: 6px; }
+.msg-user .bubble { padding: 10px 16px; border-radius: 18px; font-size: 15px; line-height: 1.6; }
+.msg-ai .ai-avatar { display: none; }
+.msg-ai .msg-inner { gap: 0; }
+.msg-ai .content { white-space: normal; line-height: 1.7; }
+.msg-ai .content p { margin: 0 0 .75em; }
+.msg-ai .content p:last-child { margin-bottom: 0; }
+.msg-ai .content pre, .msg-ai .content code { white-space: pre-wrap; }
+.msg-ai .content .thinking-text { white-space: pre-wrap; }
+.msg-ai .content > .msg-meta.live { font-family: var(--sans); font-size: 12.5px; color: var(--text3); margin: 0 0 6px; }
+.msg-foot { display: flex; align-items: center; gap: 2px; margin-top: 10px; min-height: 30px; }
+.msg-foot .msg-actions { margin: 0; opacity: 1; gap: 2px; }
+.msg-foot .msg-meta { margin: 0 0 0 8px; font-family: var(--sans); font-size: 12px; color: var(--text3); opacity: 0; transition: opacity .15s; }
+.msg-group:hover .msg-foot .msg-meta, .msg-group:last-child .msg-foot .msg-meta { opacity: 1; }
+.msg-foot .msg-act { border: none; background: transparent; color: var(--text3); width: 30px; height: 30px; border-radius: 8px; }
+.msg-foot .msg-act:hover { background: var(--bg3); color: var(--text); }
+.msg-act svg { width: 16px; height: 16px; }
+.thinking-block { background: transparent; border: none; border-left: 2px solid var(--border2); border-radius: 0; padding: 2px 0 2px 12px; margin: 2px 0 12px; font-family: var(--sans); font-size: 13.5px; color: var(--text3); line-height: 1.6; }
+.thinking-label { font-size: 13px; font-weight: 500; opacity: 1; color: var(--text2); }
+.thinking-label::before { content: '›'; font-size: 15px; width: 10px; }
+.dark .thinking-block { background: transparent !important; color: var(--text3) !important; border-color: var(--border2) !important; }
+
+/* Composer model chip + picker */
+#model-btn { max-width: 340px; }
+#model-btn #model-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mstate { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); flex-shrink: 0; }
+.mstate.ready { background: var(--ok); box-shadow: 0 0 0 3px rgba(22,163,74,.15); }
+.mstate.loading { background: var(--warn); animation: mstatePulse 1s ease-in-out infinite; }
+.mstate.error { background: var(--err); }
+.mstate.cloud { background: #0ea5e9; }
+@keyframes mstatePulse { 50% { opacity: .35; } }
+/* Installed models (LM Studio-like list) */
+.mr-sec { font-size: 12.5px; font-weight: 600; color: var(--text2); margin: 22px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.mr-sec:first-child { margin-top: 4px; }
+.mrow { display: flex; align-items: center; gap: 12px; padding: 11px 8px; margin: 0 -8px; border-radius: 10px; }
+.mrow:hover { background: var(--bg2); }
+.mr-main { flex: 1; min-width: 0; }
+.mr-name { font-size: 14.5px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mr-meta { font-size: 12.5px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-ref { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-left: 8px; opacity: .8; }
+.mr-default { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 999px; background: var(--bg3); color: var(--text2); }
+.mr-fit:empty { display: none; }
+.mrow .btn { padding: 6px 14px; font-size: 13px; }
+.mr-more { width: 32px; height: 32px; border: none; background: transparent; color: var(--text3); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mr-more:hover { background: var(--bg3); color: var(--text); }
+.mr-more svg { width: 16px; height: 16px; }
+.row-menu { position: fixed; z-index: 1200; min-width: 200px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(20,20,40,.16); padding: 5px; display: flex; flex-direction: column; }
+.row-menu button { text-align: left; border: none; background: none; font: inherit; font-size: 13.5px; color: var(--text); padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.row-menu button:hover { background: var(--bg3); }
+.row-menu button.danger { color: var(--err); }
+.rm-sep { height: 1px; background: var(--border); margin: 4px 2px; }
+#models-sub { font-size: 13.5px; color: var(--text3); margin-top: 4px; }
+.set-link .sl-ic { display: inline-flex; color: var(--text2); }
+.set-link .sl-ic svg.ic { width: 18px; height: 18px; }
+.mr-meta .mr-ref { display: none; }
+.mrow:hover .mr-meta .mr-ref { display: inline; }
+@media (hover: none), (max-width: 600px) { .mrow:hover .mr-meta .mr-ref { display: none; } }
+
+@media (max-width: 600px) { .mr-fit { display: none; } .mrow .btn { padding: 6px 10px; } }
+
+#model-dd { width: 400px; max-width: calc(100vw - 16px); padding: 0; }
+.mp-search { position: sticky; top: 0; z-index: 1; background: var(--bg); padding: 8px; border-bottom: 1px solid var(--border); }
+.mp-search input { width: 100%; border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13.5px; background: var(--bg2); color: var(--text); outline: none; }
+.mp-search input:focus { border-color: var(--border2); background: var(--bg); }
+.mp-body { padding: 4px 6px 6px; }
+.mp-sec { display: flex; align-items: center; justify-content: space-between; padding: 10px 8px 4px; font-size: 12px; font-weight: 500; color: var(--text3); }
+.mp-sec button { border: none; background: none; color: var(--text3); font: inherit; font-size: 12px; cursor: pointer; padding: 0; }
+.mp-sec button:hover { color: var(--text); }
+.mp-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+.mp-row:hover { background: var(--bg3); }
+.mp-row.sel { background: var(--bg3); }
+.mp-main { flex: 1; min-width: 0; }
+.mp-name { font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-meta { font-size: 12px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-badge { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 999px; background: rgba(22,163,74,.12); color: var(--ok); white-space: nowrap; }
+.mp-badge.loading { background: rgba(217,119,6,.12); color: var(--warn); }
+.mp-check { width: 16px; color: var(--accent); flex-shrink: 0; text-align: center; }
+.mp-empty { padding: 14px 10px; font-size: 13px; color: var(--text3); }
+.mp-foot { position: sticky; bottom: 0; display: flex; gap: 4px; padding: 6px; border-top: 1px solid var(--border); background: var(--bg); }
+.mp-foot button { flex: 1; border: none; background: transparent; color: var(--text2); font: inherit; font-size: 12.5px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+.mp-foot button:hover { background: var(--bg3); color: var(--text); }
+.mp-foot button.danger:hover { color: var(--err); }
 </style>
 </head>
 <body>
@@ -1621,7 +1725,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
           <!-- Model selector -->
           <div class="dd-wrap" id="model-wrap">
             <button class="ctrl-btn" id="model-btn" onclick="toggleDD('model')">
-              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="1" width="5" height="5" rx="1.5"/><rect x="8" y="1" width="5" height="5" rx="1.5"/><rect x="1" y="8" width="5" height="5" rx="1.5"/><rect x="8" y="8" width="5" height="5" rx="1.5"/></svg>
+              <span class="mstate" id="model-state"></span>
               <span id="model-lbl">Choose assistant</span>
               <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l4 4 4-4"/></svg>
             </button>
@@ -1667,11 +1771,11 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
   <!-- MODELS PANEL -->
   <div class="panel" id="ws-models">
     <div class="panel-inner">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-        <div class="panel-title" style="margin:0" id="panel-models-title">Installed models</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px">
+        <div><div class="panel-title" style="margin:0" id="panel-models-title">My models</div><div id="models-sub"></div></div>
         <div style="display:flex;gap:8px">
-          <button class="btn" onclick="openAddCloudModel()">☁️ Add cloud model</button>
-          <button class="btn primary" onclick="showPanel('registry')"><span id="download-more-lbl">⬇ Download more</span></button>
+          <button class="btn" onclick="openAddCloudModel()">Add cloud model</button>
+          <button class="btn primary" onclick="showPanel('registry')"><span id="download-more-lbl">Download models</span></button>
         </div>
       </div>
       <div id="mlist"></div>
@@ -2310,7 +2414,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 <!-- SETTINGS PANEL -->
 <div class="settings-panel" id="settings-panel">
   <div class="settings-header">
-    <span class="settings-header-title">⚙️ Settings</span>
+    <span class="settings-header-title">Settings</span>
     <button class="settings-close" onclick="closeSettings()" title="Close">×</button>
   </div>
   <div class="settings-body">
@@ -2320,31 +2424,31 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
       <div class="settings-section-title">Manage</div>
       <div class="set-links">
         <button class="set-link" id="settings-update-link" onclick="startVortelioUpdate()" style="display:none">
-          <span class="sl-ic">↑</span><span><div id="settings-update-title">Update Vortelio</div><div class="sl-sub" id="settings-update-sub">Install the latest version</div></span>
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></span><span><div id="settings-update-title">Update Vortelio</div><div class="sl-sub" id="settings-update-sub">Install the latest version</div></span>
         </button>
         <button class="set-link" onclick="showPanel('models');closeSettings()">
-          <span class="sl-ic">💾</span><span><div>Installed models</div><div class="sl-sub">Manage &amp; set defaults</div></span>
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></span><span><div>My models</div><div class="sl-sub">Manage, load and set defaults</div></span>
         </button>
         <button class="set-link" onclick="showPanel('registry');closeSettings()">
-          <span class="sl-ic">⬇️</span><span><div>Download models</div><div class="sl-sub">Catalog + HuggingFace</div></span>
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></span><span><div>Download models</div><div class="sl-sub">Catalog + HuggingFace</div></span>
         </button>
         <button class="set-link" onclick="showPanel('models');closeSettings();setTimeout(openAddCloudModel,150)">
-          <span class="sl-ic">☁️</span><span><div>Add cloud model</div><div class="sl-sub">Provider, model &amp; API key (BYOK)</div></span>
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H8a6 6 0 1 1 5.7-7.9A4.5 4.5 0 1 1 17.5 19z"/></svg></span><span><div>Add cloud model</div><div class="sl-sub">Provider, model &amp; API key (BYOK)</div></span>
         </button>
         <button class="set-link" onclick="showPanel('agents');closeSettings()">
-          <span class="sl-ic">🧩</span><span><div>AI agents</div><div class="sl-sub">Open WebUI, OpenCode…</div></span>
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span><div>AI agents</div><div class="sl-sub">Open WebUI, OpenCode…</div></span>
         </button>
         <button class="set-link" onclick="showPanel('crewai');closeSettings()">
-          <span class="sl-ic">🤖</span><span><div>CrewAI</div><div class="sl-sub">Multi-agent crews</div></span>
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M15 20a4 4 0 0 1 6-3.4"/></svg></span><span><div>CrewAI</div><div class="sl-sub">Multi-agent crews</div></span>
         </button>
         <button class="set-link" onclick="openMcpManager();closeSettings()">
-          <span class="sl-ic">🔌</span><span><div>External tools (MCP)</div><div class="sl-sub">Connect MCP servers</div></span>
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6"/><path d="M15 2v6"/><path d="M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/></svg></span><span><div>External tools (MCP)</div><div class="sl-sub">Connect MCP servers</div></span>
         </button>
         <button class="set-link" onclick="openAgentConfig();closeSettings()">
-          <span class="sl-ic">🎓</span><span><div>Skills &amp; agent</div><div class="sl-sub">Agentic abilities</div></span>
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z"/></svg></span><span><div>Skills &amp; agent</div><div class="sl-sub">Agentic abilities</div></span>
         </button>
         <button class="set-link" onclick="showPanel('tools');closeSettings()">
-          <span class="sl-ic">🔧</span><span><div>Advanced tools</div><div class="sl-sub">RAG, Compare, GGUF…</div></span>
+          <span class="sl-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></span><span><div>Advanced tools</div><div class="sl-sub">RAG, Compare, GGUF…</div></span>
         </button>
       </div>
     </div>
@@ -2355,10 +2459,11 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
       <div class="settings-row">
         <div class="settings-row-info">
           <div class="settings-row-label" data-i18n="theme">Theme</div>
-          <div class="settings-row-sub" data-i18n="themeDesc">Light or dark</div>
+          <div class="settings-row-sub">Follows your system unless you pick one</div>
         </div>
         <div class="settings-row-ctrl">
           <div class="theme-toggle">
+            <button class="theme-btn" id="theme-system" onclick="setTheme('system')">System</button>
             <button class="theme-btn active" id="theme-light" onclick="setTheme('light')" data-i18n="light">☀️ Chiaro</button>
             <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')" data-i18n="dark">🌙 Scuro</button>
           </div>
@@ -2407,6 +2512,20 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
         </div>
         <div class="settings-row-ctrl">
           <label class="switch"><input type="checkbox" id="set-autosave" checked onchange="setAutoSave(this.checked)"><span class="sl"></span></label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">Keep the model loaded</div>
+          <div class="settings-row-sub">The chat model loads when you pick it and stays ready between messages. The image, video and audio studios still borrow the GPU when they need it.</div>
+        </div>
+        <div class="settings-row-ctrl">
+          <select id="set-keepalive" class="tool-input" style="width:auto" onchange="setKeepAlive(this.value)">
+            <option value="-1">Until I eject it</option>
+            <option value="1h">1 hour idle</option>
+            <option value="30m">30 minutes idle</option>
+            <option value="5m">5 minutes idle</option>
+          </select>
         </div>
       </div>
       <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px">
@@ -2923,7 +3042,7 @@ const LANGS = {
     send: 'Invia',
     stop: 'Ferma',
     thinking: 'Ragionamento',
-    downloadMore: '⬇ Scarica altri',
+    downloadMore: 'Scarica modelli',
     download: '↓ Download',
     cancel: 'Annulla',
     cancelDownload: '⏹ Annulla download',
@@ -2997,8 +3116,8 @@ const LANGS = {
     noChats: 'Nessuna chat salvata',
     installedBtn: 'Modelli installati',
     // Panels
-    installedModelsTitle: 'Modelli installati',
-    downloadMore: '⬇ Scarica altri',
+    installedModelsTitle: 'I miei modelli',
+    downloadMore: 'Scarica modelli',
     downloadModels: 'Scarica modelli',
     back: '← Indietro',
     searchPlaceholder: 'Cerca nel catalogo...',
@@ -3111,7 +3230,7 @@ const LANGS = {
     send: 'Send',
     stop: 'Stop',
     thinking: 'Thinking',
-    downloadMore: '⬇ Download more',
+    downloadMore: 'Download models',
     download: '↓ Download',
     cancel: 'Cancel',
     cancelDownload: '⏹ Cancel download',
@@ -3181,8 +3300,8 @@ const LANGS = {
     noChats: 'No saved chats',
     installedBtn: 'Installed models',
     // Panels
-    installedModelsTitle: 'Installed models',
-    downloadMore: '⬇ Download more',
+    installedModelsTitle: 'My models',
+    downloadMore: 'Download models',
     downloadModels: 'Download models',
     back: '← Back',
     searchPlaceholder: 'Search catalog...',
@@ -3403,7 +3522,7 @@ function applyLang() {
 }
 
 // ── Settings ─────────────────────────────────────────
-let currentTheme = localStorage.getItem('pullai_theme') || 'light';
+let currentTheme = localStorage.getItem('pullai_theme') || 'system';
 let contextSize = parseInt(localStorage.getItem('pullai_ctx') || '4096');
 
 function openSettings() {
@@ -3422,8 +3541,8 @@ function openSettings() {
   document.getElementById('settings-hw').textContent = hwEl ? (hwEl.title || hwEl.textContent) : '—';
   loadEngineStatus();
   document.getElementById('settings-models').textContent = installedModels.length + ' models';
-  document.getElementById('theme-light').classList.toggle('active', currentTheme==='light');
-  document.getElementById('theme-dark').classList.toggle('active', currentTheme==='dark');
+  syncThemeButtons();
+  const ka = document.getElementById('set-keepalive'); if (ka) ka.value = keepAliveSetting();
 
   // Load server config + ps
   loadServerConfig();
@@ -3544,11 +3663,16 @@ function setTheme(theme) {
   currentTheme = theme;
   localStorage.setItem('pullai_theme', theme);
   applyTheme(theme);
-  document.getElementById('theme-light').classList.toggle('active', theme==='light');
-  document.getElementById('theme-dark').classList.toggle('active', theme==='dark');
+  syncThemeButtons();
 }
+function syncThemeButtons() {
+  for (const k of ['system', 'light', 'dark']) document.getElementById('theme-' + k)?.classList.toggle('active', currentTheme === k);
+}
+const _darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+_darkMQ?.addEventListener?.('change', () => { if (currentTheme === 'system') applyTheme('system'); });
 
 function applyTheme(theme) {
+  if (theme === 'system') theme = _darkMQ && _darkMQ.matches ? 'dark' : 'light';
   if (theme === 'dark') {
     document.documentElement.classList.add('dark');
   } else {
@@ -3672,7 +3796,7 @@ async function generateChatTitle(userText, aiText) {
     } else {
       const res = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: selectedModel, prompt, stream: false, think: false, tools_enabled: false, incognito: true, context_size: contextSize })
+        body: JSON.stringify({ model: selectedModel, prompt, stream: false, think: false, tools_enabled: false, incognito: true, context_size: contextSize, keep_alive: keepAliveSetting(), force_cpu: useCPU })
       });
       if (!res.ok) return '';
       const d = await res.json().catch(() => ({}));
@@ -3952,8 +4076,8 @@ function renderVortelioUpdate(info) {
   // The settings entry is ALWAYS available so the user can reinstall the latest
   // from main at any time (the git install can be ahead of the latest release).
   if (setLink) setLink.style.display = 'flex';
-  if (setTitle) setTitle.textContent = (available && latest) ? ('Update to Vortelio ' + latest) : 'Reinstalla / aggiorna Vortelio';
-  if (setSub) setSub.textContent = info ? ('Installed: ' + (info.current || '?') + ' · latest: ' + (latest || '?')) : 'Reinstalla l\'ultima versione via uv';
+  if (setTitle) setTitle.textContent = (available && latest) ? ('Update to Vortelio ' + latest) : 'Reinstall Vortelio';
+  if (setSub) setSub.textContent = info ? ('Installed ' + (info.current || '?') + ' · latest ' + (latest || '?')) : 'Install the latest version again';
 }
 
 async function checkVortelioUpdate() {
@@ -4268,13 +4392,12 @@ function updateModelDDForDomain() {
   const cfg = DC[domain];
   if (!cfg) return;
   const mine = installedModels.filter(m => m.type === cfg.apiType);
-  const models = mine.map(m => ({
-    // The '🛠 tools' capability is shown as a pill badge in buildModelDD(), so the
-    // tag only carries the size here (avoids a redundant '· 🔧 tools' suffix).
-    v: `${m.type}/${m.name}:${m.tag}`,
-    l: m.display_name || prettyModelName(m.name, m.tag),
-    tag: m.size_human || '',
-  }));
+  const models = mine.map(m => {
+    const v = `${m.type}/${m.name}:${m.tag}`, q = prettyTag(m.tag);
+    const meta = [m.parameters, /^(I?Q\d|F16|BF16|F32|MXFP4)/.test(q) ? q : '', m.size_human,
+      cfg.apiType === 'llm' && modelSupportsTools(v) ? 'tools' : ''].filter(Boolean).join(' · ');
+    return { v, l: m.display_name || prettyModelName(m.name, m.tag), tag: m.size_human || '', meta };
+  });
   // Assistant/Agent show ONLY ready-to-use models: local + cloud providers that
   // have a key (presets) + any custom cloud models the user added. Cloud setup
   // lives in the "Add cloud model" dialog (My models), not here.
@@ -4284,17 +4407,17 @@ function updateModelDDForDomain() {
       if (!p.has_key) continue;
       for (const cm of (p.models || [])) {
         const v = `cloud:${p.id}:${cm.id}`; seen[v] = 1;
-        models.push({ v, l: cm.label || cm.id, tag: '☁️ ' + p.name, cloud: true });
+        models.push({ v, l: cm.label || cm.id, tag: '☁️ ' + p.name, meta: p.name, cloud: true });
       }
     }
     for (const cm of getCustomCloudModels()) {
       const p = (_cloudProviders || []).find(x => x.id === cm.provider);
       const v = `cloud:${cm.provider}:${cm.id}`;
-      if (p && p.has_key && !seen[v]) { seen[v] = 1; models.push({ v, l: cm.label || cm.id, tag: '☁️ ' + (p.name || cm.provider), cloud: true }); }
+      if (p && p.has_key && !seen[v]) { seen[v] = 1; models.push({ v, l: cm.label || cm.id, tag: '☁️ ' + (p.name || cm.provider), meta: p.name || cm.provider, cloud: true }); }
     }
     // Custom / self-hosted endpoints (always usable).
     for (const ep of getCustomEndpoints()) {
-      models.push({ v: 'customep:' + ep.id, l: ep.label || ep.model, tag: '🖥 ' + (ep.name || 'server'), cloud: true });
+      models.push({ v: 'customep:' + ep.id, l: ep.label || ep.model, tag: '🖥 ' + (ep.name || 'server'), meta: ep.name || 'server', cloud: true });
     }
   }
   const _dd = document.getElementById('model-dd');
@@ -4305,7 +4428,7 @@ function updateModelDDForDomain() {
   if (!models.find(m => m.v === selectedModel) || autoCloud) {
     const first = models[0];
     if (first) { selectModel(first.v, first.l); _modelAutoPicked = !mine.length; }
-    else { selectedModel = ''; selectedModelIsCloud = false; document.getElementById('model-lbl').textContent = 'No model'; }
+    else { selectedModel = ''; selectedModelIsCloud = false; document.getElementById('model-lbl').textContent = 'No model'; renderModelState(); }
   }
 }
 var _modelAutoPicked = false;
@@ -4345,48 +4468,122 @@ function setType(d, icon, label, el) {
   updateWelcomeSuggestions();
 }
 
+var _ddModels = [], _mpQuery = '', _mpCloudOpen = false;
 function buildModelDD(models) {
   const dd = document.getElementById('model-dd');
+  _ddModels = models;
   if (!models.length) {
-    dd.innerHTML = `<div class="dd-header">No models installed</div>
-      <div class="dd-item" style="color:var(--text3);font-size:12px;cursor:default">Download a model from the catalog</div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showPanel('registry');closeAllDD()">→ Go to model catalog</div>`;
+    dd.innerHTML = `<div class="mp-body"><div class="mp-empty">No models installed yet.</div></div>
+      <div class="mp-foot"><button onclick="showPanel('registry');closeAllDD()">Download a model</button></div>`;
     document.getElementById('model-lbl').textContent = 'No model';
     selectedModel = '';
+    renderModelState();
     return;
   }
-  const local = models.filter(m => !m.cloud);
-  const cloud = models.filter(m => m.cloud);
-  const row = m => {
-    if (m.locked) { // cloud provider without a key — click to add it inline
-      return `<div class="dd-item" onclick="addCloudKeyInline('${esc(m.v.slice(9))}')">
-        <span style="font-size:13px">${esc(m.l)}</span>
-        <span class="dd-item-tag">${esc(m.tag||'')}</span>
-      </div>`;
-    }
-    if (m.custom) { // type any model id for this provider
-      return `<div class="dd-item" onclick="addCustomCloudModel('${esc(m.v.slice(12))}')">
-        <span style="font-size:13px">${esc(m.l)}</span>
-        <span class="dd-item-tag">${esc(m.tag||'')}</span>
-      </div>`;
-    }
-    const caps = m.cloud || modelSupportsTools(m.v);
-    const badge = caps
-      ? '<span class="model-cap" title="Supports web search & agentic tools">🛠 tools</span>'
-      : '';
-    return `<div class="dd-item${m.v===selectedModel?' sel':''}" onclick="selectModel('${esc(m.v)}','${esc(m.l)}')">
-      <span style="font-size:13px">${esc(m.l)}</span>
-      ${badge}
-      <span class="dd-item-tag">${esc(m.tag||'')}</span>
+  dd.innerHTML = `<div class="mp-search"><input id="mp-q" placeholder="Search models" autocomplete="off" value="${esc(_mpQuery)}"
+      oninput="_mpQuery=this.value;renderModelRows()" onclick="event.stopPropagation()" onkeydown="mpKey(event)"></div>
+    <div class="mp-body" id="mp-body"></div>
+    <div class="mp-foot">
+      <button onclick="showPanel('models');closeAllDD()">Manage models</button>
+      <button onclick="showPanel('registry');closeAllDD()">Download more</button>
+      ${LM.state === 'ready' || LM.state === 'loading' ? '<button class="danger" onclick="ejectModel();closeAllDD()">Eject</button>' : ''}
     </div>`;
+  renderModelRows();
+}
+function renderModelRows() {
+  const body = document.getElementById('mp-body');
+  if (!body) return;
+  const q = _mpQuery.trim().toLowerCase();
+  const hit = m => !q || (m.l + ' ' + (m.meta || '') + ' ' + m.v).toLowerCase().includes(q);
+  const local = _ddModels.filter(m => !m.cloud && hit(m));
+  const cloud = _ddModels.filter(m => m.cloud && hit(m));
+  const row = m => {
+    const sel = m.v === selectedModel;
+    // Cloud labels carry the price ("Model · $0.1/$0.4 per 1M"): name above, details below.
+    let name = m.l, meta = m.meta || '';
+    const cut = m.cloud ? name.indexOf(' · ') : -1;
+    if (cut > 0) { meta = [meta, name.slice(cut + 3)].filter(Boolean).join(' · '); name = name.slice(0, cut); }
+    let badge = '';
+    if (!m.cloud && LM.model === m.v && LM.state === 'ready') badge = '<span class="mp-badge">Loaded</span>';
+    else if (!m.cloud && LM.model === m.v && LM.state === 'loading') badge = '<span class="mp-badge loading">Loading…</span>';
+    return `<div class="mp-row${sel ? ' sel' : ''}" data-v="${esc(m.v)}" onclick="selectModel(this.dataset.v, this.querySelector('.mp-name').dataset.l)">
+      <span class="mp-check">${sel ? '✓' : ''}</span>
+      <div class="mp-main"><div class="mp-name" data-l="${esc(m.l)}">${esc(name)}</div>${meta ? `<div class="mp-meta">${esc(meta)}</div>` : ''}</div>${badge}</div>`;
   };
   let html = '';
-  if (local.length) html += '<div class="dd-header">💻 On this PC</div>' + local.map(row).join('');
-  if (cloud.length) html += '<div class="dd-header">☁️ Cloud</div>' + cloud.map(row).join('');
-  dd.innerHTML = html;
+  if (local.length) html += '<div class="mp-sec">On this computer</div>' + local.map(row).join('');
+  if (cloud.length) {
+    const open = _mpCloudOpen || !!q || cloud.some(m => m.v === selectedModel);
+    html += `<div class="mp-sec">Cloud · ${cloud.length}<button onclick="event.stopPropagation();_mpCloudOpen=!_mpCloudOpen;renderModelRows()">${open ? 'Hide' : 'Show'}</button></div>`;
+    if (open) html += cloud.map(row).join('');
+  }
+  body.innerHTML = html || '<div class="mp-empty">No model matches.</div>';
+}
+function mpKey(e) {
+  e.stopPropagation();
+  if (e.key === 'Escape') closeAllDD();
+  if (e.key === 'Enter') { const r = document.querySelector('#mp-body .mp-row'); if (r) r.click(); }
 }
 
+// ── Chat model residency (LM Studio style) ────────────────────────
+// Picking a local model loads it right away; it then stays ready for the
+// whole conversation (Settings → Keep the model loaded).
+var LM = { model: '', state: 'idle', seq: 0 };
+function keepAliveSetting() { return localStorage.getItem('vortelio_keep_alive') || '-1'; }
+function setKeepAlive(v) {
+  localStorage.setItem('vortelio_keep_alive', v);
+  if (LM.state === 'ready') ensureModelLoaded(LM.model, true);
+}
+function isLocalChatModel(v) { return !!v && v.startsWith('llm/'); }
+function renderModelState() {
+  const dot = document.getElementById('model-state');
+  if (!dot) return;
+  let cls = '', tip = 'Not loaded — it loads when you pick it or send a message';
+  if (selectedModelIsCloud) { cls = 'cloud'; tip = 'Cloud model'; }
+  else if (LM.model === selectedModel) {
+    cls = LM.state === 'ready' ? 'ready' : LM.state === 'loading' ? 'loading' : LM.state === 'error' ? 'error' : '';
+    tip = { ready: 'Loaded and ready', loading: 'Loading the model…', error: LM.error || 'Could not load the model' }[LM.state] || tip;
+  }
+  dot.className = 'mstate' + (cls ? ' ' + cls : '');
+  document.getElementById('model-btn')?.setAttribute('title', tip);
+  if (document.getElementById('model-dd')?.classList.contains('open')) renderModelRows();
+}
+async function ensureModelLoaded(v, quiet) {
+  if (!isLocalChatModel(v) || domain !== 'chat') return;
+  if (LM.model === v && (LM.state === 'ready' || LM.state === 'loading') && !quiet) return;
+  const seq = ++LM.seq;
+  LM.model = v; LM.state = 'loading'; LM.error = '';
+  renderModelState();
+  try {
+    const r = await fetch('/api/models/load', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: v, context_size: contextSize, keep_alive: keepAliveSetting(), force_cpu: useCPU }) });
+    const d = await r.json().catch(() => ({}));
+    if (seq !== LM.seq) return; // another model was picked meanwhile
+    if (!r.ok) throw new Error(d.error || 'load failed');
+    LM.state = 'ready';
+  } catch (e) {
+    if (seq !== LM.seq) return;
+    LM.state = 'error'; LM.error = friendlyError(e.message);
+  }
+  renderModelState();
+}
+async function refreshModelState() {
+  try {
+    const d = await (await fetch('/api/models/loaded')).json();
+    const loaded = (d.models || []).map(m => m.model);
+    if (LM.state !== 'loading') {
+      if (loaded.includes(selectedModel)) { LM.model = selectedModel; LM.state = 'ready'; }
+      else if (LM.state === 'ready') LM.state = 'idle';
+    }
+  } catch {}
+  renderModelState();
+}
+async function ejectModel() {
+  LM.seq++; LM.state = 'idle';
+  renderModelState();
+  try { await fetch('/api/models/eject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } catch {}
+  toast('Model ejected — memory freed');
+}
 
 // Add a cloud provider's API key inline from the model picker, then make its
 // models immediately available (and selected) alongside the local ones.
@@ -4637,8 +4834,10 @@ function selectModel(v, l) {
     selectedCloudProvider = '';
     selectedCloudModel = '';
   }
-  document.getElementById('model-lbl').textContent = l;
+  document.getElementById('model-lbl').textContent = String(l || '').split(' · ')[0]; // cloud labels end with the price
   closeAllDD();
+  renderModelState();
+  if (isLocalChatModel(v) && document.getElementById('ws-chat')?.classList.contains('on')) ensureModelLoaded(v);
 }
 
 function toggleThink() {
@@ -5361,6 +5560,7 @@ function toggleDD(name) {
   const isOpen = dd.classList.contains('open');
   closeAllDD();
   if (!isOpen) {
+    if (name === 'model') { renderModelRows(); setTimeout(() => document.getElementById('mp-q')?.focus(), 30); }
     const r = btn.getBoundingClientRect();
     // Position above the button, clamped inside the viewport
     const ddW = dd.offsetWidth || 240;
@@ -5853,12 +6053,33 @@ function modelSupportsTools(ref) {
 }
 
 // Make a raw model ref like "gemma4:e4b" read nicely, e.g. "Gemma4 (e4b)".
+const _BRANDS = { lfm: 'LFM', glm: 'GLM', gpt: 'GPT', oss: 'OSS', qwen: 'Qwen', llama: 'Llama', gemma: 'Gemma', phi: 'Phi',
+  mistral: 'Mistral', deepseek: 'DeepSeek', smollm: 'SmolLM', granite: 'Granite', olmo: 'OLMo', moe: 'MoE', it: 'IT', vl: 'VL',
+  coder: 'Coder', instruct: 'Instruct', sd: 'SD', sdxl: 'SDXL', flux: 'FLUX', wan: 'Wan' };
+// "q4-k-m" → "Q4_K_M", "4b" → "4B", "latest" → "".
+function prettyTag(tag) {
+  const v = String(tag || '');
+  if (!v || v === 'latest') return '';
+  if (/^(i?q\d|f16|bf16|f32|mxfp4)/i.test(v)) return v.toUpperCase().replace(/-/g, '_');
+  return v.replace(/\b(\d+(?:\.\d+)?)([bm])\b/gi, (m, n, u) => n + u.toUpperCase());
+}
+function prettyBase(name) {
+  let base = String(name || '').split('/').pop().replace(/^[^-]+--/, '').replace(/[-_.]gguf$/i, '');
+  base = base.replace(/(\D)(\d)-(\d)(?=-|$)/g, '$1$2.$3'); // lfm2-5 → lfm2.5
+  return base.split(/[-_ ]+/).filter(Boolean).map(w => {
+    const k = w.toLowerCase(), m = k.match(/^([a-z]+)(.*)$/);
+    if (_BRANDS[k]) return _BRANDS[k];
+    if (/^a?\d+(\.\d+)?[bm]$/.test(k)) return k.toUpperCase();
+    if (m && _BRANDS[m[1]]) return _BRANDS[m[1]] + m[2];
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }).join(' ');
+}
 function prettyModelName(name, tag) {
-  let base = String(name || '').split('/').pop();
-  let variant = tag || '';
+  let base = String(name || ''), variant = tag || '';
   if (!variant && base.includes(':')) { const parts = base.split(':'); base = parts[0]; variant = parts.slice(1).join(':'); }
-  base = base.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  return variant && variant !== 'latest' ? `${base} (${variant})` : base;
+  const b = prettyBase(base), t2 = prettyTag(variant);
+  if (!t2) return b;
+  return /^(I?Q\d|F16|BF16|F32|MXFP4)/.test(t2) ? b : b + ' ' + t2; // the quant goes in the meta line
 }
 
 // Turn raw backend/runtime errors into plain language a beginner understands.
@@ -6024,7 +6245,7 @@ async function doChat(text, files, signal) {
     // Send full history so the LLM has conversation context
     const payload = {
       model: selectedModel, prompt: promptText, stream: true,
-      force_cpu: useCPU, context_size: contextSize,
+      force_cpu: useCPU, context_size: contextSize, keep_alive: keepAliveSetting(),
       think: thinkOn, // enable chain-of-thought for reasoning models
       tools_enabled: toolsOn, // enable function calling / tool use
       incognito: incognitoOn,
@@ -6424,8 +6645,10 @@ function _md(s) {
   const lines = String(s).split('\n');
   let out = '', i = 0, para = [];
   const flush = () => {
-    while (para.length && para[para.length - 1] === '') para.pop();
-    if (para.length) out += para.map(_mdInline).join('<br>');
+    let cur = [];
+    const close = () => { if (cur.length) out += '<p>' + cur.map(_mdInline).join('<br>') + '</p>'; cur = []; };
+    for (const l of para) { if (l.trim() === '') close(); else cur.push(l); }
+    close();
     para = [];
   };
   while (i < lines.length) {
@@ -6727,6 +6950,7 @@ function _showPanel(name) {
   if (name === 'audio')    auEnter();
   if (name === 'image')    imEnter();
   if (name === 'video')    viEnter();
+  if (name === 'chat')     refreshModelState().then(() => { if (LM.state !== 'ready' && isLocalChatModel(selectedModel)) ensureModelLoaded(selectedModel); });
   // Update topbar context
   const titles = {chat:'Chat', models:'Installed models', registry:'Download models', agents:'AI Agents', agent:'Agent chat', cloud:'☁️ Cloud Models', tools:'🔧 Advanced Tools', crewai:'🤖 CrewAI', audio:'Audio studio', image:'Image studio', video:'Video studio'};
   const ttEl = document.getElementById('topbar-title');
@@ -6754,37 +6978,74 @@ async function loadModels() {
       el.innerHTML = '<div style="color:var(--text3);font-size:14px;padding:20px 0">No models installed. <button class="btn primary" onclick="showPanel(\'registry\')" style="margin-left:8px">↓ Download now</button> <button class="btn" onclick="openAddCloudModel()" style="margin-left:4px">☁️ Add cloud model</button></div>';
       return;
     }
-    const localHtml = models.map(m => {
-      const ref = `${m.type}/${m.name}:${m.tag}`;
-      const displayName = m.display_name ? `<strong>${esc(m.display_name)}</strong> <span style="font-size:11px;color:var(--text3)">(${esc(m.name)}:${esc(m.tag)})</span>` : `${esc(m.name)}:${esc(m.tag)}`;
-      const caps = m.capabilities && m.capabilities.length
-        ? m.capabilities.join(' · ')
-        : ({llm:'testo → testo', image:'testo → immagine', audio:'testo ↔ audio', video:'testo → video', '3d':'immagine/testo → 3D'}[m.type] || '');
-      return `<div class="mtrow">
-        <span class="type-pill tp-${m.type === '3d' ? '3d' : m.type}">${m.type.toUpperCase()}</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:500;font-size:14px">${displayName}</div>
-          ${caps ? `<div style="font-size:11px;color:var(--text3);margin-top:1px">${caps}</div>` : ''}
+    let loaded = [];
+    try { loaded = ((await (await fetch('/api/models/loaded')).json()).models || []).map(x => x.model); } catch {}
+    const groups = [['llm', 'Chat'], ['image', 'Images'], ['video', 'Video'], ['audio', 'Audio & speech'], ['3d', '3D']];
+    const open = { image: "showPanel('image')", video: "showPanel('video')", audio: "showPanel('audio')" };
+    let total = 0;
+    const row = m => {
+      const ref = `${m.type}/${m.name}:${m.tag}`, q = prettyTag(m.tag);
+      total += m.size_bytes || 0;
+      const meta = [m.parameters, /^(I?Q\d|F16|BF16|F32|MXFP4)/.test(q) ? q : '', m.size_human,
+        m.type === 'llm' && modelSupportsTools(ref) ? 'tools' : '', m.mmproj_path || m.vision ? 'vision' : ''].filter(Boolean).join(' · ');
+      const badges = (loaded.includes(ref) ? '<span class="mp-badge">Loaded</span>' : '') +
+        (defaultModels[m.type] === ref ? '<span class="mr-default">Default</span>' : '');
+      const main = m.type === 'llm'
+        ? `<button class="btn" onclick="chatWith('${esc(ref)}')">Chat</button>`
+        : open[m.type] ? `<button class="btn" onclick="${open[m.type]}">Open</button>` : '';
+      return `<div class="mrow">
+        <div class="mr-main">
+          <div class="mr-name">${esc(m.display_name || prettyModelName(m.name, m.tag))}${badges}</div>
+          <div class="mr-meta">${esc(meta)}<span class="mr-ref">${esc(ref)}</span></div>
         </div>
-        <span style="font-family:var(--mono);font-size:12px;color:var(--text3);flex-shrink:0">${m.size_human || ''}</span>
-        <span style="flex-shrink:0">${fitBadgeGB(parseGB(m.size_human))}</span>
-        <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap">
-          <button class="btn" style="padding:4px 9px;font-size:11px" onclick="openInfo('${esc(ref)}')">ℹ️ Info</button>
-          <button class="btn" style="padding:4px 9px;font-size:11px" onclick="openRename('${esc(ref)}','${esc(m.display_name||'')}')">✏️ Rename</button>
-          <button class="btn ${(defaultModels[m.type]===ref)?'primary':''}" style="padding:4px 9px;font-size:11px" onclick="setDefaultModel('${esc(ref)}')" title="Use this one by default for its type (click to set/remove)">
-            ${(defaultModels[m.type]===ref)?'⭐ Default':'☆ Set default'}
-          </button>
-          ${m.type === 'llm' ? `<button class="btn" style="padding:4px 9px;font-size:11px" onclick="openQuantize('${esc(ref)}')" title="Shrink the model to use less memory">⚡ Compress</button>` : ''}
-          ${m.type === 'llm' ? `<button class="btn" style="padding:4px 9px;font-size:11px" onclick="openMmProj('${esc(ref)}')" title="Add a vision projector so this model can see images">👁 Vision</button>` : ''}
-          <button class="btn danger" style="padding:4px 9px;font-size:11px" onclick="confirmDel('${esc(ref)}')">🗑 Remove</button>
-        </div>
+        <span class="mr-fit">${fitBadgeGB(parseGB(m.size_human))}</span>
+        ${main}
+        <button class="mr-more" title="More" onclick="openRowMenu(event, '${esc(ref)}', '${esc(m.display_name || '')}')">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
       </div>`;
-    }).join('');
-    el.innerHTML =
-      (localHtml ? '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 8px">' + esc(t('onThisPC')) + '</div>' + localHtml : '') +
-      cloudHtml;
+    };
+    let localHtml = '';
+    for (const [type, label] of groups) {
+      const list = models.filter(m => m.type === type);
+      if (list.length) localHtml += `<div class="mr-sec">${esc(label)}</div>` + list.map(row).join('');
+    }
+    const gb = total / 1e9;
+    const sub = document.getElementById('models-sub');
+    if (sub) sub.textContent = models.length ? `${models.length} models · ${gb >= 1 ? gb.toFixed(1) + ' GB' : Math.round(total / 1e6) + ' MB'} on disk` : '';
+    el.innerHTML = localHtml + cloudHtml;
   } catch { el.innerHTML = '<div style="color:var(--err,#dc2626);padding:12px 0">Error loading models</div>'; }
 }
+
+// Pick a chat model and go to the chat (it starts loading right away).
+function chatWith(ref) {
+  const m = installedModels.find(x => `${x.type}/${x.name}:${x.tag}` === ref);
+  studio('chat');
+  selectModel(ref, m ? (m.display_name || prettyModelName(m.name, m.tag)) : ref);
+}
+// "⋯" menu of an installed model.
+function openRowMenu(ev, ref, displayName) {
+  ev.stopPropagation();
+  closeRowMenu();
+  const type = ref.split('/')[0];
+  const isDef = defaultModels[type] === ref;
+  const items = [
+    ['Details', `openInfo('${esc(ref)}')`],
+    ['Rename', `openRename('${esc(ref)}','${esc(displayName)}')`],
+    [isDef ? 'Remove as default' : 'Set as default', `setDefaultModel('${esc(ref)}')`],
+  ];
+  if (type === 'llm') items.push(['Compress (quantize)', `openQuantize('${esc(ref)}')`], ['Add vision', `openMmProj('${esc(ref)}')`]);
+  const menu = document.createElement('div');
+  menu.className = 'row-menu'; menu.id = 'row-menu';
+  menu.innerHTML = items.map(([l, fn]) => `<button onclick="closeRowMenu();${fn}">${esc(l)}</button>`).join('') +
+    `<div class="rm-sep"></div><button class="danger" onclick="closeRowMenu();confirmDel('${esc(ref)}')">Remove…</button>`;
+  document.body.appendChild(menu);
+  const r = ev.currentTarget.getBoundingClientRect();
+  const h = menu.offsetHeight, w = menu.offsetWidth;
+  menu.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
+  menu.style.top = (r.bottom + 4 + h > innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
+  setTimeout(() => document.addEventListener('click', closeRowMenu, { once: true }), 0);
+}
+function closeRowMenu() { document.getElementById('row-menu')?.remove(); }
 
 // Cloud + self-hosted models configured by the user, shown in Installed models.
 function buildCloudModelsHtml() {
@@ -6795,34 +7056,31 @@ function buildCloudModelsHtml() {
     const sub = p.custom
       ? `${esc(p.format === 'anthropic' ? 'Anthropic' : 'OpenAI')}-compatibile · ${esc(p.base_url || '')}`
       : `${kc} chiav${kc>1?'i':'e'} configurat${kc>1?'e':'a'} · ${(p.models||[]).length} modelli + custom`;
-    rows.push(`<div class="mtrow">
-      <span class="type-pill tp-llm">${p.custom ? '🖥' : '☁️'}</span>
-      <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px">${esc(p.name)}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:1px">${sub}</div></div>
+    rows.push(`<div class="mrow">
+      <div class="mr-main"><div class="mr-name">${esc(p.name)}</div>
+        <div class="mr-meta">${sub}</div></div>
       <button class="btn" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="editCloudProvider('${esc(p.id)}')">${esc(t('editBtn'))}</button>
       <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="${p.custom ? 'removeCustomProvider' : 'removeCloudKey'}('${esc(p.id)}')">${esc(t('remove'))}</button>
     </div>`);
   }
   for (const ep of getCustomEndpoints()) {
-    rows.push(`<div class="mtrow">
-      <span class="type-pill tp-llm">🖥</span>
-      <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px">${esc(ep.name||'Server')} <span style="font-size:11px;color:var(--text3)">(${esc(ep.model)})</span></div>
-        <div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(ep.baseURL)}</div></div>
+    rows.push(`<div class="mrow">
+      <div class="mr-main"><div class="mr-name">${esc(ep.name||'Server')} <span class="mr-ref">${esc(ep.model)}</span></div>
+        <div class="mr-meta">${esc(ep.baseURL)}</div></div>
       <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="removeCustomEndpoint('${esc(ep.id)}')">${esc(t('remove'))}</button>
     </div>`);
   }
   const _mtIcon = { image: '🎨', audio: '🔊', video: '🎬', '3d': '🧊' };
   for (const mp of (_mediaProviders || [])) {
     if (!mp.has_key) continue;
-    rows.push(`<div class="mtrow">
-      <span class="type-pill tp-image">${_mtIcon[mp.type] || '☁️'}</span>
-      <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px">${esc(mp.name)}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(mp.type)} · API configurata</div></div>
+    rows.push(`<div class="mrow">
+      <div class="mr-main"><div class="mr-name">${esc(mp.name)}</div>
+        <div class="mr-meta">${esc(mp.type)} · API key saved</div></div>
       <button class="btn danger" style="padding:4px 9px;font-size:11px;flex-shrink:0" onclick="removeMediaKey('${esc(mp.id)}')">${esc(t('remove'))}</button>
     </div>`);
   }
   if (!rows.length) return '';
-  return '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px">' + esc(t('cloudAndServer')) + '</div>' + rows.join('');
+  return '<div class="mr-sec">' + esc(t('cloudAndServer')) + '</div>' + rows.join('');
 }
 async function removeMediaKey(providerId) {
   if (!confirm('Rimuovere la API key media di ' + providerId + '?')) return;
@@ -7611,13 +7869,21 @@ function addMsgActions(grp, userText, responseText) {
   if (!content || content.querySelector('.msg-actions')) return;
   const bar = document.createElement('div');
   bar.className = 'msg-actions';
-  const mk = (icon, title, fn) => { const b = document.createElement('button'); b.className = 'msg-act'; b.title = title; b.textContent = icon; b.onclick = fn; return b; };
-  // Icon-only: copy reply, regenerate.
+  const mk = (svg, title, fn) => { const b = document.createElement('button'); b.className = 'msg-act'; b.title = title; b.innerHTML = svg; b.onclick = fn; return b; };
   bar.append(
-    mk('📋', t('copyReply'), () => { navigator.clipboard.writeText(responseText || ''); toast(t('replyCopied')); }),
-    mk('↻', t('regenerate'), () => editLastTurn(userText, true))
+    mk(ICON_COPY, t('copyReply'), () => { navigator.clipboard.writeText(responseText || ''); toast(t('replyCopied')); }),
+    mk(ICON_REDO, t('regenerate'), () => editLastTurn(userText, true))
   );
-  content.appendChild(bar);
+  msgFoot(content).prepend(bar);
+}
+const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+const ICON_REDO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>';
+// The row under a finished reply that holds its actions and stats.
+function msgFoot(content) {
+  let f = content.querySelector(':scope > .msg-foot');
+  if (!f) { f = document.createElement('div'); f.className = 'msg-foot'; }
+  content.appendChild(f); // always last
+  return f;
 }
 
 // Small meta line under a reply: response time (chronometer) + approx tokens.
@@ -7629,7 +7895,7 @@ function startLiveTimer(grp, t0) {
   let meta = content.querySelector('.msg-meta');
   if (!meta) { meta = document.createElement('div'); meta.className = 'msg-meta live'; content.appendChild(meta); }
   else meta.classList.add('live');
-  const tick = () => { meta.textContent = '⏱ ' + ((Date.now() - t0) / 1000).toFixed(1) + 's'; };
+  const tick = () => { meta.textContent = ((Date.now() - t0) / 1000).toFixed(1) + ' s'; };
   tick();
   if (content._liveTimer) clearInterval(content._liveTimer);
   content._liveTimer = setInterval(tick, 100);
@@ -7644,8 +7910,9 @@ function addReplyMeta(grp, t0, text) {
   let meta = content.querySelector('.msg-meta');
   if (!meta) { meta = document.createElement('div'); meta.className = 'msg-meta'; content.appendChild(meta); }
   meta.classList.remove('live');
-  meta.textContent = `⏱ ${secs.toFixed(1)}s · ~${tok} token`;
-  meta.title = 'Tempo di risposta · token stimati';
+  meta.textContent = `${secs.toFixed(1)} s · ${tok} tokens · ${(tok / Math.max(secs, .1)).toFixed(1)} tok/s`;
+  meta.title = 'Response time · tokens (estimated) · speed';
+  msgFoot(content).appendChild(meta);
 }
 
 // Remove the last user+assistant turn (history + DOM), put the question back in

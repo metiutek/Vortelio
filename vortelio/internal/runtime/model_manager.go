@@ -1,9 +1,11 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,9 +38,10 @@ type managedEntry struct {
 
 // loadCall lets concurrent requests for the same model share one load.
 type loadCall struct {
-	done   chan struct{}
-	runner *LLMRunner
-	err    error
+	done    chan struct{}
+	runner  *LLMRunner
+	err     error
+	loading *LLMRunner // the runner being started, so a newer request can abort it
 }
 
 // LoadedModel is returned by ListLoaded.
@@ -124,11 +127,20 @@ func (m *ModelManager) getOrLoad(model *hub.Model, hw *Hardware, keepAlive time.
 			}
 			continue // pick up the entry the other request registered
 		}
+		// With room for one model, a newer request wins: stop loading the
+		// model it replaces instead of loading both at once.
+		if maxLoaded() == 1 {
+			for k, c := range m.loading {
+				if strings.TrimSuffix(k, "#embed") != modelKey(model) && c.loading != nil && !c.loading.aborted() {
+					close(c.loading.abort)
+				}
+			}
+		}
 		call := &loadCall{done: make(chan struct{})}
 		m.loading[key] = call
 		m.mu.Unlock()
 
-		r, err := m.load(model, hw, ctxSize, embed)
+		r, err := m.load(model, hw, ctxSize, embed, call)
 
 		m.mu.Lock()
 		delete(m.loading, key)
@@ -155,20 +167,24 @@ func (m *ModelManager) touchLocked(e *managedEntry, keepAlive time.Duration) {
 }
 
 // load frees room for one more model and starts it.
-func (m *ModelManager) load(model *hub.Model, hw *Hardware, ctxSize int, embed bool) (*LLMRunner, error) {
+func (m *ModelManager) load(model *hub.Model, hw *Hardware, ctxSize int, embed bool, call *loadCall) (*LLMRunner, error) {
 	// Image/video/audio engines release the GPU first, then older models.
 	AcquireGPU("chat")
 	m.makeRoom(maxLoaded() - 1)
 
 	runner := NewLLMRunnerForServer(model, hw)
 	runner.embedding = embed
+	runner.abort = make(chan struct{})
+	m.mu.Lock()
+	call.loading = runner
+	m.mu.Unlock()
 	if ctxSize > 0 {
 		runner.SetContextSize(ctxSize)
 	}
 	if err := runner.EnsureServer(); err != nil {
 		// A model newer than the installed llama.cpp: update the engine once and
 		// retry, so new architectures just work.
-		if !IsArchUnsupported(err) || !m.updateLlamaForNewModel(hw) {
+		if errors.Is(err, ErrLoadAborted) || !IsArchUnsupported(err) || !m.updateLlamaForNewModel(hw) {
 			return nil, err
 		}
 		if err := runner.EnsureServer(); err != nil {
@@ -273,6 +289,9 @@ func (m *ModelManager) ListLoaded() []LoadedModel {
 			TotalLayers: r.totalLayers,
 			ContextSize: r.ctxSize,
 			Embedding:   r.embedding,
+		}
+		if lm.ContextSize == 0 {
+			lm.ContextSize = e.ctxSize
 		}
 		if r.totalLayers > 0 && r.model != nil {
 			lm.SizeVRAM = r.model.SizeBytes * int64(r.gpuLayers) / int64(r.totalLayers)

@@ -50,7 +50,7 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 
 	hw := getHardware()
 	if req.ForceCPU {
-		hw.Backend = runtime.BackendCPU
+		hw = cpuOnly(hw)
 	}
 
 	runner, err := runtime.NewRunner(model, hw)

@@ -2,6 +2,10 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.4.4] — 2026-10-21
+### Added
+- **Queue messages while the model answers**: press Enter during a reply and the message (with its attachments) waits above the box; queued messages are sent one after another as each answer ends. Each has *Send now* (stops the current answer and sends it), *Edit* (back into the box) and remove. After Stop the queue waits for you instead of sending. Every tab has its own queue.
+
 ## [0.4.3] — 2026-10-21
 ### Added
 - **Documents in the chat**: attach a PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx), OpenDocument, EPUB, RTF or HTML file and every model can read it — also without tools and in Assistant mode. The file is read as soon as you attach it (the chip shows "PDF · 12 pages"), and its text goes into the message within the model's context window (what does not fit is left out with a note). The agent's `read_file` reads these documents too. `/api/upload` returns the extracted text.

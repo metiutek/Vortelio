@@ -2,6 +2,12 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.4.5] — 2026-10-21
+### Changed
+- **Web search and thinking are on by default** in the chat, and Vortelio remembers your choice: turn either off and it stays off after a restart (and after visiting a studio, which used to switch thinking off).
+- With a model that cannot call tools, web search is simply not used (the Tools menu says "This model can't search the web") instead of adding a notice to every answer.
+- Thinking applies to models that have it in their chat template; other models are no longer asked to imitate it with `<think>` tags.
+
 ## [0.4.4] — 2026-10-21
 ### Added
 - **Queue messages while the model answers**: press Enter during a reply and the message (with its attachments) waits above the box; queued messages are sent one after another as each answer ends. Each has *Send now* (stops the current answer and sends it), *Edit* (back into the box) and remove. After Stop the queue waits for you instead of sending. Every tab has its own queue.

@@ -1547,11 +1547,9 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 		} else if r.model.SystemOverride != "" {
 			sysPrompt = r.model.SystemOverride
 		}
-		// Models with a native thinking switch get it through the chat template
-		// (below); only plain models are asked to reason in <think> tags.
-		if sopts.Think && !r.nativeThink {
-			sysPrompt += " Before answering, reason step by step enclosed in <think> and </think> tags, then provide your final answer."
-		}
+		// Thinking goes through the chat template of models that have it
+		// (below). Others are not asked to imitate it: with thinking on by
+		// default that made small models slower and worse.
 		if sopts.ToolsEnabled {
 			sysPrompt += " You have access to tools. Use them when appropriate to provide accurate answers."
 		}

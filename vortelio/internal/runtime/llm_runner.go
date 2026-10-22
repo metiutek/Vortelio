@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+	"unicode/utf8"
 
 	"github.com/vortelio/vortelio/internal/gguf"
 	"github.com/vortelio/vortelio/internal/hub"
@@ -1301,6 +1302,17 @@ type GenStats struct {
 	PromptDuration time.Duration
 	EvalTokens     int
 	EvalDuration   time.Duration
+	// ContextTokens is how much of the context window the conversation fills
+	// after the last round (cached + new prompt tokens + the answer).
+	ContextTokens int
+}
+
+// ContextSize is the context window of the running server (0 if unknown).
+func (r *LLMRunner) ContextSize() int {
+	if r.ctxSize > 0 {
+		return r.ctxSize
+	}
+	return r.currentCtxSize
 }
 
 // applyModelfileTemplate renders an Ollama-style TEMPLATE with the given StreamOpts.
@@ -1437,6 +1449,15 @@ func (r *LLMRunner) streamWithRawPrompt(prompt string, sopts StreamOpts, emit fu
 }
 
 // thinkSplitter routes <think>...</think> tokens to ThinkEmit and the rest to emit.
+// runeCut moves n back to the start of a UTF-8 character, so a cut never
+// splits one ("—" is 3 bytes; a broken half reaches the browser as a replacement character).
+func runeCut(s string, n int) int {
+	for n > 0 && n < len(s) && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return n
+}
+
 type thinkSplitter struct {
 	inThink   bool
 	buf       string
@@ -1455,7 +1476,7 @@ func (ts *thinkSplitter) feed(token string) {
 				ts.buf = ts.buf[idx+7:]
 				ts.inThink = true
 			} else {
-				safe := len(ts.buf) - 7
+				safe := runeCut(ts.buf, len(ts.buf)-7)
 				if safe > 0 {
 					ts.emit(ts.buf[:safe])
 					ts.buf = ts.buf[safe:]
@@ -1470,7 +1491,7 @@ func (ts *thinkSplitter) feed(token string) {
 				ts.buf = ts.buf[idx+8:]
 				ts.inThink = false
 			} else {
-				safe := len(ts.buf) - 8
+				safe := runeCut(ts.buf, len(ts.buf)-8)
 				if safe > 0 && ts.thinkEmit != nil {
 					ts.thinkEmit(ts.buf[:safe])
 					ts.buf = ts.buf[safe:]
@@ -1742,6 +1763,7 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 			}
 			var chunk struct {
 				Timings *struct {
+					CacheN      int     `json:"cache_n"`
 					PromptN     int     `json:"prompt_n"`
 					PromptMS    float64 `json:"prompt_ms"`
 					PredictedN  int     `json:"predicted_n"`
@@ -1777,6 +1799,7 @@ func (r *LLMRunner) StreamWithOpts(sopts StreamOpts, emit func(string), toolEmit
 				sopts.Stats.PromptDuration += time.Duration(t.PromptMS * float64(time.Millisecond))
 				sopts.Stats.EvalTokens += t.PredictedN
 				sopts.Stats.EvalDuration += time.Duration(t.PredictedMS * float64(time.Millisecond))
+				sopts.Stats.ContextTokens = t.CacheN + t.PromptN + t.PredictedN
 			}
 			if len(chunk.Choices) == 0 {
 				continue

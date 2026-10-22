@@ -39,10 +39,10 @@ uv tool install --reinstall ./dist/vortelio-*.whl
 - Python launcher: stdlib only, support 3.8+
 
 ## Releasing (maintainers)
-1. Bump `vortelio/internal/version/version.go` and `vortelio-pip/pyproject.toml`
-2. Update `CHANGELOG.md`
-3. Tag: `git tag v0.3.49 && git push --tags`
-4. GitHub Actions builds binaries, attaches to release, publishes wheel to PyPI
+1. Bump the version in `vortelio/internal/version/version.go`, `vortelio-pip/pyproject.toml`, `vortelio-pip/src/vortelio_cli/__init__.py` and `vortelio-pip/src/vortelio_cli/__main__.py`
+2. Rebuild the bundled Windows binary into `vortelio-pip/src/vortelio_cli/bin/` (see [BUILD.md](BUILD.md))
+3. Update `CHANGELOG.md`
+4. Push to `main`: when `version.go` changes, GitHub Actions builds the binaries and publishes the release `vX.Y.Z` automatically. Pushing a tag (`git tag vX.Y.Z && git push --tags`) also publishes the wheel to PyPI
 
 ## License
 By contributing you agree your work is licensed under [Apache 2.0](LICENSE).

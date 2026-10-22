@@ -367,6 +367,7 @@ func handleGenerateLLM(w http.ResponseWriter, r *http.Request, model *hub.Model,
 			"context": newCtx,
 		}
 		addGenStats(obj, &stats, loadDur, reqStart)
+		addContextStats(obj, &stats, llmRunner)
 		if thinkBuf.Len() > 0 {
 			obj["thinking"] = thinkBuf.String()
 		}
@@ -404,6 +405,7 @@ func handleGenerateLLM(w http.ResponseWriter, r *http.Request, model *hub.Model,
 		"context": newCtx,
 	}
 	addGenStats(doneObj, &stats, loadDur, reqStart)
+	addContextStats(doneObj, &stats, llmRunner)
 	if thinkBuf.Len() > 0 {
 		doneObj["thinking"] = thinkBuf.String()
 	}

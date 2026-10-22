@@ -1418,6 +1418,9 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 .msg-foot .msg-act { border: none; background: transparent; color: var(--text3); width: 30px; height: 30px; border-radius: 8px; }
 .msg-foot .msg-act:hover { background: var(--bg3); color: var(--text); }
 .msg-act svg { width: 16px; height: 16px; }
+.msg-user .msg-actions { justify-content: flex-end; }
+.msg-user .msg-act { border: none; background: transparent; color: var(--text3); width: 28px; height: 28px; }
+.msg-user .msg-act:hover { background: var(--bg3); color: var(--text); }
 .thinking-block { background: transparent; border: none; border-left: 2px solid var(--border2); border-radius: 0; padding: 2px 0 2px 12px; margin: 2px 0 12px; font-family: var(--sans); font-size: 13.5px; color: var(--text3); line-height: 1.6; }
 .thinking-label { font-size: 13px; font-weight: 500; opacity: 1; color: var(--text2); }
 .thinking-label::before { content: '›'; font-size: 15px; width: 10px; }
@@ -1453,6 +1456,30 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
 .row-menu button.danger { color: var(--err); }
 .rm-sep { height: 1px; background: var(--border); margin: 4px 2px; }
 .onb-emoji:empty { display: none; }
+/* Context meter */
+.ctx-meter { display: inline-flex; align-items: center; gap: 5px; border: none; background: transparent; color: var(--text3); font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 10px; cursor: pointer; }
+.ctx-meter:hover { background: var(--bg3); color: var(--text2); }
+.ctx-meter svg { width: 16px; height: 16px; transform: rotate(-90deg); }
+.ctx-track { fill: none; stroke: var(--border2); stroke-width: 2.5; }
+.ctx-fill { fill: none; stroke: var(--text3); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dashoffset .4s ease; }
+.ctx-meter.high { color: var(--warn); } .ctx-meter.high .ctx-fill { stroke: var(--warn); }
+.ctx-meter.full { color: var(--err); } .ctx-meter.full .ctx-fill { stroke: var(--err); }
+.ctx-pop { width: 290px; padding: 12px 14px !important; }
+.ctx-pop-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.ctx-bar { height: 6px; border-radius: 3px; background: var(--bg3); overflow: hidden; }
+.ctx-bar > div { height: 100%; background: var(--accent); border-radius: 3px; }
+.ctx-meter.high + .ctx-pop .ctx-bar > div { background: var(--warn); }
+.ctx-meter.full + .ctx-pop .ctx-bar > div { background: var(--err); }
+.ctx-pop-num { font-size: 12.5px; color: var(--text2); margin-top: 6px; }
+.ctx-pop-num span { color: var(--text3); }
+.ctx-pop-text { font-size: 12px; color: var(--text3); line-height: 1.5; margin-top: 8px; }
+.ctx-pop-actions { display: flex; gap: 6px; margin-top: 10px; }
+.ctx-pop-actions button { border: 1px solid var(--border); background: var(--bg); color: var(--text2); font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 8px; cursor: pointer; }
+.ctx-pop-actions button:hover { background: var(--bg3); color: var(--text); }
+/* Signature */
+.made-by { display: block; font-size: 10.5px; color: var(--text3); opacity: .65; text-decoration: none; padding: 2px 10px 0 25px; letter-spacing: .01em; }
+.made-by:hover { opacity: 1; color: var(--text2); }
+
 #cap-web.na .tl-sub { color: var(--warn); }
 /* Queued messages above the composer */
 .queue-row { flex-direction: column; gap: 6px; padding: 10px 14px 0; }
@@ -1759,6 +1786,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
       <div class="hw-dot off" id="hw-dot"></div>
       <span id="hw-lbl">—</span>
     </div>
+    <a class="made-by" href="https://metiu.xyz" target="_blank" rel="noopener">made by metiu.xyz</a>
   </div>
 </div>
 
@@ -1853,7 +1881,7 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="1" width="6" height="9" rx="3"/><path d="M3 7a5 5 0 0010 0M8 12v3M5.5 15h5"/></svg>
           </button>
           <textarea class="inp" id="inp" rows="1" placeholder="Write a message..."
-          oninput="autoSize(this);onComposerInput()" onkeydown="onKey(event)"
+          oninput="autoSize(this);onComposerInput();renderCtxMeter()" onkeydown="onKey(event)"
           ondragover="event.preventDefault()" ondrop="handleDrop(event)"></textarea>
           <button class="send-btn" id="send-btn" onclick="doSend()">
             <svg id="send-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2L14.5 8L1.5 14L1.5 9.5L10 8L1.5 6.5Z"/></svg>
@@ -1915,6 +1943,13 @@ svg.ic { width: 18px; height: 18px; flex-shrink: 0; }
               <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l4 4 4-4"/></svg>
             </button>
             <div class="dd-menu" id="model-dd"></div>
+          </div>
+          <div class="dd-wrap" id="ctx-wrap" style="display:none">
+            <button class="ctx-meter" id="ctx-btn" onclick="toggleDD('ctx')" aria-label="Context used">
+              <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" class="ctx-track"/><circle cx="10" cy="10" r="7.5" class="ctx-fill" id="ctx-fill"/></svg>
+              <span id="ctx-pct">0%</span>
+            </button>
+            <div class="dd-menu ctx-pop" id="ctx-dd"></div>
           </div>
 
           <!-- Coding mode selector (developer screen only) -->
@@ -3601,7 +3636,7 @@ function setLang(lang) {
 // ── Italian for the newer parts of the interface ──────────────────────────
 // Exact English phrases → Italian, applied to the app panels (never to chat
 // messages or model cards) and kept up to date as they re-render.
-const IT_PHRASES = {"Tools": "Strumenti", "Web search": "Ricerca web", "Look things up online": "Cerca informazioni online", "Think first": "Ragiona prima", "Reason step by step before answering": "Ragiona passo passo prima di rispondere", "Files & calculator": "File e calcolatrice", "Read files, do maths": "Legge file, fa calcoli", "Create media": "Crea contenuti", "Images, video, audio and 3D": "Immagini, video, audio e 3D", "Private chat": "Chat privata", "Not saved to history": "Non salvata nella cronologia", "How the agent works": "Come lavora l'agente", "Developer": "Sviluppatore", "Read, edit and run code in a folder": "Legge, modifica ed esegue codice in una cartella", "Autonomous": "Autonomo", "Keeps going until the goal is reached": "Continua finché non raggiunge l'obiettivo", "Skills": "Abilità", "Connectors (MCP)": "Connettori (MCP)", "Add a cloud model": "Aggiungi un modello cloud", "Run on": "Esegui su", "Permissions": "Permessi", "Plan": "Piano", "Ask": "Chiedi", "Auto": "Auto", "Reads and proposes, changes nothing": "Legge e propone, non modifica nulla", "Asks before anything risky": "Chiede prima di ogni azione rischiosa", "Runs without asking": "Agisce senza chiedere", "Web": "Web", "Think": "Ragiona", "Media": "Contenuti", "Private": "Privata", "Connectors": "Connettori", "Choose folder": "Scegli cartella", "Turn off": "Disattiva", "Search models": "Cerca modelli", "On this computer": "Su questo computer", "Hide": "Nascondi", "Show": "Mostra", "Manage models": "Gestisci modelli", "Download more": "Scarica altri", "Eject": "Espelli", "Loaded": "Caricato", "Loading…": "Caricamento…", "No model matches.": "Nessun modello corrisponde.", "No models installed yet.": "Nessun modello installato.", "Download a model": "Scarica un modello", "Loaded and ready": "Caricato e pronto", "Loading the model…": "Caricamento del modello…", "Cloud model": "Modello cloud", "Not loaded — it loads when you pick it or send a message": "Non caricato: si carica quando lo scegli o invii un messaggio", "Model ejected — memory freed": "Modello espulso: memoria liberata", "My models": "I miei modelli", "Chat": "Chat", "Images": "Immagini", "Video": "Video", "Audio & speech": "Audio e voce", "3D": "3D", "Open": "Apri", "More": "Altro", "Details": "Dettagli", "Rename": "Rinomina", "Set as default": "Imposta come predefinito", "Remove as default": "Togli come predefinito", "Compress (quantize)": "Comprimi (quantizza)", "Add vision": "Aggiungi visione", "Remove…": "Rimuovi…", "Default": "Predefinito", "Add cloud model": "Aggiungi modello cloud", "Download models": "Scarica modelli", "Fits in memory": "Entra in memoria", "Recommended": "Consigliati", "Hugging Face": "Hugging Face", "Search recommended models": "Cerca tra i consigliati", "Install from a link": "Installa da un link", "All types": "Tutti i tipi", "Best match": "Più pertinenti", "Most downloaded": "Più scaricati", "Most liked": "Più apprezzati", "Trending": "Di tendenza", "Recently updated": "Aggiornati di recente", "Any size": "Qualsiasi dimensione", "Up to 3B": "Fino a 3B", "Up to 8B": "Fino a 8B", "Up to 14B": "Fino a 14B", "Up to 34B": "Fino a 34B", "Over 34B": "Oltre 34B", "GGUF only": "Solo GGUF", "Fits my PC": "Adatti al mio PC", "Pick a model to see its description and the files you can download.": "Scegli un modello per vederne la descrizione e i file da scaricare.", "Searching Hugging Face…": "Cerco su Hugging Face…", "No model matches these filters.": "Nessun modello con questi filtri.", "Open on Hugging Face": "Apri su Hugging Face", "Download": "Scarica", "Model card": "Scheda del modello", "Installed": "Installato", "Starting…": "Avvio…", "Fits": "Ci sta", "Tight fit": "Al limite", "Too big": "Troppo grande", "Includes a vision projector: it is downloaded too, so the model can read images.": "Include un proiettore visivo: viene scaricato anche lui, così il modello può leggere le immagini.", "This repository has no description.": "Questo repository non ha una descrizione.", "Describe the image you want…": "Descrivi l'immagine che vuoi…", "Describe the video you want…": "Descrivi il video che vuoi…", "Generate": "Genera", "Generating": "Generazione", "Settings": "Impostazioni", "Square": "Quadrato", "Portrait": "Verticale", "Landscape": "Orizzontale", "Wide": "Panoramico", "More image models": "Altri modelli per immagini", "More video models": "Altri modelli video", "Avoid": "Da evitare", "Steps": "Passi", "Guidance": "Guida", "Seed": "Seed", "random": "casuale", "Length": "Durata", "Start from a picture": "Parti da una foto", "Stop": "Ferma", "Remove": "Rimuovi", "Empty fields use the values this model was made for. The same seed and prompt give the same image.": "I campi vuoti usano i valori per cui è stato creato il modello. Stesso seed e stessa descrizione danno la stessa immagine.", "Image studio": "Studio immagini", "Video studio": "Studio video", "Audio studio": "Studio audio", "Speak": "Voce", "Clone a voice": "Clona una voce", "Edit speech": "Modifica parlato", "Music": "Musica", "Sound effects": "Effetti sonori", "Separate tracks": "Separa tracce", "Transcribe": "Trascrivi", "Type what the voice should say…": "Scrivi cosa deve dire la voce…", "Ctrl+Enter to generate.": "Ctrl+Invio per generare.", "More models for this": "Altri modelli per questo", "English descriptions work best. Instrumental only.": "Le descrizioni in inglese funzionano meglio. Solo strumentale.", "English descriptions work best.": "Le descrizioni in inglese funzionano meglio.", "Working": "In corso", "Upload audio": "Carica audio", "● Record": "● Registra", "■ Stop recording": "■ Ferma registrazione", "Keep the model loaded": "Tieni il modello caricato", "The chat model loads when you pick it and stays ready between messages. The image, video and audio studios still borrow the GPU when they need it.": "Il modello della chat si carica quando lo scegli e resta pronto tra un messaggio e l'altro. Gli studi immagini, video e audio usano comunque la GPU quando serve.", "Until I eject it": "Finché non lo espello", "1 hour idle": "1 ora di inattività", "30 minutes idle": "30 minuti di inattività", "5 minutes idle": "5 minuti di inattività", "System": "Sistema", "Follows your system unless you pick one": "Segue il sistema se non ne scegli uno", "Manage, load and set defaults": "Gestisci, carica e imposta i predefiniti", "Reinstall Vortelio": "Reinstalla Vortelio", "Knowledge": "Conoscenza", "Documents (RAG)": "Documenti (RAG)", "Summarize": "Riassumi", "Try models": "Prova i modelli", "Compare side by side": "Confronta affiancati", "Structured output": "Output strutturato", "Reasoning": "Ragionamento", "Model router": "Instradamento modelli", "Manage": "Gestione", "Loaded models": "Modelli caricati", "Inspect a GGUF": "Ispeziona un GGUF", "Import from Ollama": "Importa da Ollama", "Integrations": "Integrazioni", "Webhooks": "Webhook", "Activity log": "Registro attività", "Checking what is installed on this computer…": "Controllo cosa è installato su questo computer…", "Best choice": "Consigliato", "Pictures from a description — generated on your computer, offline.": "Immagini da una descrizione, generate sul tuo computer, offline.", "Short clips from a description or a picture — generated on your computer, offline.": "Brevi clip da una descrizione o da una foto, generate sul tuo computer, offline.", "Voices, music and sound — all generated on your computer, no Python needed.": "Voci, musica e suoni, tutto generato sul tuo computer, senza Python.", "Describe the music — e.g. calm lo-fi piano with soft drums, 80 bpm": "Descrivi la musica, es. piano lo-fi rilassato con batteria leggera, 80 bpm", "Describe the sound — e.g. heavy rain on a tin roof with distant thunder": "Descrivi il suono, es. pioggia forte su un tetto di lamiera con tuoni lontani", "Search Hugging Face — e.g. qwen 3.5, gemma 4, flux": "Cerca su Hugging Face, es. qwen 3.5, gemma 4, flux", "Audio & music": "Audio e musica", "Advanced": "Avanzate", "Skills & agent": "Abilità e agente", "External tools (MCP)": "Strumenti esterni (MCP)", "AI agents": "Agenti IA", "Advanced tools": "Strumenti avanzati", "Downloads": "Download", "Recent chats": "Chat recenti", "Sign out": "Esci", "Assistant": "Assistente", "Agent": "Agente", "Save": "Salva", "Install a model for this. It downloads in the background (Downloads panel) and runs offline afterwards.": "Installa un modello per questa funzione. Si scarica in background (pannello Download) e poi funziona offline.", "Install": "Installa", "Not installed": "Non installato", "Start": "Avvia", "Refresh": "Aggiorna", "Cloud models": "Modelli cloud", "‹ All providers": "‹ Tutti i provider", "Use models from providers with your own API key. Keys stay on this computer.": "Usa i modelli dei provider con la tua API key. Le chiavi restano su questo computer.", "Chat models": "Modelli chat", "Your own server": "Il tuo server", "Images, audio and video": "Immagini, audio e video", "Any OpenAI- or Anthropic-compatible endpoint (LM Studio, vLLM, Ollama…)": "Qualsiasi endpoint compatibile OpenAI o Anthropic (LM Studio, vLLM, Ollama…)", "Connected": "Connesso", "Not connected": "Non connesso", "Paste an API key to connect.": "Incolla una API key per connetterti.", "Get a key": "Prendi una chiave", "Replace the key": "Sostituisci la chiave", "API key": "API key", "Connect": "Connetti", "Backup keys": "Chiavi di riserva", "Models in your picker": "Modelli nel tuo selettore", "Disconnect": "Disconnetti", "Checking the key and listing the models…": "Verifico la chiave e carico i modelli…", "Name": "Nome", "Address": "Indirizzo", "API format": "Formato API", "Model ID": "ID modello", "(only if the server asks for one)": "(solo se il server la richiede)", "A model server on your network or rented GPU, speaking the OpenAI or Anthropic API.": "Un server di modelli nella tua rete o su una GPU noleggiata, con API OpenAI o Anthropic.", "General": "Generale", "Shortcuts": "Scorciatoie", "Default models": "Modelli predefiniti", "Updates": "Aggiornamenti", "Theme": "Tema", "Language": "Lingua", "Interface language": "Lingua dell'interfaccia", "Auto-update": "Aggiornamento automatico", "Context window": "Finestra di contesto", "Audio": "Audio", "The assistant couldn't start. It may still be loading the model — wait a few seconds and try again, or pick another assistant.": "L'assistente non è partito. Forse sta ancora caricando il modello: aspetta qualche secondo e riprova, o scegli un altro modello.", "This cloud model needs an API key. Add it in Cloud models (model menu → Cloud models).": "Questo modello cloud ha bisogno di una API key. Aggiungila in Modelli cloud (menu del modello → Modelli cloud).", "This assistant can't use tools. Pick a newer model, or it will just chat normally.": "Questo modello non usa strumenti. Scegline uno più recente, oppure risponderà senza strumenti.", "This model can't run here: it needs a different engine or is too big for this computer. Pick a smaller model, or update llama.cpp in Downloads → Engines.": "Questo modello non può girare qui: serve un altro motore o è troppo grande per questo computer. Scegline uno più piccolo o aggiorna llama.cpp in Download → Motori.", "Can't reach the assistant. Make sure Vortelio is running, then try again.": "Assistente non raggiungibile. Controlla che Vortelio sia in esecuzione e riprova.", "Not enough memory to run this model. Try a smaller assistant, or switch to CPU.": "Memoria insufficiente per questo modello. Prova un modello più piccolo o passa alla CPU.", "That model isn't installed. Download one from Download models.": "Questo modello non è installato. Scaricane uno da Scarica modelli.", "Something went wrong.": "Qualcosa è andato storto.", "Installed — find it in My models": "Installato: lo trovi in I miei modelli", "Queued": "In coda", "Send now": "Invia ora", "Edit": "Modifica", "Stop the current answer and send this now": "Ferma la risposta in corso e invia subito questo", "Write the next message — Enter adds it to the queue": "Scrivi il prossimo messaggio: Invio lo mette in coda", "This model can't search the web": "Questo modello non può cercare sul web"};
+const IT_PHRASES = {"Tools": "Strumenti", "Web search": "Ricerca web", "Look things up online": "Cerca informazioni online", "Think first": "Ragiona prima", "Reason step by step before answering": "Ragiona passo passo prima di rispondere", "Files & calculator": "File e calcolatrice", "Read files, do maths": "Legge file, fa calcoli", "Create media": "Crea contenuti", "Images, video, audio and 3D": "Immagini, video, audio e 3D", "Private chat": "Chat privata", "Not saved to history": "Non salvata nella cronologia", "How the agent works": "Come lavora l'agente", "Developer": "Sviluppatore", "Read, edit and run code in a folder": "Legge, modifica ed esegue codice in una cartella", "Autonomous": "Autonomo", "Keeps going until the goal is reached": "Continua finché non raggiunge l'obiettivo", "Skills": "Abilità", "Connectors (MCP)": "Connettori (MCP)", "Add a cloud model": "Aggiungi un modello cloud", "Run on": "Esegui su", "Permissions": "Permessi", "Plan": "Piano", "Ask": "Chiedi", "Auto": "Auto", "Reads and proposes, changes nothing": "Legge e propone, non modifica nulla", "Asks before anything risky": "Chiede prima di ogni azione rischiosa", "Runs without asking": "Agisce senza chiedere", "Web": "Web", "Think": "Ragiona", "Media": "Contenuti", "Private": "Privata", "Connectors": "Connettori", "Choose folder": "Scegli cartella", "Turn off": "Disattiva", "Search models": "Cerca modelli", "On this computer": "Su questo computer", "Hide": "Nascondi", "Show": "Mostra", "Manage models": "Gestisci modelli", "Download more": "Scarica altri", "Eject": "Espelli", "Loaded": "Caricato", "Loading…": "Caricamento…", "No model matches.": "Nessun modello corrisponde.", "No models installed yet.": "Nessun modello installato.", "Download a model": "Scarica un modello", "Loaded and ready": "Caricato e pronto", "Loading the model…": "Caricamento del modello…", "Cloud model": "Modello cloud", "Not loaded — it loads when you pick it or send a message": "Non caricato: si carica quando lo scegli o invii un messaggio", "Model ejected — memory freed": "Modello espulso: memoria liberata", "My models": "I miei modelli", "Chat": "Chat", "Images": "Immagini", "Video": "Video", "Audio & speech": "Audio e voce", "3D": "3D", "Open": "Apri", "More": "Altro", "Details": "Dettagli", "Rename": "Rinomina", "Set as default": "Imposta come predefinito", "Remove as default": "Togli come predefinito", "Compress (quantize)": "Comprimi (quantizza)", "Add vision": "Aggiungi visione", "Remove…": "Rimuovi…", "Default": "Predefinito", "Add cloud model": "Aggiungi modello cloud", "Download models": "Scarica modelli", "Fits in memory": "Entra in memoria", "Recommended": "Consigliati", "Hugging Face": "Hugging Face", "Search recommended models": "Cerca tra i consigliati", "Install from a link": "Installa da un link", "All types": "Tutti i tipi", "Best match": "Più pertinenti", "Most downloaded": "Più scaricati", "Most liked": "Più apprezzati", "Trending": "Di tendenza", "Recently updated": "Aggiornati di recente", "Any size": "Qualsiasi dimensione", "Up to 3B": "Fino a 3B", "Up to 8B": "Fino a 8B", "Up to 14B": "Fino a 14B", "Up to 34B": "Fino a 34B", "Over 34B": "Oltre 34B", "GGUF only": "Solo GGUF", "Fits my PC": "Adatti al mio PC", "Pick a model to see its description and the files you can download.": "Scegli un modello per vederne la descrizione e i file da scaricare.", "Searching Hugging Face…": "Cerco su Hugging Face…", "No model matches these filters.": "Nessun modello con questi filtri.", "Open on Hugging Face": "Apri su Hugging Face", "Download": "Scarica", "Model card": "Scheda del modello", "Installed": "Installato", "Starting…": "Avvio…", "Fits": "Ci sta", "Tight fit": "Al limite", "Too big": "Troppo grande", "Includes a vision projector: it is downloaded too, so the model can read images.": "Include un proiettore visivo: viene scaricato anche lui, così il modello può leggere le immagini.", "This repository has no description.": "Questo repository non ha una descrizione.", "Describe the image you want…": "Descrivi l'immagine che vuoi…", "Describe the video you want…": "Descrivi il video che vuoi…", "Generate": "Genera", "Generating": "Generazione", "Settings": "Impostazioni", "Square": "Quadrato", "Portrait": "Verticale", "Landscape": "Orizzontale", "Wide": "Panoramico", "More image models": "Altri modelli per immagini", "More video models": "Altri modelli video", "Avoid": "Da evitare", "Steps": "Passi", "Guidance": "Guida", "Seed": "Seed", "random": "casuale", "Length": "Durata", "Start from a picture": "Parti da una foto", "Stop": "Ferma", "Remove": "Rimuovi", "Empty fields use the values this model was made for. The same seed and prompt give the same image.": "I campi vuoti usano i valori per cui è stato creato il modello. Stesso seed e stessa descrizione danno la stessa immagine.", "Image studio": "Studio immagini", "Video studio": "Studio video", "Audio studio": "Studio audio", "Speak": "Voce", "Clone a voice": "Clona una voce", "Edit speech": "Modifica parlato", "Music": "Musica", "Sound effects": "Effetti sonori", "Separate tracks": "Separa tracce", "Transcribe": "Trascrivi", "Type what the voice should say…": "Scrivi cosa deve dire la voce…", "Ctrl+Enter to generate.": "Ctrl+Invio per generare.", "More models for this": "Altri modelli per questo", "English descriptions work best. Instrumental only.": "Le descrizioni in inglese funzionano meglio. Solo strumentale.", "English descriptions work best.": "Le descrizioni in inglese funzionano meglio.", "Working": "In corso", "Upload audio": "Carica audio", "● Record": "● Registra", "■ Stop recording": "■ Ferma registrazione", "Keep the model loaded": "Tieni il modello caricato", "The chat model loads when you pick it and stays ready between messages. The image, video and audio studios still borrow the GPU when they need it.": "Il modello della chat si carica quando lo scegli e resta pronto tra un messaggio e l'altro. Gli studi immagini, video e audio usano comunque la GPU quando serve.", "Until I eject it": "Finché non lo espello", "1 hour idle": "1 ora di inattività", "30 minutes idle": "30 minuti di inattività", "5 minutes idle": "5 minuti di inattività", "System": "Sistema", "Follows your system unless you pick one": "Segue il sistema se non ne scegli uno", "Manage, load and set defaults": "Gestisci, carica e imposta i predefiniti", "Reinstall Vortelio": "Reinstalla Vortelio", "Knowledge": "Conoscenza", "Documents (RAG)": "Documenti (RAG)", "Summarize": "Riassumi", "Try models": "Prova i modelli", "Compare side by side": "Confronta affiancati", "Structured output": "Output strutturato", "Reasoning": "Ragionamento", "Model router": "Instradamento modelli", "Manage": "Gestione", "Loaded models": "Modelli caricati", "Inspect a GGUF": "Ispeziona un GGUF", "Import from Ollama": "Importa da Ollama", "Integrations": "Integrazioni", "Webhooks": "Webhook", "Activity log": "Registro attività", "Checking what is installed on this computer…": "Controllo cosa è installato su questo computer…", "Best choice": "Consigliato", "Pictures from a description — generated on your computer, offline.": "Immagini da una descrizione, generate sul tuo computer, offline.", "Short clips from a description or a picture — generated on your computer, offline.": "Brevi clip da una descrizione o da una foto, generate sul tuo computer, offline.", "Voices, music and sound — all generated on your computer, no Python needed.": "Voci, musica e suoni, tutto generato sul tuo computer, senza Python.", "Describe the music — e.g. calm lo-fi piano with soft drums, 80 bpm": "Descrivi la musica, es. piano lo-fi rilassato con batteria leggera, 80 bpm", "Describe the sound — e.g. heavy rain on a tin roof with distant thunder": "Descrivi il suono, es. pioggia forte su un tetto di lamiera con tuoni lontani", "Search Hugging Face — e.g. qwen 3.5, gemma 4, flux": "Cerca su Hugging Face, es. qwen 3.5, gemma 4, flux", "Audio & music": "Audio e musica", "Advanced": "Avanzate", "Skills & agent": "Abilità e agente", "External tools (MCP)": "Strumenti esterni (MCP)", "AI agents": "Agenti IA", "Advanced tools": "Strumenti avanzati", "Downloads": "Download", "Recent chats": "Chat recenti", "Sign out": "Esci", "Assistant": "Assistente", "Agent": "Agente", "Save": "Salva", "Install a model for this. It downloads in the background (Downloads panel) and runs offline afterwards.": "Installa un modello per questa funzione. Si scarica in background (pannello Download) e poi funziona offline.", "Install": "Installa", "Not installed": "Non installato", "Start": "Avvia", "Refresh": "Aggiorna", "Cloud models": "Modelli cloud", "‹ All providers": "‹ Tutti i provider", "Use models from providers with your own API key. Keys stay on this computer.": "Usa i modelli dei provider con la tua API key. Le chiavi restano su questo computer.", "Chat models": "Modelli chat", "Your own server": "Il tuo server", "Images, audio and video": "Immagini, audio e video", "Any OpenAI- or Anthropic-compatible endpoint (LM Studio, vLLM, Ollama…)": "Qualsiasi endpoint compatibile OpenAI o Anthropic (LM Studio, vLLM, Ollama…)", "Connected": "Connesso", "Not connected": "Non connesso", "Paste an API key to connect.": "Incolla una API key per connetterti.", "Get a key": "Prendi una chiave", "Replace the key": "Sostituisci la chiave", "API key": "API key", "Connect": "Connetti", "Backup keys": "Chiavi di riserva", "Models in your picker": "Modelli nel tuo selettore", "Disconnect": "Disconnetti", "Checking the key and listing the models…": "Verifico la chiave e carico i modelli…", "Name": "Nome", "Address": "Indirizzo", "API format": "Formato API", "Model ID": "ID modello", "(only if the server asks for one)": "(solo se il server la richiede)", "A model server on your network or rented GPU, speaking the OpenAI or Anthropic API.": "Un server di modelli nella tua rete o su una GPU noleggiata, con API OpenAI o Anthropic.", "General": "Generale", "Shortcuts": "Scorciatoie", "Default models": "Modelli predefiniti", "Updates": "Aggiornamenti", "Theme": "Tema", "Language": "Lingua", "Interface language": "Lingua dell'interfaccia", "Auto-update": "Aggiornamento automatico", "Context window": "Finestra di contesto", "Audio": "Audio", "The assistant couldn't start. It may still be loading the model — wait a few seconds and try again, or pick another assistant.": "L'assistente non è partito. Forse sta ancora caricando il modello: aspetta qualche secondo e riprova, o scegli un altro modello.", "This cloud model needs an API key. Add it in Cloud models (model menu → Cloud models).": "Questo modello cloud ha bisogno di una API key. Aggiungila in Modelli cloud (menu del modello → Modelli cloud).", "This assistant can't use tools. Pick a newer model, or it will just chat normally.": "Questo modello non usa strumenti. Scegline uno più recente, oppure risponderà senza strumenti.", "This model can't run here: it needs a different engine or is too big for this computer. Pick a smaller model, or update llama.cpp in Downloads → Engines.": "Questo modello non può girare qui: serve un altro motore o è troppo grande per questo computer. Scegline uno più piccolo o aggiorna llama.cpp in Download → Motori.", "Can't reach the assistant. Make sure Vortelio is running, then try again.": "Assistente non raggiungibile. Controlla che Vortelio sia in esecuzione e riprova.", "Not enough memory to run this model. Try a smaller assistant, or switch to CPU.": "Memoria insufficiente per questo modello. Prova un modello più piccolo o passa alla CPU.", "That model isn't installed. Download one from Download models.": "Questo modello non è installato. Scaricane uno da Scarica modelli.", "Something went wrong.": "Qualcosa è andato storto.", "Installed — find it in My models": "Installato: lo trovi in I miei modelli", "Queued": "In coda", "Send now": "Invia ora", "Edit": "Modifica", "Stop the current answer and send this now": "Ferma la risposta in corso e invia subito questo", "Write the next message — Enter adds it to the queue": "Scrivi il prossimo messaggio: Invio lo mette in coda", "This model can't search the web": "Questo modello non può cercare sul web", "Context": "Contesto"};
 const IT_PATTERNS = [["^(\\d+) models \u00b7 (.+) on disk$", "$1 modelli \u00b7 $2 su disco"], ["^Cloud \u00b7 (\\d+)$", "Cloud \u00b7 $1"], ["^This computer: (\\d+) GB RAM \u00b7 (\\d+) GB GPU$", "Questo computer: $1 GB di RAM \u00b7 $2 GB di GPU"], ["^This computer: (\\d+) GB RAM$", "Questo computer: $1 GB di RAM"]].map(([re, to]) => [new RegExp(re), to]);
 const _trOrig = new WeakMap();
 function tr(en) {
@@ -3936,6 +3971,7 @@ function updateCtxLabel(val) {
 
 function setCtx(val) {
   contextSize = val;
+  openTabs.forEach(t => { t.ctxSize = 0; });
   localStorage.setItem('pullai_ctx', val);
   const sl = document.getElementById('ctx-slider');
   if (sl) { sl.value = val; }
@@ -4111,6 +4147,43 @@ function reflectGenState() {
   const t = openTabs[activeTab];
   setSendButton(!!(t && t.gen));
   renderQueue();
+  renderCtxMeter();
+}
+
+
+// ── Context meter: how full the model's context window is ─────────────────
+// Real numbers come from llama.cpp at the end of each answer (cached + new
+// tokens); before that, and for what you are typing, it is estimated.
+function ctxEstimate(text) { return Math.ceil(String(text || '').length / 3.6); }
+function renderCtxMeter() {
+  const wrap = document.getElementById('ctx-wrap');
+  if (!wrap) return;
+  const t = openTabs[activeTab];
+  const local = !selectedModelIsCloud && isLocalChatModel(selectedModel) && domain === 'chat';
+  const hist = (typeof chatHistory !== 'undefined' ? chatHistory : []);
+  if (!local || (!hist.length && !(document.getElementById('inp')?.value) && !attachments.length)) { wrap.style.display = 'none'; return; }
+  const size = (t && t.ctxSize) || contextSize || 4096;
+  const used = (t && t.ctxUsed) || ctxEstimate(hist.map(m => m.content).join('\n')) + 30;
+  const pending = ctxEstimate(document.getElementById('inp')?.value) + attachments.reduce((n, a) => n + ctxEstimate(a.textContent), 0);
+  const total = used + pending, pct = Math.min(100, Math.round(total / size * 100));
+  wrap.style.display = '';
+  const fill = document.getElementById('ctx-fill');
+  const C = 2 * Math.PI * 7.5;
+  fill.style.strokeDasharray = C;
+  fill.style.strokeDashoffset = C * (1 - Math.min(1, total / size));
+  const btn = document.getElementById('ctx-btn');
+  btn.className = 'ctx-meter' + (pct >= 90 ? ' full' : pct >= 70 ? ' high' : '');
+  document.getElementById('ctx-pct').textContent = pct + '%';
+  const k = n => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
+  btn.title = tr('Context') + ': ' + k(total) + ' / ' + k(size) + ' tokens';
+  const it = currentLang === 'it';
+  document.getElementById('ctx-dd').innerHTML = `<div class="ctx-pop-title">${it ? 'Contesto usato' : 'Context used'}</div>
+    <div class="ctx-bar"><div style="width:${pct}%"></div></div>
+    <div class="ctx-pop-num">${k(total)} / ${k(size)} tokens · ${pct}%${pending ? ` <span>(${it ? 'di cui ~' : 'incl. ~'}${k(pending)} ${it ? 'nel messaggio da inviare' : 'in the message you are writing'})</span>` : ''}${t && t.ctxUsed ? '' : ` <span>${it ? '(stima)' : '(estimate)'}</span>`}</div>
+    <div class="ctx-pop-text">${it
+      ? 'Quando si riempie, i messaggi più vecchi vengono tolti per far spazio. Per conversazioni o documenti lunghi aumentalo in Impostazioni → Chat → Finestra di contesto, oppure apri una nuova chat.'
+      : 'When it fills up, the oldest messages are left out to make room. For long chats or documents raise it in Settings → Chat → Context window, or start a new chat.'}</div>
+    <div class="ctx-pop-actions"><button onclick="closeAllDD();newChat()">${it ? 'Nuova chat' : 'New chat'}</button><button onclick="closeAllDD();openSettings()">${it ? 'Impostazioni' : 'Settings'}</button></div>`;
 }
 
 // ── Message queue: write while the model answers ───────────────────────────
@@ -4180,6 +4253,7 @@ function activateTab(i) {
   applyTab(openTabs[i]);
   showPanel('chat');
   renderTabs();
+  renderChatHistory();
   reflectGenState();
   const t = openTabs[i];
   if (t && !t.gen && !t.stopped && t.queue && t.queue.length) setTimeout(() => sendQueued(0), 250);
@@ -4863,6 +4937,7 @@ function renderModelState() {
   }
   dot.className = 'mstate' + (cls ? ' ' + cls : '');
   if (typeof syncCaps === 'function') syncCaps();
+  renderCtxMeter();
   document.getElementById('model-btn')?.setAttribute('title', tip);
   if (document.getElementById('model-dd')?.classList.contains('open')) renderModelRows();
 }
@@ -5324,6 +5399,7 @@ function selectModel(v, l) {
   if (!_autoPicking && isLocalChatModel(v) && document.getElementById('ws-chat')?.classList.contains('on')) ensureModelLoaded(v);
 }
 var _autoPicking = false;
+var myCtxTab = null;
 function autoPick(v, l) { _autoPicking = true; try { selectModel(v, l); } finally { _autoPicking = false; } }
 
 function toggleThink() {
@@ -6149,6 +6225,7 @@ function isTextFile(f) {
 }
 
 function renderAttachRow() {
+  if (typeof renderCtxMeter === 'function') setTimeout(renderCtxMeter, 0);
   const row = document.getElementById('attach-row');
   if (!attachments.length) { row.style.display = 'none'; return; }
   row.style.display = 'flex';
@@ -6416,12 +6493,14 @@ function toggleSidebar() {
 }
 
 function newChat() {
+  // A chat still answering moves to its own tab instead of being cleared.
+  if (parkIfGenerating()) return;
   // Single-chat behaviour: just reset the current conversation (no new tab).
   chatHistory = [];
   attachments = [];
   currentChatId = null;
   _cloudChatId = null;
-  if (openTabs[activeTab]) { openTabs[activeTab].history = []; openTabs[activeTab].chatId = null; }
+  if (openTabs[activeTab]) { openTabs[activeTab].history = []; openTabs[activeTab].chatId = null; openTabs[activeTab].ctxUsed = 0; openTabs[activeTab].ctxSize = 0; }
   renderAttachRow();
   document.getElementById('inp').value = '';
   document.getElementById('msgs').innerHTML = '';
@@ -6480,6 +6559,7 @@ async function doSend() {
   // Per-tab guard: a tab can't start a 2nd generation, but OTHER tabs stay usable.
   const myTab = openTabs[activeTab];
   if (myTab && myTab.gen) { queueMessage(); return; }
+  myCtxTab = myTab;
   if (myTab) myTab.stopped = false;
   const field = document.getElementById('inp');
   const text = field.value.trim();
@@ -6720,6 +6800,8 @@ async function doChat(text, files, signal) {
   chatHistory.push({role:'user', content:text});
   autoSaveCurrentChat(); // save the chat as soon as the user sends (not after the AI replies)
   renderTabs(); // reflect the chat's name in its tab
+  // This answer belongs to this chat, even if the user opens another one meanwhile.
+  const hist = chatHistory, myChatId = currentChatId, myChatTab = openTabs[activeTab];
   const _t0 = Date.now(); // response chronometer start
 
   // AI msg
@@ -6758,11 +6840,11 @@ async function doChat(text, files, signal) {
       const cloudHist = [...personalSysMsgs(), ...chatHistory.slice()];
       if (cloudHist.length) cloudHist[cloudHist.length - 1] = { role: 'user', content: promptText };
       const full = await streamCloudInto(selectedCloudProvider, selectedCloudModel, cloudHist, content, canvas, signal);
-      chatHistory.push({role:'assistant', content: full || '(empty response)'});
-      autoSaveCurrentChat();
+      hist.push({role:'assistant', content: full || '(empty response)'});
+      saveChatOf(myChatTab, hist);
       addReplyMeta(grp, _t0, full || '');
       addMsgActions(grp, text, full || '');
-      if (chatHistory.filter(m => m.role === 'assistant').length === 1) maybeNameChat(currentChatId, openTabs[activeTab], text, full || '');
+      if (hist.filter(m => m.role === 'assistant').length === 1) maybeNameChat(myChatId, myChatTab, text, full || '');
     } catch (e) {
       if (content.querySelector('.dot-pulse')) pulse.remove();
       if (e.name !== 'AbortError') content.innerHTML += `<span style="color:#dc2626">${esc(friendlyError(e.message))}</span>`;
@@ -6967,7 +7049,10 @@ async function doChat(text, files, signal) {
           if (obj.event === 'ask_user') { try { content.insertBefore(askUserEl(obj.data), textNode); scrollBottom(canvas); } catch {} continue; }
           if (obj.event === 'media_generated') { try { replaceOrInsertMedia(content, obj.data, textNode); scrollBottom(canvas); } catch {} continue; }
           if (obj.event === 'notice') { try { _handleNotice(obj.data); } catch {} continue; }
-          if (obj.done) break;
+          if (obj.done) {
+            if (obj.context_tokens && myCtxTab) { myCtxTab.ctxUsed = obj.context_tokens; myCtxTab.ctxSize = obj.context_size || contextSize; renderCtxMeter(); }
+            break;
+          }
           if (typeof obj.response === 'string') _appendToken(obj.response);
           continue;
         }
@@ -7000,11 +7085,11 @@ async function doChat(text, files, signal) {
     flushRender(textNode);
     textNode.innerHTML = renderMessage(full, true); // final render: no "writing" badge on unclosed fences
     scrollFollow(canvas);
-    chatHistory.push({role:'assistant', content:full});
-    autoSaveCurrentChat();
+    hist.push({role:'assistant', content:full});
+    saveChatOf(myChatTab, hist);
     addReplyMeta(grp, _t0, full);
     addMsgActions(grp, text, full);
-    if (chatHistory.filter(m => m.role === 'assistant').length === 1) maybeNameChat(currentChatId, openTabs[activeTab], text, full);
+    if (hist.filter(m => m.role === 'assistant').length === 1) maybeNameChat(myChatId, myChatTab, text, full);
   } catch (e) {
     if (loadTimer) { clearInterval(loadTimer); loadTimer = null; }
     if (content.querySelector('.dot-pulse')) pulse.remove();
@@ -7458,10 +7543,10 @@ function addUserMsg(text, files) {
     `<div class="msg-actions"></div></div></div>`;
   // Icon-only actions under the question bubble: edit, copy question.
   const bar = grp.querySelector('.msg-actions');
-  const mk = (icon, title, fn) => { const b = document.createElement('button'); b.className = 'msg-act'; b.title = title; b.textContent = icon; b.onclick = fn; return b; };
+  const mk = (icon, title, fn) => { const b = document.createElement('button'); b.className = 'msg-act'; b.title = title; b.innerHTML = icon; b.onclick = fn; return b; };
   bar.append(
-    mk('✏️', t('editQuestion'), () => { const inp = document.getElementById('inp'); if (inp) { inp.value = text || ''; autoSize(inp); inp.focus(); } }),
-    mk('📝', t('copyQuestion'), () => { navigator.clipboard.writeText(text || ''); toast(t('questionCopied')); })
+    mk(ICON_EDIT, t('editQuestion'), () => { const inp = document.getElementById('inp'); if (inp) { inp.value = text || ''; autoSize(inp); inp.focus(); } }),
+    mk(ICON_COPY, t('copyQuestion'), () => { navigator.clipboard.writeText(text || ''); toast(t('questionCopied')); })
   );
   msgs.appendChild(grp);
   scrollBottom(document.getElementById('canvas'));
@@ -8522,6 +8607,7 @@ function addMsgActions(grp, userText, responseText) {
   msgFoot(content).prepend(bar);
 }
 const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+const ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
 const ICON_REDO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>';
 // The row under a finished reply that holds its actions and stats.
 function msgFoot(content) {
@@ -8592,6 +8678,27 @@ function autoSaveCurrentChat() {
   renderChatHistory();
 }
 
+// Save the chat that lives in `tab` (the visible one, or one in the
+// background whose answer just finished).
+function saveChatOf(tab, hist) {
+  if (!tab || tab === openTabs[activeTab]) { autoSaveCurrentChat(); return; }
+  tab.history = hist;
+  if (!autoSaveOn || incognitoOn || !tab.chatId) return;
+  const idx = savedChats.findIndex(c => c.id === tab.chatId);
+  if (idx < 0) return;
+  const html = (tab.nodes || []).map(n => n.outerHTML || '').join('');
+  savedChats[idx] = { ...savedChats[idx], messages: hist.slice(), msgsHtml: html.length < 300000 ? html : '', savedAt: new Date().toISOString() };
+  persistChats();
+  renderChatHistory();
+}
+// Leaving a chat that is still answering: keep it alive in its own tab.
+function parkIfGenerating() {
+  const t = openTabs[activeTab];
+  if (!t || !t.gen) return false;
+  openNewTab();
+  return true;
+}
+
 function renderChatHistory() {
   const el = document.getElementById('hist-list');
   if (!el) return;
@@ -8608,8 +8715,12 @@ function renderChatHistory() {
 
 function loadChat(idx) {
   const c = savedChats[idx]; if (!c) return;
-  // Already the active chat → nothing to do.
-  if (currentChatId === c.id) { showPanel('chat'); return; }
+  // Already on screen → nothing to do.
+  if (currentChatId === c.id && document.getElementById('msgs').children.length) { showPanel('chat'); return; }
+  // Open in a tab (e.g. still answering in the background) → go there.
+  const k = openTabs.findIndex((t, i) => i !== activeTab && t.chatId === c.id);
+  if (k >= 0) { activateTab(k); renderChatHistory(); return; }
+  parkIfGenerating();
   // Single-chat behaviour: load into the current view (no new tab).
   // Restore full chatHistory so LLM gets full context on next message
   chatHistory = (c.messages || []).map(m => ({...m}));

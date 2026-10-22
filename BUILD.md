@@ -24,7 +24,7 @@ NSIS is installed to `C:\Program Files (x86)\NSIS\`.
 ## Relevant structure
 
 ```
-vortelio-0.3.XX/
+Vortelio/
 ├── vortelio/                        # Go source
 │   ├── cmd/vortelio/main.go
 │   ├── go.mod
@@ -44,16 +44,19 @@ vortelio-0.3.XX/
 
 ## Update the version (optional)
 
-Before building, if you want to change the version update **both** of these files:
+Before building, if you want to change the version update **all** of these files with the same number:
 
 **`vortelio/internal/version/version.go`**
 ```go
-const Version = "0.3.49"   // ← change here
+var Version = "X.Y.Z"   // ← change here
 ```
+
+**`vortelio-pip/pyproject.toml`**, **`vortelio-pip/src/vortelio_cli/__init__.py`**, **`vortelio-pip/src/vortelio_cli/__main__.py`**
+(the Python launcher caches the binary per version, so a missed bump keeps running the old one)
 
 **`vortelio-installer/pullai-installer.nsi`** (line ~16)
 ```nsi
-!define PRODUCT_VERSION    "0.3.49"   ; ← same number
+!define PRODUCT_VERSION    "X.Y.Z"   ; ← same number
 ```
 
 ---
@@ -63,7 +66,7 @@ const Version = "0.3.49"   // ← change here
 ### 1. Compile the Go binary
 
 ```bash
-cd vortelio-0.3.XX/vortelio
+cd vortelio
 go build -o dist/vortelio-windows-amd64.exe ./cmd/vortelio/
 ```
 
@@ -85,13 +88,13 @@ cp vortelio/dist/vortelio-windows-amd64.exe vortelio-installer/build/pullai-serv
 "C:\Program Files (x86)\NSIS\makensis.exe" vortelio-installer/pullai-installer.nsi
 ```
 
-Output: `vortelio-installer/Vortelio-Setup-0.3.49.exe`
+Output: `vortelio-installer/Vortelio-Setup-X.Y.Z.exe`
 
 ---
 
 ## Quick build (single copy-paste block)
 
-Run everything from the `vortelio-0.3.XX/` folder:
+Run everything from the repository root folder:
 
 ```bash
 cd vortelio && \
@@ -107,7 +110,7 @@ cd ../vortelio-installer && \
 ## Expected output
 
 ```
-Output: "...\vortelio-installer\Vortelio-Setup-0.3.49.exe"
+Output: "...\vortelio-installer\Vortelio-Setup-X.Y.Z.exe"
 ...
 Total size: ~5.5 MB / ~11 MB (49%)
 ```

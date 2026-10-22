@@ -16,3 +16,16 @@ func addGenStats(obj map[string]interface{}, s *runtime.GenStats, load time.Dura
 	obj["eval_count"] = s.EvalTokens
 	obj["eval_duration"] = s.EvalDuration.Nanoseconds()
 }
+
+// addContextStats reports how full the context window is, for the chat's
+// context meter.
+func addContextStats(obj map[string]interface{}, s *runtime.GenStats, r *runtime.LLMRunner) {
+	if s.ContextTokens > 0 {
+		obj["context_tokens"] = s.ContextTokens
+	}
+	if r != nil {
+		if n := r.ContextSize(); n > 0 {
+			obj["context_size"] = n
+		}
+	}
+}

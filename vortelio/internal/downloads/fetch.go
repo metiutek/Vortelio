@@ -187,9 +187,11 @@ func attempt(ctx context.Context, s Spec, part string, onBytes func(int64)) erro
 	}
 
 	// Watchdog: cancel the attempt when the connection goes silent.
+	// StallTimeout is read here, not in the goroutine, which can outlive the attempt.
+	stall := StallTimeout
 	tick := make(chan struct{}, 1)
 	go func() {
-		t := time.NewTimer(StallTimeout)
+		t := time.NewTimer(stall)
 		defer t.Stop()
 		for {
 			select {
@@ -199,7 +201,7 @@ func attempt(ctx context.Context, s Spec, part string, onBytes func(int64)) erro
 				if !t.Stop() {
 					<-t.C
 				}
-				t.Reset(StallTimeout)
+				t.Reset(stall)
 			case <-t.C:
 				cancel()
 				return

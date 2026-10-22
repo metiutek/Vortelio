@@ -258,4 +258,10 @@ func TestManagerInterruptedResumes(t *testing.T) {
 		t.Fatal("not resumed")
 	}
 	close(block)
+	// Both managers save d.json when their job ends: wait for it, or the
+	// write races the TempDir cleanup ("directory is not empty" on Windows).
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	m.Wait(ctx, j.ID)
+	m2.Wait(ctx, j.ID)
 }

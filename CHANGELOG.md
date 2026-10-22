@@ -2,6 +2,17 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.4.6] — 2026-10-22
+### Added
+- **Context meter** next to the chat box: a ring with the percentage of the model's context window the conversation fills (the real count from llama.cpp after each answer, an estimate for what you are typing and attaching). Click it for the numbers, what happens when it fills up, and shortcuts to a new chat or Settings. `/api/generate` reports `context_tokens` and `context_size`.
+### Changed
+- Opening another chat while one is still answering keeps the answer going in its own tab, and it is saved to the right chat when it ends.
+- Edit and copy buttons under your own messages use the same icons as the replies.
+### Fixed
+- Characters like "—", "è" or "…" could reach the chat broken (a replacement character) when a reply was cut between the bytes of one character.
+- A data race in the download watchdog (the stall timeout was read by a goroutine that can outlive the download attempt), and a download test that failed on Windows when its state file was still being written during cleanup.
+- Docs: BUILD, CONTRIBUTING and the pip README no longer point at 0.3.49 and describe the current release steps; the Windows installer script takes its file name and version from `PRODUCT_VERSION`.
+
 ## [0.4.5] — 2026-10-21
 ### Changed
 - **Web search and thinking are on by default** in the chat, and Vortelio remembers your choice: turn either off and it stays off after a restart (and after visiting a studio, which used to switch thinking off).
@@ -202,7 +213,8 @@ All notable changes to this project. Format: [Keep a Changelog](https://keepacha
 ### Fixed
 - Linux/macOS builds failed (`shellQuote` undefined), so no release was published after v0.3.76 and `vortelio` returned HTTP 404 on first run. Releases are now published automatically when the version changes.
 
-## [Unreleased]
+## 0.3.50 – 0.3.83
+No detailed notes for these versions. Highlights:
 ### Added
 - Python wrapper package (`vortelio-pip/`) — install via `uv tool install vortelio` or `pip install vortelio`
 - Cross-platform launcher: bundles binary in wheel, downloads from GitHub Releases on miss
@@ -279,15 +291,26 @@ All notable changes to this project. Format: [Keep a Changelog](https://keepacha
 ### Fixed
 - NSIS installer: `/oname=` to rename exe during install
 
-[Unreleased]: https://github.com/metiu1/Vortelio/compare/v0.3.49...HEAD
+[0.4.6]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.6
+[0.4.5]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.5
+[0.4.4]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.4
+[0.4.3]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.3
+[0.4.2]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.2
+[0.4.1]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.1
+[0.4.0]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.0
+[0.3.99]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.99
+[0.3.98]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.98
+[0.3.97]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.97
+[0.3.96]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.96
+[0.3.95]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.95
+[0.3.94]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.94
+[0.3.93]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.93
+[0.3.92]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.92
+[0.3.91]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.91
+[0.3.89]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.89
+[0.3.88]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.88
+[0.3.87]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.87
+[0.3.86]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.86
+[0.3.85]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.85
+[0.3.84]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.84
 [0.3.49]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.49
-[0.3.47]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.47
-[0.3.46]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.46
-[0.3.45]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.45
-[0.3.44]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.44
-[0.3.43]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.43
-[0.3.42]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.42
-[0.3.41]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.41
-[0.3.40]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.40
-[0.3.39]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.39
-[0.3.38]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.38

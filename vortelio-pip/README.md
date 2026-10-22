@@ -15,7 +15,7 @@ uv tool install ./vortelio-pip
 From a wheel:
 
 ```bash
-uv tool install ./dist/vortelio-0.3.49-py3-none-any.whl
+uv tool install ./dist/vortelio-X.Y.Z-py3-none-any.whl
 ```
 
 Then:

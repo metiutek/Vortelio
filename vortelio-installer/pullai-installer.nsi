@@ -13,7 +13,7 @@ SetCompressor /SOLID lzma
 ${StrStr}
 
 !define PRODUCT_NAME       "Vortelio"
-!define PRODUCT_VERSION    "0.3.49"
+!define PRODUCT_VERSION    "0.4.6"
 !define PRODUCT_PUBLISHER  "Vortelio Project"
 !define PRODUCT_URL        "https://github.com/vortelio/vortelio"
 !define UNINST_KEY  "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vortelio"
@@ -46,19 +46,19 @@ ${StrStr}
 !insertmacro MUI_LANGUAGE "English"
 
 Name          "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile       "Vortelio-Setup-0.3.49.exe"
+OutFile       "Vortelio-Setup-${PRODUCT_VERSION}.exe"
 InstallDir    "$PROGRAMFILES64\Vortelio"
 InstallDirRegKey HKLM "${APP_PATHS}" ""
 ShowInstDetails   show
 ShowUnInstDetails show
 RequestExecutionLevel admin
 
-VIProductVersion "0.3.49.0"
+VIProductVersion "${PRODUCT_VERSION}.0"
 VIAddVersionKey /LANG=0 "ProductName"     "${PRODUCT_NAME}"
 VIAddVersionKey /LANG=0 "ProductVersion"  "${PRODUCT_VERSION}"
 VIAddVersionKey /LANG=0 "CompanyName"     "Metiu"
 VIAddVersionKey /LANG=0 "FileDescription" "Vortelio — Run AI models locally"
-VIAddVersionKey /LANG=0 "FileVersion"     "0.3.49.0"
+VIAddVersionKey /LANG=0 "FileVersion"     "${PRODUCT_VERSION}.0"
 VIAddVersionKey /LANG=0 "LegalCopyright"  "Copyright 2025 Metiu — Apache-2.0"
 VIAddVersionKey /LANG=0 "OriginalFilename" "Vortelio-Setup.exe"
 VIAddVersionKey /LANG=0 "Comments"        "Run AI models locally — by Metiu"

@@ -8,13 +8,12 @@
 
 **The best open-source Ollama alternative** with built-in image generation, audio, video, 3D, and multi-agent support via CrewAI.
 
-[![Release](https://img.shields.io/github/v/release/metiu1/Vortelio?style=flat-square)](https://github.com/metiu1/Vortelio/releases)
+[![Release](https://img.shields.io/github/v/release/metiutek/Vortelio?style=flat-square)](https://github.com/metiutek/Vortelio/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/vortelio?style=flat-square)](https://pypi.org/project/vortelio/)
-[![Downloads](https://img.shields.io/github/downloads/metiu1/Vortelio/total?style=flat-square)](https://github.com/metiu1/Vortelio/releases)
-[![Stars](https://img.shields.io/github/stars/metiu1/Vortelio?style=flat-square)](https://github.com/metiu1/Vortelio/stargazers)
-[![Go Report](https://goreportcard.com/badge/github.com/metiu1/Vortelio?style=flat-square)](https://goreportcard.com/report/github.com/metiu1/Vortelio)
-[![CI](https://img.shields.io/github/actions/workflow/status/metiu1/Vortelio/ci.yml?branch=main&style=flat-square)](https://github.com/metiu1/Vortelio/actions)
+[![Downloads](https://img.shields.io/github/downloads/metiutek/Vortelio/total?style=flat-square)](https://github.com/metiutek/Vortelio/releases)
+[![Stars](https://img.shields.io/github/stars/metiutek/Vortelio?style=flat-square)](https://github.com/metiutek/Vortelio/stargazers)
+[![CI](https://img.shields.io/github/actions/workflow/status/metiutek/Vortelio/ci.yml?branch=main&style=flat-square)](https://github.com/metiutek/Vortelio/actions)
 
 [Install](#-install) • [Quickstart](#-quickstart) • [Features](#-features) • [Models](#-supported-models) • [API](#-api) • [CrewAI](#-crewai-orchestration) • [Contributing](#-contributing)
 
@@ -97,7 +96,7 @@ Close and reopen your terminal so `uv` is on your `PATH`, then continue below.
 ### 1. Install Vortelio (cross-platform, recommended)
 
 ```bash
-uv tool install "git+https://github.com/metiu1/Vortelio#subdirectory=vortelio-pip"
+uv tool install "git+https://github.com/metiutek/Vortelio#subdirectory=vortelio-pip"
 vortelio gui
 ```
 
@@ -119,12 +118,12 @@ or run `vortelio update --auto on`: the server updates itself when idle and rest
 
 ### Windows installer
 
-Download `Vortelio-Setup-x.y.z.exe` from [Releases](https://github.com/metiu1/Vortelio/releases) → double-click.
+Download `Vortelio-Setup-x.y.z.exe` from [Releases](https://github.com/metiutek/Vortelio/releases) → double-click.
 
 ### Build from source
 
 ```bash
-git clone https://github.com/metiu1/Vortelio
+git clone https://github.com/metiutek/Vortelio
 cd Vortelio/vortelio
 go build -o vortelio ./cmd/vortelio
 ./vortelio gui
@@ -399,7 +398,7 @@ Go (server, CLI, llama.cpp wrapper) · Python (diffusers, faster-whisper, kokoro
 PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report security issues per [SECURITY.md](SECURITY.md).
 
 ```bash
-git clone https://github.com/metiu1/Vortelio
+git clone https://github.com/metiutek/Vortelio
 cd Vortelio/vortelio
 go test ./...
 ```
@@ -457,11 +456,11 @@ Yes. Pull models once, copy `~/.vortelio/` to the air-gapped machine, run.
 
 ## ⭐ Star history
 
-[![Star History Chart](https://api.star-history.com/svg?repos=metiu1/Vortelio&type=Date)](https://star-history.com/#metiu1/Vortelio&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=metiutek/Vortelio&type=Date)](https://star-history.com/#metiutek/Vortelio&Date)
 
 <div align="center">
 
-**[Website](https://github.com/metiu1/Vortelio) • [Releases](https://github.com/metiu1/Vortelio/releases) • [Issues](https://github.com/metiu1/Vortelio/issues) • [Discussions](https://github.com/metiu1/Vortelio/discussions)**
+**[Website](https://github.com/metiutek/Vortelio) • [Releases](https://github.com/metiutek/Vortelio/releases) • [Issues](https://github.com/metiutek/Vortelio/issues) • [Discussions](https://github.com/metiutek/Vortelio/discussions)**
 
 Made with ⚡ by the Vortelio community.
 

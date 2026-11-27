@@ -29,7 +29,7 @@ Full, current terms: <https://about.signpath.io/product/open-source>
 ## 2. Apply
 
 1. Go to <https://signpath.io/open-source> and **request the Foundation (free) plan**.
-2. Provide: the GitHub repo URL (`https://github.com/metiu1/Vortelio`), the
+2. Provide: the GitHub repo URL (`https://github.com/metiutek/Vortelio`), the
    license, a short project description, and the maintainer identity.
 3. They review (manual). On approval you get a SignPath **Organization**.
 

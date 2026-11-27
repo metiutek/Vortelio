@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	RepoInstallSpec = "git+https://github.com/metiu1/Vortelio#subdirectory=vortelio-pip"
-	LatestAPIURL    = "https://api.github.com/repos/metiu1/Vortelio/releases/latest"
+	RepoInstallSpec = "git+https://github.com/metiutek/Vortelio#subdirectory=vortelio-pip"
+	LatestAPIURL    = "https://api.github.com/repos/metiutek/Vortelio/releases/latest"
 	// MainVersionURL is the canonical version on the default branch. Installs come
 	// from main (git), which is usually ahead of the latest GitHub release, so we
 	// compare against this to detect available updates.
-	MainVersionURL = "https://raw.githubusercontent.com/metiu1/Vortelio/main/vortelio/internal/version/version.go"
+	MainVersionURL = "https://raw.githubusercontent.com/metiutek/Vortelio/main/vortelio/internal/version/version.go"
 )
 
 var mainVersionRE = regexp.MustCompile(`Version\s*=\s*"([0-9]+(?:\.[0-9]+){1,3})"`)

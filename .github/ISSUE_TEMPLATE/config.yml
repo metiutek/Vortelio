@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: 💬 Discussions
-    url: https://github.com/metiu1/Vortelio/discussions
+    url: https://github.com/metiutek/Vortelio/discussions
     about: Questions, ideas, show & tell
   - name: 🔐 Security report
-    url: https://github.com/metiu1/Vortelio/security/advisories/new
+    url: https://github.com/metiutek/Vortelio/security/advisories/new
     about: Privately report a vulnerability

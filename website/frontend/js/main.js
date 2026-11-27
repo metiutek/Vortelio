@@ -75,7 +75,7 @@ async function upgrade(plan) {
 
 // ── Download ──────────────────────────────────────────────────
 function downloadLatest(os) {
-  const base = 'https://github.com/metiu1/Vortelio/releases/latest/download/';
+  const base = 'https://github.com/metiutek/Vortelio/releases/latest/download/';
   const map  = {
     windows: 'vortelio-windows-amd64.exe',
     mac:     'vortelio-darwin-amd64',

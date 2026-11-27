@@ -2,6 +2,10 @@
 
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org).
 
+## [0.4.7] — 2026-11-27
+### Security
+- **Updates and downloads now use the repository's current address** (`github.com/metiutek/Vortelio`). The updater (install spec, latest-release check, version check) and the pip launcher (binary download for Linux/macOS) still pointed at the old account name `metiu1`, which only worked through GitHub's rename redirect: if that name were ever registered by someone else, updates would have come from their repository. All links in the docs, issue templates and website were moved too.
+
 ## [0.4.6] — 2026-10-22
 ### Added
 - **Context meter** next to the chat box: a ring with the percentage of the model's context window the conversation fills (the real count from llama.cpp after each answer, an estimate for what you are typing and attaching). Click it for the numbers, what happens when it fills up, and shortcuts to a new chat or Settings. `/api/generate` reports `context_tokens` and `context_size`.
@@ -291,26 +295,27 @@ No detailed notes for these versions. Highlights:
 ### Fixed
 - NSIS installer: `/oname=` to rename exe during install
 
-[0.4.6]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.6
-[0.4.5]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.5
-[0.4.4]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.4
-[0.4.3]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.3
-[0.4.2]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.2
-[0.4.1]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.1
-[0.4.0]: https://github.com/metiu1/Vortelio/releases/tag/v0.4.0
-[0.3.99]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.99
-[0.3.98]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.98
-[0.3.97]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.97
-[0.3.96]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.96
-[0.3.95]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.95
-[0.3.94]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.94
-[0.3.93]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.93
-[0.3.92]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.92
-[0.3.91]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.91
-[0.3.89]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.89
-[0.3.88]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.88
-[0.3.87]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.87
-[0.3.86]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.86
-[0.3.85]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.85
-[0.3.84]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.84
-[0.3.49]: https://github.com/metiu1/Vortelio/releases/tag/v0.3.49
+[0.4.7]: https://github.com/metiutek/Vortelio/releases/tag/v0.4.7
+[0.4.6]: https://github.com/metiutek/Vortelio/releases/tag/v0.4.6
+[0.4.5]: https://github.com/metiutek/Vortelio/releases/tag/v0.4.5
+[0.4.4]: https://github.com/metiutek/Vortelio/releases/tag/v0.4.4
+[0.4.3]: https://github.com/metiutek/Vortelio/releases/tag/v0.4.3
+[0.4.2]: https://github.com/metiutek/Vortelio/releases/tag/v0.4.2
+[0.4.1]: https://github.com/metiutek/Vortelio/releases/tag/v0.4.1
+[0.4.0]: https://github.com/metiutek/Vortelio/releases/tag/v0.4.0
+[0.3.99]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.99
+[0.3.98]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.98
+[0.3.97]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.97
+[0.3.96]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.96
+[0.3.95]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.95
+[0.3.94]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.94
+[0.3.93]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.93
+[0.3.92]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.92
+[0.3.91]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.91
+[0.3.89]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.89
+[0.3.88]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.88
+[0.3.87]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.87
+[0.3.86]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.86
+[0.3.85]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.85
+[0.3.84]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.84
+[0.3.49]: https://github.com/metiutek/Vortelio/releases/tag/v0.3.49

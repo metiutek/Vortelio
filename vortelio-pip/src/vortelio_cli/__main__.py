@@ -10,10 +10,10 @@ import sys
 import urllib.request
 from pathlib import Path
 
-VERSION = "0.4.6"
+VERSION = "0.4.7"
 RELEASE_BASE = os.environ.get(
     "VORTELIO_RELEASE_BASE",
-    f"https://github.com/metiu1/Vortelio/releases/download/v{VERSION}",
+    f"https://github.com/metiutek/Vortelio/releases/download/v{VERSION}",
 )
 
 BIN_DIR = Path(__file__).parent / "bin"
@@ -118,7 +118,7 @@ def _explain_policy_block(binary: Path) -> None:
         "   di consentire questo eseguibile.)\n\n"
         f"Eseguibile bloccato:\n  {binary}\n\n"
         "In alternativa, scarica e avvia l'exe dalle Release:\n"
-        "  https://github.com/metiu1/Vortelio/releases/latest\n"
+        "  https://github.com/metiutek/Vortelio/releases/latest\n"
     )
 
 

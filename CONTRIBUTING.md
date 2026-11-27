@@ -3,14 +3,14 @@
 Thanks for considering a contribution. This doc explains how to set up, what to work on, and how to get a PR merged.
 
 ## Quick links
-- Bug? → [open an issue](https://github.com/metiu1/Vortelio/issues/new?template=bug_report.yml)
-- Feature idea? → [start a discussion](https://github.com/metiu1/Vortelio/discussions) or open a feature request
+- Bug? → [open an issue](https://github.com/metiutek/Vortelio/issues/new?template=bug_report.yml)
+- Feature idea? → [start a discussion](https://github.com/metiutek/Vortelio/discussions) or open a feature request
 - Security? → see [SECURITY.md](SECURITY.md), do NOT open a public issue
 
 ## Dev setup
 
 ```bash
-git clone https://github.com/metiu1/Vortelio
+git clone https://github.com/metiutek/Vortelio
 cd Vortelio/vortelio
 go build ./...
 go test ./...

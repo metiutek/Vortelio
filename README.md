@@ -485,4 +485,4 @@ keywords: vortelio, local ai platform, run llm locally, run ai locally, local ll
 
 ---
 
-made by https://metiu.xyz/
+Created by [Mattia Cibin (Metiu)](https://metiu.xyz/) — independent developer from Italy.
